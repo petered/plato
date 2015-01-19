@@ -42,8 +42,6 @@ class SymbolicStatelessFunction(ISymbolicFunction):
         return AutoCompilingFunction(self._fcn)
 
 
-
-
 def stateless_symbolic_function(fcn):
 
     fcn.standard_compiled_fcn
