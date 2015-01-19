@@ -11,6 +11,3 @@ class Gaussian(object):
 
     def likelihood(self, point):
         pass
-
-    def
-
