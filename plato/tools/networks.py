@@ -1,3 +1,4 @@
+from plato.interfaces.decorators import symbolic_standard, symbolic_stateless
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as ts
 import theano
@@ -5,6 +6,7 @@ import numpy as np
 from plato.tools.linking import Chain
 
 
+@symbolic_stateless
 class MultiLayerPerceptron(IParameterized):
     """
     A Multi-Layer Perceptron
@@ -28,13 +30,14 @@ class MultiLayerPerceptron(IParameterized):
         self._chain = Chain(*processors)
 
     def __call__(self, x):
-        return self._chain(x)
+        return self._chain.symbolic_stateless(x)
 
     @property
     def parameters(self):
         return self._chain.parameters
 
 
+@symbolic_stateless
 class Layer(object):
 
     def __init__(self, activation_fcn):
@@ -44,7 +47,7 @@ class Layer(object):
                 'lin': lambda x: x,
                 'tanh': ts.tanh,
                 'rect-lin': lambda x: ts.maximum(0, x),
-            }
+            }[activation_fcn]
         self._activation_fcn = activation_fcn
 
     def __call__(self, *input_currents):
@@ -53,6 +56,7 @@ class Layer(object):
         return out
 
 
+@symbolic_stateless
 class FullyConnectedBridge(IParameterized):
 
     def __init__(self, w, b = None):
@@ -64,7 +68,7 @@ class FullyConnectedBridge(IParameterized):
         self._b = theano.shared(b, 'b')
 
     def __call__(self, x):
-        y = ts.dot(self._w, x.flatten(2)) + self._b
+        y = ts.dot(x.flatten(2), self._w) + self._b
         return y
 
     @property

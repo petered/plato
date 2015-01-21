@@ -26,8 +26,8 @@ class DataCollection(object):
         if isinstance(targets, np.ndarray):
             targets = (targets, )
         n_samples = len(inputs[0])
-        assert all(n_samples == len(d) for d in inputs) and all(n_samples = len(l) for l in targets)
-        self._inputs = input
+        assert all(n_samples == len(d) for d in inputs) and all(n_samples == len(l) for l in targets)
+        self._inputs = inputs
         self._targets = targets
         self._n_samples = n_samples
 
@@ -58,7 +58,7 @@ class DataCollection(object):
         total_samples = epochs * self._n_samples
 
         while i < total_samples:
-            next_i = total_samples + minibatch_size
+            next_i = i + minibatch_size
             segment = np.arange(i, next_i) % self._n_samples
             if next_i > total_samples:
                 if final_treatment == 'stop':

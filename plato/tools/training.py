@@ -1,6 +1,9 @@
+from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
+
 __author__ = 'peter'
 
 
+@symbolic_updater
 class SupervisedTrainingFunction(object):
 
     def __init__(self, classifier, cost_function, optimizer):
@@ -11,10 +14,11 @@ class SupervisedTrainingFunction(object):
     def __call__(self, data, labels):
         output = self._classifier(data)
         cost = self._cost_function(output, labels)
-        updates = self._optimizer(self._classifier.parameters, cost)
+        updates = self._optimizer(cost=cost, parameters = self._classifier.parameters)
         return updates
 
 
+@symbolic_stateless
 class SupervisedTestFunction(object):
 
     def __init__(self, classifier, cost_function):

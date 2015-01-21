@@ -1,4 +1,6 @@
 from abc import ABCMeta, abstractmethod
+from plato.interfaces.decorators import symbolic_stateless
+import theano.tensor as ts
 
 __author__ = 'peter'
 
@@ -16,6 +18,7 @@ class ICostFunction(object):
         """
 
 
+@symbolic_stateless
 class NegativeLogLikelihood(ICostFunction):
 
     def __call__(self, actual, target):
@@ -25,10 +28,11 @@ class NegativeLogLikelihood(ICostFunction):
         :param target: An (n_samples, ) tensor indicating the target label for each sample
         :return: The average (over samples) of the negative log-likelihood.
         """
-        raise NotImplementedError()
+        return -ts.mean(ts.log(ts.nnet.softmax(actual))[ts.arange(actual.shape[0]), target])
 
 
+@symbolic_stateless
 class PercentCorrect(ICostFunction):
 
     def __call__(self, actual, target):
-        raise NotImplementedError()
+        return ts.mean(ts.eq(ts.argmax(actual, axis=1), target)) * 100
