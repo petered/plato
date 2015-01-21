@@ -13,13 +13,12 @@ All you need to know is this:
 
 You can decorate a symbolic function, method, or callable class with the following decorators:
 
-@symbolic_stateless: If the function does not return state updates.
-@symbolic_updater: If the function returns only updates.
+@symbolic_stateless: If the function just returns a single variable and does not update state.
+@symbolic_updater: If the function returns only state updates.
 @symbolic_standard: If the function returns (outputs, updates) as a tuple.
 
-A decorated function has the following attributes:
-symbolic_standard: Return a version of the function in the standard format of out, updates = fcn(*inputs)
-compiled: Return a compiled version of the function that will accept and return numpy arrays.
+A decorated function has methods bound to it which allow it to be compiled and called in a standard format.
+These methods are described in the ISymbolicFunction interface below.
 """
 
 __author__ = 'peter'
@@ -29,31 +28,43 @@ class ISymbolicFunction(object):
 
     def compile(self):
         """
-        :return: A version of the fcntion that takes and returns numpy arrays.
+        :return: A compiled version of function that takes and returns numpy arrays.
+
+        Note: Compilation actually happens the first time the function is called, because it needs the inputs to tell it
+        what kind of symbolic variables to instatiate.
         """
 
     @abstractproperty
     def symbolic_stateless(self):
         """
-        :return: a function of the form:
-        out = fcn(in_0, in_1, ...)
-        Where out and in are tensors.  If the function cannot be cast to this form (for instance because it returns
-        multiple outputs or updates) an exception will be raised when it is called.
+        :return: A function of the form:
+            out = fcn(in_0, in_1, ...)
+            Where out and in are tensors.  If the function cannot be cast to this form (for instance because it returns
+            multiple outputs or updates) an exception will be raised when it is called.
         """
 
     @abstractproperty
     def symbolic_standard(self):
         """
-        A fcntion of the form:
-        (out_0, out_1, ...), ((shared_0, new_shared_0), (shared_1, new_shared_1), ...) = fcn(in_0, in_1, ...)
+        :return: A function of the form:
+            (out_0, out_1, ...), ((shared_0, new_shared_0), (shared_1, new_shared_1), ...) = fcn(in_0, in_1, ...)
+            Where all variables are symbolic, and shared_x variables are theano shared variables.
         """
 
     @abstractmethod
     def __call__(self, *args, **kwargs):
-        """ Call the fcntion directly """
+        """
+        Call the function as it was defined, but do input/output type checking to confirm that it was implemented correctly
+        """
 
 
 class BaseSymbolicFunction(ISymbolicFunction):
+
+    def __new__(cls, *args, **kwargs):
+
+        obj = object.__new__(cls)
+        BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
+        return obj
 
     def __init__(self, fcn, instance = None):
 
@@ -120,6 +131,28 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
         return (out, ), []
 
 
+class SymbolicUpdateFunction(BaseSymbolicFunction):
+
+    def __call__(self, *args, **kwargs):
+        self._assert_all_tensors(args, 'Arguments')
+        updates = self._call_fcn(*args, **kwargs)
+        self._assert_all_updates(updates)
+        return updates
+
+    @property
+    def symbolic_stateless(self):
+        raise Exception("Tried to get the symbolic_stateless function from an %s\n, which is a SymbolicUpdateFunction. - "
+            "This won't work because updaters have state.")
+
+    @property
+    def symbolic_standard(self):
+        return SymbolicStandardFunction(self._standard_function)
+
+    def _standard_function(self, *args, **kwargs):
+        updates = self._call_fcn(*args, **kwargs)
+        return (), updates
+
+
 class SymbolicStandardFunction(BaseSymbolicFunction):
 
     def __call__(self, *args):
@@ -146,33 +179,6 @@ class SymbolicStandardFunction(BaseSymbolicFunction):
         return out
 
 
-class SymbolicUpdateFunction(BaseSymbolicFunction):
-
-    def __call__(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        updates = self._call_fcn(*args, **kwargs)
-        self._assert_all_updates(updates)
-        return updates
-
-    @property
-    def symbolic_stateless(self):
-        raise Exception("Tried to get the symbolic_stateless function from an %s\n, which is a SymbolicUpdateFunction. - "
-            "This won't work because updaters have state.")
-
-    @property
-    def symbolic_standard(self):
-        return SymbolicStandardFunction(lambda *args: _standardize_update_fcn(self._fcn, *args), instance = self._instance)
-
-
-# symbolic_stateless = SymbolicStatelessFunction
-# symbolic_standard = SymbolicStandardFunction
-# symbolic_updater = SymbolicUpdateFunction
-
-# Cases to consider:
-# 1) Function: called directly with instance = None
-# 2) Method: Called from __get__ when the method is requested.  instance is the object to which the method is bound
-# 3) Callable class:
-
 def symbolic_stateless(fcn):
     return _decorate_anything(SymbolicStatelessFunction, fcn)
 
@@ -185,45 +191,48 @@ def symbolic_updater(fcn):
     return _decorate_anything(SymbolicUpdateFunction, fcn)
 
 
-def _decorate_anything(function_type, thing):
-    if inspect.isclass(thing): # Case 3: Class
-        return _decorate_callable_class(function_type = function_type, callable_class = thing)
+def _decorate_anything(symbolic_function_class, callable_thing):
+    """
+    Decorate a callable thing as with a symbolic decorator
+
+    # Cases to consider:
+    # 1) Function: called directly with instance = None
+    # 2) Method: Called from __get__ when the method is requested.  instance is the object to which the method is bound
+    # 3) Callable class:
+    """
+    if inspect.isclass(callable_thing): # Case 3: Class with __call__ method
+        return _decorate_callable_class(symbolic_function_class = symbolic_function_class, callable_class = callable_thing)
     else:  # Cases 1 and 2: Function or method
-        return function_type(thing)
+        return symbolic_function_class(callable_thing)
 
 
-def _decorate_callable_class(function_type, callable_class):
+def _decorate_callable_class(symbolic_function_class, callable_class):
 
-    assert hasattr(callable_class, '__call__')
+    assert hasattr(symbolic_function_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
+        "be callable.  If there's a specific method you want to decorate, decorate that instead."
 
-    callable_class.__call__ = function_type(callable_class.__call__)
+    # Strategy 1: Return a new constructor that dynamically binds the function_type as a base-class when the object
+    # is instantiated. (Now defunct - see git log if you want)
 
-    def new_constructor(*args, **kwargs):
-        obj = callable_class(*args, **kwargs)
-        cls = obj.__class__
-        obj.__class__ = cls.__class__(cls.__name__ + "With"+function_type.__class__.__name__, (cls, function_type), {})
-        function_type.__init__(obj, fcn = obj, instance = None)
-        return obj
+    # Strategy 2: Bind the function_type as a base-class to the class - the __new__ method of function_type will then be
+    # called when the object is instantiated.
+    class CallableSymbolicFunction(callable_class, symbolic_function_class):
+        """
+        This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
+        the callable class comply to the ISymbolicFunction interface.
+        """
 
-    # callable_class.__new__ = new_constructor
+        # Also decorate the __call__ method, so that type checking is done.
+        __call__ = symbolic_function_class(callable_class.__call__)
 
-    return new_constructor
+        def __init__(self, *args, **kwargs):
+            callable_class.__init__(self, *args, **kwargs)
+
+    return CallableSymbolicFunction
 
 
 class SymbolicFormatError(Exception):
     pass
-
-
-# def _standardize_stateless_fcn(fcn, args):
-#     out = fcn(*args)
-#     if not isinstance(out, tuple):
-#         out = (out, )
-#     return out, []
-#
-#
-# def _standardize_update_fcn(fcn, args):
-#     updates = fcn(*args)
-#     return (), updates
 
 
 class AutoCompilingFunction(object):

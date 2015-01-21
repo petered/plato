@@ -160,13 +160,41 @@ def test_inhereting_from_decorated():
     obj = AddOne()
     result = obj.compile()(2)
     assert result == 3
+    assert isinstance(obj, AddSomething)
+    assert isinstance(obj, AddOne)
+
+
+def test_dual_decoration():
+
+    @symbolic_stateless
+    class Multiplier(object):
+
+        def __init__(self, factor = 2):
+            self._factor = float(factor)
+
+        def __call__(self, x):
+            return x*self._factor
+
+        @symbolic_stateless
+        def inverse(self, y):
+            return y/self._factor
+
+    m = Multiplier(3)
+
+    forward_fcn = m.compile()
+    inverse_fcn = m.inverse.compile()
+
+    out = forward_fcn(37)
+    assert out == 37*3
+    recon = inverse_fcn(out)
+    assert recon == 37
 
 
 if __name__ == '__main__':
-
     test_stateless_decorators()
     test_standard_decorators()
     test_pure_updater()
     test_function_format_checking()
     test_callable_format_checking()
-    # test_inhereting_from_decorated()
+    test_inhereting_from_decorated()
+    test_dual_decoration()

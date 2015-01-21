@@ -16,8 +16,8 @@ class IGradientOptimizer(object):
         :return: Updates: A list of updates to whatever parameters
         """
 
-
-class UniformParameterOptimizer(object):
+@symbolic_updater
+class UniformParameterOptimizer(IGradientOptimizer):
     """
     Subclass off this if you're optimizing the same way across all parameters
     """
@@ -30,7 +30,6 @@ class UniformParameterOptimizer(object):
         pass
 
 
-@symbolic_updater  # Temporary weirdness until things get ironed out
 class SimpleGradientDescent(UniformParameterOptimizer):
     """
     A simple gradient descent optimizer.  For more exotic varieties of gradient descent, use the more general
@@ -47,7 +46,6 @@ class SimpleGradientDescent(UniformParameterOptimizer):
         return [(param, param - self._eta * theano.grad(cost, param))]
 
 
-@symbolic_updater
 class AdaMax(UniformParameterOptimizer):
 
     def __init__(self, alpha = 1e-3, beta_1=0.1, beta_2=0.001, eps = 1e-8):

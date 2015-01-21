@@ -13,15 +13,14 @@ def demo_mnist():
     Train an MLP on MNIST and print the test scores as training progresses
     """
 
-    test_period = 100
+    test_period = 1000
 
     dataset = get_mnist_dataset()
 
     # Setup the training and test functions
-    classifier = MultiLayerPerceptron(layer_sizes=[500, 10], input_size = 784, hidden_activation='rect-lin', output_activation='lin', w_init_mag=0.01)
+    classifier = MultiLayerPerceptron(layer_sizes=[500, 10], input_size = 784, hidden_activation='sig', output_activation='lin', w_init_mag=0.01)
     training_cost_function = NegativeLogLikelihood()
     optimizer = SimpleGradientDescent(eta = 0.1)
-
     training_function = SupervisedTrainingFunction(classifier, training_cost_function, optimizer).compile()
     test_cost_function = PercentCorrect()
     test_function = SupervisedTestFunction(classifier, test_cost_function).compile()
@@ -33,7 +32,7 @@ def demo_mnist():
         print 'Test score at iteration %s: %s' % (i, test_cost)
 
     # Train and periodically report the test score.
-    for i, (image_minibatch, label_minibatch) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = 20, epochs = 1, single_channel = True)):
+    for i, (image_minibatch, label_minibatch) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = 20, epochs = 10, single_channel = True)):
         if i % test_period == 0:
             report_test(i)
         training_function(image_minibatch, label_minibatch)
