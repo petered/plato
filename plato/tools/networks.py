@@ -12,18 +12,20 @@ class MultiLayerPerceptron(IParameterized):
     A Multi-Layer Perceptron
     """
 
-    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_init_mag = 0.1):
+    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_init_mag = 0.1, rng = None):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param hidden_types: A string or list of strings indicating the type of each hidden layer.
         :param output_type: A string indicating the type of the output layer
         :return:
         """
+        if rng is None:
+            rng = np.random.RandomState()
 
         all_layer_sizes = [input_size]+layer_sizes
         all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
         processors = sum([[
-             FullyConnectedBridge(w = w_init_mag*np.random.randn(pre_size, post_size)),
+             FullyConnectedBridge(w = w_init_mag*rng.randn(pre_size, post_size)),
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
@@ -64,8 +66,8 @@ class FullyConnectedBridge(IParameterized):
         if b is None:
             b = np.zeros(w.shape[1])
         assert b.ndim == 1, 'b must be a vector representing the inital biases'
-        self._w = theano.shared(w, 'w')
-        self._b = theano.shared(b, 'b')
+        self._w = theano.shared(w, 'w', borrow = True, allow_downcast=True)
+        self._b = theano.shared(b, 'b', borrow = True, allow_downcast=True)
 
     def __call__(self, x):
         y = ts.dot(x.flatten(2), self._w) + self._b
