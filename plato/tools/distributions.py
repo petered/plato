@@ -7,7 +7,5 @@ class Gaussian(object):
         self._mean = mean
         self._covariance = covariance
 
-
-
     def likelihood(self, point):
         pass

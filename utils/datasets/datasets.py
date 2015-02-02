@@ -17,6 +17,14 @@ class DataSet(object):
         else:
             return self._validation_set
 
+    @property
+    def xyxy(self):
+        """
+        Shorthand to return (input_of_training_set, targets_of_training_set, input_of_test_set, targets_of_test_set)
+        :return:
+        """
+        return self.training_set.input, self.training_set.target, self.test_set.input, self.test_set.target
+
 
 class DataCollection(object):
 

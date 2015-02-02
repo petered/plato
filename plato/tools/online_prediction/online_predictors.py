@@ -4,12 +4,15 @@ from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, s
 __author__ = 'peter'
 
 
-class IClassifier(object):
+class IOnlinePredictor(object):
+    """
+    Online online_prediction have an initial state, and learn iteratively through repeated calls to train.
+    """
 
     __metaclass__ = ABCMeta
 
     @symbolic_stateless
-    def classify(self, inputs):
+    def predict(self, inputs):
         """
         :param inputs: A (n_samples, ...) tensor of inputs
         :return: outputs: A (n_samples, ...) tensor representing the classifier ouput
@@ -26,7 +29,7 @@ class IClassifier(object):
         """
 
 
-class GradientBasedClassifier(IClassifier):
+class GradientBasedPredictor(IOnlinePredictor):
 
     def __init__(self, function, cost_function, optimizer):
         """
@@ -39,7 +42,7 @@ class GradientBasedClassifier(IClassifier):
         self._optimizer = optimizer
 
     @symbolic_stateless
-    def classify(self, inputs):
+    def predict(self, inputs):
         return self._function(inputs)
 
     @symbolic_updater

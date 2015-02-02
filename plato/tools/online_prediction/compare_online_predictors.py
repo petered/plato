@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as pp
 
 
-class CompareClassifiers(object):
+class CompareOnlinePredictors(object):
 
     def __init__(self, dataset, classifier_constructors, minibatch_size, test_points, evaluation_function):
         """

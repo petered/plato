@@ -1,5 +1,5 @@
-from plato.tools.classifiers import GradientBasedClassifier
-from plato.tools.compare_classifiers import CompareClassifiers, plot_records
+from plato.tools.online_prediction.online_predictors import GradientBasedClassifier
+from plato.tools.online_prediction.compare_online_predictors import CompareClassifiers, plot_records
 from plato.tools.cost import PercentCorrect, NegativeLogLikelihood
 from plato.tools.misc import quadspace
 from plato.tools.networks import MultiLayerPerceptron
