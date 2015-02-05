@@ -1,11 +1,11 @@
 from plato.tools.online_prediction.online_predictors import GradientBasedClassifier
-from plato.tools.online_prediction.compare_online_predictors import CompareClassifiers, plot_records
+from plato.tools.online_prediction.compare_symbolic_predictors import CompareClassifiers, plot_records
 from plato.tools.cost import PercentCorrect, NegativeLogLikelihood
-from plato.tools.misc import quadspace
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.optimizers import SimpleGradientDescent, AdaMax
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
+from utils.tools.mymath import quadspace
 
 __author__ = 'peter'
 

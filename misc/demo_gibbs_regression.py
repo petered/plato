@@ -10,6 +10,7 @@ __author__ = 'peter'
 In these examples, we do univariate and multivariate regression using gibbs sampling.
 """
 
+
 def demo_univariate_regression():
 
     print '%s\nUnivariate Regression Demo' % ('='*20, )

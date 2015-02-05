@@ -26,7 +26,7 @@ __author__ = 'peter'
 
 class ISymbolicFunction(object):
 
-    def compile(self):
+    def compile(self, **kwargs):
         """
         :return: A compiled version of function that takes and returns numpy arrays.
 
@@ -94,8 +94,8 @@ class BaseSymbolicFunction(ISymbolicFunction):
     def __get__(self, instance, owner):
         return self.__class__(self._fcn, instance=instance)
 
-    def compile(self):
-        return AutoCompilingFunction(self)
+    def compile(self, **kwargs):
+        return AutoCompilingFunction(self, **kwargs)
 
     def _call_fcn(self, *args, **kwargs):
         return self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
@@ -237,19 +237,38 @@ class SymbolicFormatError(Exception):
 
 class AutoCompilingFunction(object):
     """
-    Given a Symbolic function, turn it into a compiled fcniton that will accept and return numpy arrays.
+    Given a Symbolic function, turn it into a compiled function that will accept and return numpy arrays.
 
-    Actual compilation happens on the first use of the fcntion, since it needs to see the arguments in order to
+    Actual compilation happens on the first use of the function, since it needs to see the arguments in order to
     instantiate the input tensors.
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True):
-
-        assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic fcniton.  Decorate it!'
+    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run'):
+        """
+        :param fcn: A symbolic function (decorated with one of the above decorators)
+        :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
+        :param mode: There are 3 modes:
+            'run': Just compile and run - use this if you're confident in your code and just want to go.
+            'test_and_run': Same as run, but you pass through test values once before compilation.  This lets you
+                catch all sorts of errors.  You can also view test values by placing breakpoints, and viewing the
+                value var.tag.test_value where var is some tensor variable.
+            'debug': Never compile - just keep passing through test values.  This is basically like running the code
+                in numpy, except to see variable values, you have to go var.tag.test_value
+        :return:
+        """
+        assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic function.  Decorate it!'
+        if mode == 'tr':
+            mode = 'test_and_run'
+        assert mode in ('run', 'test_and_run', 'debug')
         self._fcn = fcn
         self._format = format
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
+        self._mode = mode
+        if mode in ('test_and_run', 'debug'):
+            theano.config.compute_test_value = 'warn'
+            if mode == 'debug':
+                __builtins__['showloc'] = show_all_locals
 
     def __call__(self, *args):
         """
@@ -257,7 +276,8 @@ class AutoCompilingFunction(object):
         returns the result, in numpy arrays.
         """
         if self._compiled_fcn is None:
-            tensor_args = [_data_to_tensor(arg, cast_floats_to_floatx = self._cast_floats_to_floatX) for arg in args]
+            tensor_args = [_data_to_tensor(arg, cast_floats_to_floatx = self._cast_floats_to_floatX,
+                test = self._mode in ('test_and_run', 'debug')) for arg in args]
             return_value = self._fcn(*tensor_args)
             if isinstance(self._fcn, SymbolicStatelessFunction):
                 outputs = return_value
@@ -269,7 +289,12 @@ class AutoCompilingFunction(object):
                 updates = return_value
             else:
                 raise Exception("Get OUT!")
-            self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
+            if self._mode == 'debug':  # Never compile - just keep passing through test values
+                for (shared_var, new_val) in updates:  # Need to manually update shared vars
+                    shared_var.set_value(new_val.tag.test_value)
+                return [o.tag.test_value for o in outputs] if isinstance(outputs, (list, tuple)) else outputs.tag.test_value
+            else:
+                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
         return self._compiled_fcn(*args)
 
 
@@ -277,10 +302,47 @@ def _is_symbol_or_value(var):
     return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_floats_to_floatx = True):
+def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
     ndim = 0 if np.isscalar(data) else data.ndim
     dtype = theano.config.floatX if (cast_floats_to_floatx and (isinstance(data, float) or isinstance(data, np.ndarray) and data.dtype == 'float')) \
         else 'int64' if isinstance(data, int) \
         else 'float64' if isinstance(data, float) \
         else data.dtype
-    return TensorType(dtype, (None, )*ndim)(name)
+    tensor = TensorType(dtype, (None, )*ndim)(name)
+    if test:
+        tensor.tag.test_value = data
+    return tensor
+
+
+def get_shared_ancestors(variable):
+    pass
+
+
+def show_all_locals():
+    locals_of_calling_frame = inspect.currentframe().f_back.f_locals
+    print '=== Locals ==='
+    for k in locals_of_calling_frame.keys():
+        v = locals_of_calling_frame[k]
+        print '%s = %s' % (k, var_info(v))
+    print '--------------'
+
+
+def var_info(var):
+
+    if isinstance(var, Variable) and hasattr(var.tag, 'test_value'):
+        return '%s with test_value = %s' % (str(var), var_info(var.tag.test_value))
+    elif isinstance(var, SharedVariable):
+        return 'Shared %s value = %s' % (str(var), var_info(var.get_value()))
+    elif isinstance(var, np.ndarray):
+        return array_info(var)
+    else:
+        return str(var)
+
+
+def array_info(arr):
+    if arr.size <= 10:
+        return '%s(%s)' % (arr.__class__.__name__, str(arr).replace('\n', ', '))
+    elif arr.size <= 200000:
+        return '%s of shape %s in %s<=arr<=%s' % (arr.__class__.__name__, arr.shape, np.min(arr), np.max(arr))
+    else:
+        return '%s of shape %s' % (arr.__class__.__name__, arr.shape, )
