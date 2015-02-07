@@ -291,7 +291,12 @@ class AutoCompilingFunction(object):
                 raise Exception("Get OUT!")
             if self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
-                    shared_var.set_value(new_val.tag.test_value)
+                    try:
+                        shared_var.set_value(new_val.tag.test_value)
+                    except AttributeError as err:
+                        if err.message == "scratchpad instance has no attribute 'test_value'":
+                            print 'Check - are you using randomstreams instead of shared_randomstreams?'
+                        raise
                 return [o.tag.test_value for o in outputs] if isinstance(outputs, (list, tuple)) else outputs.tag.test_value
             else:
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
