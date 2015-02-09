@@ -22,11 +22,11 @@ class UniformParameterOptimizer(IGradientOptimizer):
     Subclass off this if you're optimizing the same way across all parameters
     """
 
-    def __call__(self, cost, parameters):
-        return sum([self._update_param(cost, p) for p in parameters], [])
+    def __call__(self, cost, parameters, constants = []):
+        return sum([self._update_param(cost, p, constants) for p in parameters], [])
 
     @abstractmethod
-    def _update_param(self, cost, param):
+    def _update_param(self, cost, param, constants = []):
         pass
 
 
@@ -42,8 +42,8 @@ class SimpleGradientDescent(UniformParameterOptimizer):
         """
         self._eta = eta
 
-    def _update_param(self, cost, param):
-        return [(param, param - self._eta * theano.grad(cost, param))]
+    def _update_param(self, cost, param, constants = []):
+        return [(param, param - self._eta * theano.grad(cost, param, consider_constant = constants))]
 
 
 class AdaMax(UniformParameterOptimizer):
@@ -54,10 +54,10 @@ class AdaMax(UniformParameterOptimizer):
         self._beta_2 = beta_2
         self._eps = eps
 
-    def _update_param(self, cost, param):
+    def _update_param(self, cost, param, constants = []):
         mom1 = theano.shared(np.zeros_like(param.get_value()))
         mom2 = theano.shared(np.zeros_like(param.get_value()))
-        gradient = theano.grad(cost, param)
+        gradient = theano.grad(cost, param, consider_constant = constants)
         mom1_new = mom1 + self._beta_1 * (gradient - mom1)
         mom2_new = ts.maximum(abs(gradient) + self._eps, (1. - self._beta_2) * mom2)
         new_param = param - self._alpha * mom1_new / mom2_new

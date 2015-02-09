@@ -85,11 +85,14 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead' % (self._fcn, updates, ))
 
     def _assert_standard_return(self, return_val):
-        if not (isinstance(return_val, tuple) and len(return_val)==2):
-            raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
-        outputs, updates = return_val
-        self._assert_all_tensors(outputs, 'Outputs')
-        self._assert_all_updates(updates)
+        if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
+            return
+        else:  # Possibly remove this entirely and only allow SymbolicReturn
+            if not (isinstance(return_val, tuple) and len(return_val)==2):
+                raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
+            outputs, updates = return_val
+            self._assert_all_tensors(outputs, 'Outputs')
+            self._assert_all_updates(updates)
 
     def __get__(self, instance, owner):
         return self.__class__(self._fcn, instance=instance)
@@ -364,3 +367,18 @@ def find_shared_ancestors(variable):
         return [variable]
     else:
         return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
+
+
+class SymbolicReturn(object):
+
+    def __init__(self, outputs = (), updates = []):
+        if not (isinstance(outputs, tuple) and all(isinstance(out, Variable) for out in outputs)):
+            raise SymbolicFormatError('%s must a tuple of tensors.  They were %s instead' % (self._fcn, outputs, ))
+        if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
+                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+            raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead' % (self._fcn, updates, ))
+        self.outputs = outputs
+        self.updates = updates
+
+    def __iter__(self):
+        return (self.outputs, self.updates).__iter__()

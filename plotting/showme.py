@@ -8,12 +8,18 @@ __author__ = 'peter'
 
 class LiveStream(object):
 
-    def __init__(self, callback):
+    def __init__(self, callback, update_every = 1):
         self._callback = callback
         self._plots = None
         eplt.ion()  # Bad?
+        self._counter = -1
+        self._update_every = update_every
 
     def update(self):
+        self._counter += 1
+        if self._counter % self._update_every != 0:
+            return
+
         struct = self._callback()
         flat_struct = flatten_struct(struct)  # list<*tuple<str, data>>
 
