@@ -351,3 +351,16 @@ def array_info(arr):
         return '%s of shape %s in %s<=arr<=%s' % (arr.__class__.__name__, arr.shape, np.min(arr), np.max(arr))
     else:
         return '%s of shape %s' % (arr.__class__.__name__, arr.shape, )
+
+
+def find_shared_ancestors(variable):
+    """
+    Given a variable, return a list of all shared variables that it depends upon.  This can be useful for
+    finding the parameters to update when trying to optimize this variable in some way.
+    :param variable: A theano variable
+    :return: A list of SharedVariables.
+    """
+    if isinstance(variable, SharedVariable):
+        return [variable]
+    else:
+        return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
