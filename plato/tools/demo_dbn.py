@@ -24,6 +24,9 @@ def demo_rbm():
     sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
 
     stream = LiveStream(lambda: {
+        # 'visible_sleep': train_function.locals['visible_sleep'].reshape(-1, 28, 28),
+        # 'hidden_sleep': train_function.locals['hidden_sleep'].reshape(-1, 25, 20),
+        # 'w': train_function.locals['bridge']._w.get_value().T[:25].reshape(-1, 28, 28)
         'visible': visible.reshape(-1, 28, 28),
         'hidden': hidden.reshape(-1, 25, 20),
         'w': rbm.vars['bridge']._w.get_value().T[:25].reshape(-1, 28, 28)

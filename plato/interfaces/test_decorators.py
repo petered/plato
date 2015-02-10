@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError
 import theano
 import numpy as np
@@ -190,7 +191,35 @@ def test_dual_decoration():
     assert recon == 37
 
 
+def test_view_internals():
+    """
+    This test demonstrates a useful bit of evil that we've added to the
+    framework.  It violates the basic idea of encapsulation, but is useful
+    for debugging purposes.
+
+    When you decorate a symbolic function and compile it in 'omniscent' mode,
+    it records all internals of the function, and makes them available through
+    the "locals" property.
+    """
+
+    t = time.time()
+
+    @symbolic_stateless
+    def average(a, b):
+        sum_a_b = a+b
+        return sum_a_b/2.
+
+    average_fcn = average.compile(mode = 'omniscent')
+
+    mean = average_fcn(3, 6)
+    assert mean == 4.5
+    assert average_fcn.locals['sum_a_b'] == 9
+
+    print time.time() - t
+
+
 if __name__ == '__main__':
+    test_view_internals()
     test_stateless_decorators()
     test_standard_decorators()
     test_pure_updater()

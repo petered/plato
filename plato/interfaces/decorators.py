@@ -1,4 +1,5 @@
 import inspect
+import sys
 from abc import abstractproperty, abstractmethod
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
@@ -22,6 +23,9 @@ These methods are described in the ISymbolicFunction interface below.
 """
 
 __author__ = 'peter'
+
+
+ENABLE_OMNISCENCE = True
 
 
 class ISymbolicFunction(object):
@@ -70,6 +74,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
 
         self._fcn = fcn
         self._instance = instance
+        self._locals = None
 
     def _assert_is_tensor(self, arg, name):
         if not isinstance(arg, Variable):
@@ -101,7 +106,27 @@ class BaseSymbolicFunction(ISymbolicFunction):
         return AutoCompilingFunction(self, **kwargs)
 
     def _call_fcn(self, *args, **kwargs):
-        return self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+
+        if ENABLE_OMNISCENCE:
+            # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
+            # inherently evil, but useful for debugging purposes.  Use the trick from
+            # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
+            def tracer(frame, event, arg):
+                if event == 'return':
+                    self._locals = frame.f_locals.copy()
+
+            sys.setprofile(tracer)
+            try:
+                return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+            finally:
+                sys.setprofile(None)
+        else:
+            return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+        return return_val
+
+    @property
+    def locals(self):
+        return self._locals
 
     @abstractmethod
     def __call__(self, *args, **kwargs):
@@ -262,12 +287,13 @@ class AutoCompilingFunction(object):
         assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic function.  Decorate it!'
         if mode == 'tr':
             mode = 'test_and_run'
-        assert mode in ('run', 'test_and_run', 'debug')
+        assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
         self._fcn = fcn
         self._format = format
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
+        self._locals = None
         if mode in ('test_and_run', 'debug'):
             theano.config.compute_test_value = 'warn'
             if mode == 'debug':
@@ -280,7 +306,7 @@ class AutoCompilingFunction(object):
         """
         if self._compiled_fcn is None:
             tensor_args = [_data_to_tensor(arg, cast_floats_to_floatx = self._cast_floats_to_floatX,
-                test = self._mode in ('test_and_run', 'debug')) for arg in args]
+                test = self._mode in ('test_and_run', 'debug', 'omniscent')) for arg in args]
             return_value = self._fcn(*tensor_args)
             if isinstance(self._fcn, SymbolicStatelessFunction):
                 outputs = return_value
@@ -292,7 +318,15 @@ class AutoCompilingFunction(object):
                 updates = return_value
             else:
                 raise Exception("Get OUT!")
-            if self._mode == 'debug':  # Never compile - just keep passing through test values
+
+            if self._mode == 'omniscent':
+                single_output = not isinstance(outputs, (list, tuple))
+                if single_output:
+                    outputs = [outputs]
+                self._local_keys = self._fcn.locals.keys()
+                outputs_and_internals = outputs+tuple(self._fcn.locals.values())
+                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)
+            elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
                     try:
                         shared_var.set_value(new_val.tag.test_value)
@@ -303,8 +337,24 @@ class AutoCompilingFunction(object):
                 return [o.tag.test_value for o in outputs] if isinstance(outputs, (list, tuple)) else outputs.tag.test_value
             else:
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
-        return self._compiled_fcn(*args)
 
+        if self._mode == 'omniscent':
+            all_out = self._compiled_fcn(*args)
+            self._locals = {k: v for k, v in zip(self._local_keys, all_out[-len(self._local_keys):])}
+            true_out = all_out[:-len(self._local_keys)]
+            if single_output:
+                true_out, = true_out
+            return true_out
+
+        else:
+            return self._compiled_fcn(*args)
+
+    @property
+    def locals(self):
+        assert self._mode == 'omniscent', "You must set mode = 'omniscent' to view locals.  Current mode is '%s'." % (self._mode, )
+        if self._locals is None:
+            raise Exception('Locals not available yet.  You must call this function before asking for locals.')
+        return self._locals
 
 def _is_symbol_or_value(var):
     return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
