@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from plotting.data_conversion import put_data_in_grid, RecordBuffer
+from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit
 
 __author__ = 'peter'
 
@@ -26,16 +26,21 @@ class ImagePlot(object):
 
     def update(self, data):
 
-        if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3):
-            data = put_data_in_grid(data)
+        plottable_data = put_data_in_grid(data) \
+            if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
+            scale_data_to_8_bit(data)
 
         if self._plot is None:
-            self._plot = imshow(data, cmap = self._cmap, interpolation = self._interpolation)
+            self._plot = imshow(plottable_data, cmap = self._cmap, interpolation = self._interpolation)
             if not self._show_axes:
-                self._plot.axes.get_xaxis().set_visible(False)
+                # self._plot.axes.get_xaxis().set_visible(False)
+                self._plot.axes.tick_params(labelbottom = 'off')
                 self._plot.axes.get_yaxis().set_visible(False)
+            # colorbar()
         else:
-            self._plot.set_array(data)
+            self._plot.set_array(plottable_data)
+            self._plot.axes.set_xlabel('%.2f - %.2f' % (np.min(data), np.max(data)))
+            # self._plot.axes.get_caxis
 
 
 class LinePlot(object):
