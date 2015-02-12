@@ -30,7 +30,7 @@ To get started:
 ```
 git clone https://github.com/petered/plato.git
 cd plato
-setup.sh
+setup.sh  # This installs a bunch of stuff, and may take some time.
 ```
 You should now be in the virtual environment (there should be a little `(venv)` on the left side in the terminal).  To see if everything worked, try running the RBM demo: 
 ```
