@@ -38,6 +38,8 @@ You should now be in the virtual environment (there should be a little `(venv)` 
 ```
 python plato/tools/demo_restricted_boltzmann_machine.py 
 ```
+A window should pop up, visualizing an RBM as it learns on MNIST data (edit: actually not quite - you need to download mnist.pkl.gz, unzip it, and put it in `~/Library/Application Support/Plato` if you're on a Mac - (Should automate this later).
+
 You can at this point either use the project from within an IDE (like PyCharm), or keep running things from terminal.  If you run from terminal, the next time you return to the project, you just need to get into the virtual environment again.  You can do that by running:
 ```
 cd path/to/plato/project  # Which you obviously replace by your actual path to the project
