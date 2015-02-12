@@ -1,4 +1,4 @@
---Plato--
+#Plato
 
 The Plato repo contains all the work of my PhD so far.  The intent is for it to evolve into a clean, well-tested library, built on top of theano, containing standard components in deep learning (MLPs, DBNs, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.
 
