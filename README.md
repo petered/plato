@@ -10,6 +10,8 @@ To sort out the mess into submesses, I've organized things into packages as foll
 
 **general** - Generally useful things that don't necessairily relate to machine learning.  Things here should be nice and individually useful.
 
+**plotting** - Code related to plotting - this should be moved out to a separate repo once it's satisfactory and stable.
 
 Dependency:
 misc --> plato --> utils --> general
+  '--> plotting ---------------^
