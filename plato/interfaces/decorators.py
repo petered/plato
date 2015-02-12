@@ -271,7 +271,7 @@ class AutoCompilingFunction(object):
     instantiate the input tensors.
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run'):
+    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', debug_getter = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
@@ -293,7 +293,10 @@ class AutoCompilingFunction(object):
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
-        self._locals = None
+        self._debug_values = None
+        self._debug_variable_getter = None
+        self._debug_values = None
+        self._callbacks = []
         if mode in ('test_and_run', 'debug'):
             theano.config.compute_test_value = 'warn'
             if mode == 'debug':
@@ -319,12 +322,24 @@ class AutoCompilingFunction(object):
             else:
                 raise Exception("Get OUT!")
 
-            if self._mode == 'omniscent':
-                single_output = not isinstance(outputs, (list, tuple))
-                if single_output:
-                    outputs = [outputs]
-                self._local_keys = self._fcn.locals.keys()
-                outputs_and_internals = tuple(outputs)+tuple(self._fcn.locals.values())
+            self._there_are_debug_variables = self._debug_variable_getter is not None
+            if self._there_are_debug_variables:
+                # Setup debug variables
+                self._single_output = not isinstance(outputs, (list, tuple))
+                if self._single_output:
+                    outputs = (outputs, )
+                debug_variables = self._debug_variable_getter()
+
+                # There may be some non-symbolic variables in the mix (like self).  We just filter these out.
+                filtered_debug_variables = {k: v for k, v in debug_variables.iteritems() if isinstance(v, Variable)}
+                assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
+                    'It returned %s' % (filtered_debug_variables, )
+                debug_variables = filtered_debug_variables
+
+                # assert isinstance(debug_variables, dict) and all(isinstance(v, Variable) for v in debug_variables.values()), \
+                #     "debug_variable_getter should return a dict<str: Variable>.  It returned %s instead." % (debug_variables, )
+                self._debug_variable_keys = debug_variables.keys()
+                outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
@@ -338,23 +353,67 @@ class AutoCompilingFunction(object):
             else:
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
 
-        if self._mode == 'omniscent':
+        # Now, run the actual numeric function!
+        if self._there_are_debug_variables:
             all_out = self._compiled_fcn(*args)
-            self._locals = {k: v for k, v in zip(self._local_keys, all_out[-len(self._local_keys):])}
-            true_out = all_out[:-len(self._local_keys)]
-            if single_output:
-                true_out, = true_out
-            return true_out
-
+            self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
+            numeric_output = all_out[:-len(self._debug_variable_keys)]
+            if self._single_output:
+                numeric_output, = numeric_output
         else:
-            return self._compiled_fcn(*args)
+            numeric_output = self._compiled_fcn(*args)
+
+        for c in self._callbacks:
+            c()
+
+        return numeric_output
+
+    def set_debug_variables(self, callback):
+        """
+        Define a callback that is called AFTER the graph is constructed.
+        The callback should be of the form:
+
+            dict<str: Variable> = callback()
+
+        Where str is the name of each element, and Variables are symbolic variables
+        linked to the graph.  After calling the function, you can retrieve the arrays
+        associated with these variables through the method get_debug_values().
+
+        You can also provide 'locals' as a callback.  In this case, the debug variables will be
+        the locals of the symbolic function.
+        """
+        assert self._debug_variable_getter is None, 'You tried to set debug variables twice.  This remains ' \
+            'banned until someone can provide a good reason for allowing it.'
+        assert self._compiled_fcn is None, 'You can only set debug variables before the first call to this function.'
+        if callback == 'locals':
+            callback = lambda: self._fcn.locals
+        elif callback == 'locals+class':
+            callback = lambda: dict(self._fcn.locals.items() + [('self.'+k, v) for k, v in self._fcn.locals['self'].__dict__.iteritems()])
+        else:
+            assert inspect.isfunction(callback)
+
+        self._debug_variable_getter = callback
+
+    def get_debug_values(self):
+        if self._debug_values is None:
+            if self._debug_variable_getter is None:
+                raise Exception('You need to define debug variables before requesting debug values.\n'
+                    'See AutoCompilingFunction.set_debug_variables()')
+            elif self._compiled_fcn is None:
+                raise Exception('You need to run this function at lest once before requesting debug values')
+            elif self._mode != 'omniscent':
+                raise Exception("Function must be compiled in 'omniscent' mode to view debug variables.  It's in %s mode." % self._mode)
+            else:
+                raise Exception("I don't know why you're not getting an answer")
+        return self._debug_values
+
+    def add_callback(self, fcn):
+        self._callbacks.append(fcn)
 
     @property
-    def locals(self):
-        assert self._mode == 'omniscent', "You must set mode = 'omniscent' to view locals.  Current mode is '%s'." % (self._mode, )
-        if self._locals is None:
-            raise Exception('Locals not available yet.  You must call this function before asking for locals.')
-        return self._locals
+    def symbolic(self):
+        """ Return the symbolic function """
+        return self._fcn
 
 def _is_symbol_or_value(var):
     return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)

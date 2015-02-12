@@ -1,5 +1,5 @@
 import time
-from plotting.showme import LiveStream
+from plotting.live_plotting import LiveStream
 
 __author__ = 'peter'
 import numpy as np

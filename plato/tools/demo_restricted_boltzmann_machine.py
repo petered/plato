@@ -1,7 +1,7 @@
 from plato.tools.restricted_boltzmann_machine import simple_rbm
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent
-from plotting.showme import LiveStream
+from plotting.live_plotting import LiveStream
 import theano
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np

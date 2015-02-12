@@ -19,7 +19,7 @@ def test_compare_predictors():
     w_init = 0.1*np.random.randn(dataset.training_set.input.shape[1], dataset.training_set.target.shape[1])
     records = compare_predictors(
         dataset = dataset,
-        offline_predictor_constuctors={
+        offline_predictor_constructors={
             'Optimal': lambda: MockPredictor(lambda x: sigm(x.dot(w_true)))
             },
         online_predictor_constructors={

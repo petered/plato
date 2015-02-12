@@ -83,25 +83,38 @@ def put_data_in_grid(data, grid_shape = None, fill_colour = np.array((0, 0, 128)
 
 def scale_data_to_8_bit(data):
     """
-    Scale data to range [0, 255]
+    Scale data to range [0, 255], leaving in float format for nans
     """
-    min_data = np.min(data)
-    scale = 255./(np.max(data)-min_data)
-    return (data-min_data)*scale
+    min_data = np.nanmin(data)
+    scale = 255./(np.nanmax(data)-min_data)
+    if np.isnan(scale):  # Data is all nans, or min==max
+        return np.zeros_like(data)
+    else:
+        return (data-min_data)*scale
+
+
+def data_to_image(data):
+    scaled_data = scale_data_to_8_bit(data).astype(np.uint8)
+    if data.ndim == 2:
+        scaled_data = np.concatenate([scaled_data[:, :, None]]*3, axis = 2)
+    else:
+        assert scaled_data.ndim==3 and scaled_data.shape[2] == 3
+    return scaled_data
 
 
 class RecordBuffer(object):
 
-    def __init__(self, buffer_len):
+    def __init__(self, buffer_len, initial_value = np.NaN):
         self._buffer_len = buffer_len
         self._buffer = None
         self._ix = 0
         self._base_indices = np.arange(buffer_len)
+        self._initial_value = initial_value
 
     def __call__(self, data):
         if self._buffer is None:
             shape = () if np.isscalar(data) else data.shape
-            self._buffer = np.zeros((self._buffer_len, )+shape)+np.nan
+            self._buffer = np.zeros((self._buffer_len, )+shape)+self._initial_value
         self._buffer[self._ix] = data
         self._ix = (self._ix+1) % self._buffer_len
         return self._buffer[(self._base_indices+self._ix) % self._buffer_len]
