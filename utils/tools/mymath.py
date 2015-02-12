@@ -22,6 +22,8 @@ def cummean(x, axis):
     return np.cumsum(x, axis)/normalized
 
 
+
+
 # class QuadTransform()
 #
 #

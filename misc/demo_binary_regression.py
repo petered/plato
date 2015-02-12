@@ -1,16 +1,12 @@
 import numpy as np
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
-import theano
-from theano.tensor.shared_randomstreams import RandomStreams
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.datasets.datasets import DataSet, DataCollection
 from utils.datasets.synthetic_logistic import get_logistic_regression_data
 from utils.predictors.i_predictor import IPredictor
 from utils.predictors.mock_predictor import MockPredictor
-from utils.tools.mymath import bernoulli, sigm
-import theano.tensor as tt
-from utils.tools.sampling import simple_binary_gibbs_regressor, SamplingRegressor
+from utils.tools.mymath import sigm
+from utils.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
 
 __author__ = 'peter'
 
@@ -34,11 +30,11 @@ class SamplingPredictor(IPredictor):
 
 def demo_binary_regression():
 
-    n_steps = 500
+    n_steps = 1000
     n_dims = 20
-    n_training = 1000
+    n_training = 100
     n_test = 100
-    noise_factor = 0.1
+    noise_factor = 0.0
     sample_y = False
 
     x_tr, y_tr, x_ts, y_ts, w_true = get_logistic_regression_data(n_dims = n_dims,
@@ -51,16 +47,32 @@ def demo_binary_regression():
             'Optimal': lambda: MockPredictor(lambda x: sigm(x.dot(w_true))),
             },
         incremental_predictor_constructors = {
-            'gibbs': lambda: SamplingPredictor(simple_binary_gibbs_regressor(
+            'gibbs-single': lambda: SamplingPredictor(GibbsRegressor(
                 n_dim_in=x_tr.shape[1],
                 n_dim_out=y_tr.shape[1],
                 sample_y = sample_y,
+                n_alpha = 1,
                 seed = None,
                 ), mode = 'tr'),
-            'herded-gibbs': lambda: SamplingPredictor(herded_binary_gibbs_regressor(
+            'batch-gibbs': lambda: SamplingPredictor(GibbsRegressor(
                 n_dim_in=x_tr.shape[1],
                 n_dim_out=y_tr.shape[1],
                 sample_y = sample_y,
+                n_alpha = 'all',
+                seed = None,
+                ), mode = 'tr'),
+            'herded-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 1,
+                seed = None,
+                ), mode = 'tr'),
+            'herded-batch-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 'all',
                 seed = None,
                 ), mode = 'tr'),
             },
@@ -70,9 +82,16 @@ def demo_binary_regression():
         )
 
     plot_learning_curves(records, title = 'Logistic Regression Dataset. \nn_training=%s, n_test=%s, n_dims=%s, noise_factor=%s, sample_y=%s'
-        % (n_training, n_test, n_dims, noise_factor, sample_y))
+        % (n_training, n_test, n_dims, noise_factor, sample_y), xscale = 'symlog', yscale = 'linear')
 
 
 if __name__ == '__main__':
 
-    demo_binary_regression()
+    demo = 'compare'
+
+    if demo == 'compare':
+        demo_binary_regression()
+    elif demo == 'inspect':
+        demo_inspect_gibbs()
+    else:
+        raise Exception()

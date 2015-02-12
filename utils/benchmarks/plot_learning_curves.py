@@ -8,7 +8,7 @@ import numpy as np
 __author__ = 'peter'
 
 
-def plot_learning_curves(learning_curves, xscale = 'sqrt', hang = None, title = None):
+def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', hang = None, title = None):
     """
     Plot a set of PredictionResults.  These can be obtained by running compare_predictors.
     See module test_compare_predictors for an example.
@@ -30,9 +30,10 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', hang = None, title = 
             plt.axhline(scores['Training'], color=colour, linestyle = '--')
             plt.axhline(scores['Test'], color=colour, linestyle = '-')
         else:
-            plt.plot(times, scores['Training'], '--'+colour)
-            plt.plot(times, scores['Test'], '-'+colour)
+            plt.plot(times+(1 if xscale == 'log' else 0), scores['Training'], '--'+colour)
+            plt.plot(times+(1 if xscale == 'log' else 0), scores['Test'], '-'+colour)
         plt.gca().set_xscale(xscale)
+        plt.gca().set_yscale(yscale)
         legend+=['%s-training' % record_name, '%s-test' % record_name]
 
     plt.xlabel('Epoch')

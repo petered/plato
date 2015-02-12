@@ -1,3 +1,5 @@
+import theano.tensor as tt
+
 __author__ = 'peter'
 
 
@@ -9,3 +11,5 @@ class Gaussian(object):
 
     def likelihood(self, point):
         pass
+
+

@@ -25,7 +25,7 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-ENABLE_OMNISCENCE = True
+ENABLE_OMNISCENCE = False
 
 
 class ISymbolicFunction(object):
