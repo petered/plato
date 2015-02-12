@@ -7,7 +7,7 @@ import matplotlib.pyplot as pp
 __author__ = 'peter'
 
 """
-In these examples, we do univariate and multivariate regression using gibbs sampling.
+In these examples, we do univariate and multivariate linear regression using gibbs sampling.
 """
 
 
