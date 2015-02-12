@@ -14,4 +14,5 @@ To sort out the mess into submesses, I've organized things into packages as foll
 
 Dependency:
 misc --> plato --> utils --> general
+
   '--> plotting ---------------^
