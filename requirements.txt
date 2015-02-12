@@ -3,5 +3,5 @@ scipy
 Theano
 matplotlib
 scikit-learn
-"ipython[notebook]"
+ipython[notebook]
 pytest
