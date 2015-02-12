@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError
+import pytest
 import theano
 import numpy as np
 
@@ -111,11 +112,8 @@ def test_function_format_checking():
         # This function has the standard decorator, but failes to return values in the standard format of (outputs, updates)
         return a+b
 
-    try:
+    with pytest.raises(SymbolicFormatError):
         bad_format_thing.compile()(3, 5)
-        raise Exception('Failed to catch formatting Error')
-    except SymbolicFormatError:
-        pass
 
 
 def test_callable_format_checking():
@@ -134,11 +132,8 @@ def test_callable_format_checking():
         def __call__(self, a, b):
             return a+b
 
-    try:
+    with pytest.raises(SymbolicFormatError):
         BadFormatThing().compile()(3, 5)
-        raise Exception('Failed to catch formatting Error')
-    except SymbolicFormatError:
-        pass
 
 
 def test_inhereting_from_decorated():

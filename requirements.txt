@@ -4,3 +4,4 @@ Theano
 matplotlib
 scikit-learn
 "ipython[notebook]"
+pytest

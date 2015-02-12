@@ -25,7 +25,7 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-ENABLE_OMNISCENCE = False
+ENABLE_OMNISCENCE = True
 
 
 class ISymbolicFunction(object):
@@ -324,7 +324,7 @@ class AutoCompilingFunction(object):
                 if single_output:
                     outputs = [outputs]
                 self._local_keys = self._fcn.locals.keys()
-                outputs_and_internals = outputs+tuple(self._fcn.locals.values())
+                outputs_and_internals = tuple(outputs)+tuple(self._fcn.locals.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
