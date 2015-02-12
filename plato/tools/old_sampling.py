@@ -14,13 +14,11 @@ general cousins, but we keep them around because they're unintimidating and can 
 test the correctness of the general samplers in the special case.
 """
 
-SamplingRegressor = namedtuple('SamplingRegressor', ('update', 'sample_posterior'))
-
 
 def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = None):
     """
-    Returns the simplest form of a binary regressor.  We use this as an example.  For a version with
-    more parameters, see binary_gibbs_regressor.
+    Returns the simplest form of a binary regressor.  We use this as an example.  For a more general version,
+    see class BinaryGibbsRegressor.
 
     :param n_dim_in: Number of dimensions of the input
     :param n_dim_out: Number of dimensions of the output
@@ -44,6 +42,51 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
         w_sample = rng.binomial(p=p_wa)  # (n_dim_out, )
         w_new = tt.set_subtensor(w[alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(w, w_new), (alpha, (alpha+1) % n_dim_in)]
+
+    @symbolic_stateless
+    def sample_posterior(x):
+        p_y = tt.nnet.sigmoid(x.dot(w))
+        return rng.binomial(p = p_y) if sample_y else p_y
+
+    return SamplingRegressor(update=update, sample_posterior=sample_posterior)
+
+
+SamplingRegressor = namedtuple('SamplingRegressor', ('update', 'sample_posterior'))
+
+
+@symbolic_stateless
+def compute_p_wa(w, x, y, alpha):
+    w_0 = tt.set_subtensor(w[alpha], 0)  # (n_dim_in, n_dim_out)
+    w_1 = tt.set_subtensor(w[alpha], 1)  # (n_dim_in, n_dim_out)
+    z_0 = tt.nnet.sigmoid(x.dot(w_0))  # (n_samples, n_dim_out)
+    z_1 = tt.nnet.sigmoid(x.dot(w_1))  # (n_samples, n_dim_out)
+    log_likelihood_ratio = tt.sum(tt.log(bernoulli(y, z_1))-tt.log(bernoulli(y, z_0)), axis = 0)  # (n_dim_out, )
+    p_wa = tt.nnet.sigmoid(log_likelihood_ratio)  # (n_dim_out, )
+    return p_wa
+
+
+def simple_herded_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = None):
+
+    w = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = 'int'), name = 'w')
+    phi = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = 'float'), name = 'phi')
+
+    rng = RandomStreams(seed)
+    alpha = theano.shared(np.array(0))
+
+    @symbolic_updater
+    def update(x, y):
+        p_wa = compute_p_wa(w, x, y, alpha)
+
+        # Now, the herding part... here're the 3 lines from the minipaper
+        phi_alpha = phi[alpha] + p_wa
+        w_sample = phi_alpha > 0.5
+        new_phi_alpha = phi_alpha - w_sample
+
+        new_phi = tt.set_subtensor(phi[alpha], new_phi_alpha)
+        w_new = tt.set_subtensor(w[alpha], w_sample)  # (n_dim_in, n_dim_out)
+
+        # showloc()
+        return [(w, w_new), (phi, new_phi), (alpha, (alpha+1) % n_dim_in)]
 
     @symbolic_stateless
     def sample_posterior(x):
@@ -80,7 +123,7 @@ class OldGibbsRegressor(object):
 
     @symbolic_updater
     def update(self, x, y):
-        p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)
+        p_wa = self.compute_p_wa(self._w, x, y, self._alpha)
         w_sample = self._rng.binomial(p=p_wa)  # (n_dim_out, )
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), (self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])]
