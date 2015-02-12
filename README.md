@@ -13,6 +13,7 @@ To sort out the mess into submesses, I've organized things into packages as foll
 **plotting** - Code related to plotting - this should be moved out to a separate repo once it's satisfactory and stable.
 
 Dependency:
+```
 misc --> plato --> utils --> general
-
   '--> plotting ---------------^
+```
