@@ -24,22 +24,20 @@ Arrow from A to B indicates "A imports from B, but B doesn't import from A"
 **Getting Started**
 To get started:
 
-# Open a terminal.
-# First, make sure you have virtualenv (run `virtualenv` to check).  If you do not, run 
-# sudo pip install virtualenv
-# Now, cd to whatever folder you store your projects in, and run the following commands in terminal
+1. Open a terminal.
+1. Make sure you have virtualenv (run `virtualenv` to check).  If you do not, run `sudo pip install virtualenv`
+1. Now, cd to whatever folder you store your projects in, and run the following commands in terminal:
 ```
 git clone https://github.com/petered/plato.git
 cd plato
 setup.sh
 ```
-You should be in the virtual env now.  To see if everything worked, try running the RBM demo: 
+You should now be in the virtual environment (there should be a little `(venv)` on the left side in the terminal).  To see if everything worked, try running the RBM demo: 
 ```
 python plato/tools/demo_restricted_boltzmann_machine.py 
 ```
-The next time you return to the project, you just need to do the following:
+You can at this point either use the project from within an IDE (like PyCharm), or keep running things from terminal.  If you run from terminal, the next time you return to the project, you just need to get into the virtual environment again.  You can do that by running:
 ```
 cd path/to/plato/project  # Which you obviously replace by your actual path to the project
 source venv/bin/activate  # This will get you inside the venv.
 ```
-And then you're inside the venv and ready to go.
