@@ -13,7 +13,11 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
     Plot a set of PredictionResults.  These can be obtained by running compare_predictors.
     See module test_compare_predictors for an example.
 
-    :param learning_curves: An OrderedDict<str: PredictionResult>
+    :param learning_curves: An OrderedDict<str: LearningCurveData>
+    :param xscale: {'linear', 'log', 'symlog', 'sqrt'}
+    :param yscale: {'linear', 'log', 'symlog', 'sqrt'}
+    :param hang: True for blocking plot.  False to keep executing.
+    :param title: Title of the plot
     :return:
     """
 

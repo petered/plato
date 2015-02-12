@@ -7,6 +7,7 @@ import theano
 import theano.tensor as ts
 __author__ = 'peter'
 
+raise NotImplementedError('Under Construction...')
 
 class VariationalAutoencoder(object):
 

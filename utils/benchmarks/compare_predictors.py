@@ -9,9 +9,18 @@ from utils.tools.progress_indicator import ProgressIndicator
 def compare_predictors(dataset, online_predictor_constructors = {}, offline_predictor_constuctors = {}, incremental_predictor_constructors = {},
         minibatch_size = 1, test_points = sqrtspace(0, 1, 10), evaluation_function = 'mse', report_test_scores = True):
     """
+    Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
+
     :param dataset: A DataSet object
-    :param online_predictor_constructors: A dict<str:function> where the functions construct IClassifier objects
-    :param minibatch_size: Size of the minibatches to use.  Can be:
+    :param online_predictor_constructors: A dict<str:function> of online predictors.  An online predictor is
+        sequentially fed minibatches of data and updates its parameters with each minibatch.
+    :param offline_predictor_constuctors: A dict<str:function> of offline predictors.  An offline predictor
+        trains just once on the full training data, and then makes a prediction on the test data.  Unlike
+        Online, Incremental predictors, an Offline predictor has no initial state, so it doesn't make sense
+        to ask it to predict before any training has been done.
+    :param incremental_predictor_constructors: A dict<str:function> of incremental predictors.  An incremental
+        predictor gets the whole dataset in each pass, and updates its parameters each time.
+    :param minibatch_size: Size of the minibatches to use for online predictors.  Can be:
         An int, in which case it represents the minibatch size for all classifiers.
         A dict<str: int>, in which case you can set the minibatch size per-classifier.
         In place of the int, you can put 'all' if you want to train on the whole dataset in each iteration.
@@ -22,7 +31,7 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
         The final test point determines the end of training.
     :param evaluation_function: Function used to evaluate output of predictors
     :param report_test_scores: Boolean indicating whether you'd like to report results online.
-    :return: An OrderedDict<PredictionResult>
+    :return: An OrderedDict<LearningCurveData>
     """
 
     assert not (online_predictor_constructors is None and offline_predictor_constuctors is None and incremental_predictor_constructors is None), \
@@ -86,14 +95,16 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
 
 def assess_offline_predictor(predictor, dataset, evaluation_function, report_test_scores=True):
     """
+    Train an offline predictor and return the LearningCurveData (which will not really be a curve,
+    but just a point representing the final score.
 
     :param predictor:  An IPredictor object
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
     :param report_test_scores: Print out the test scores as they're computed (T/F)
-    :return: A PredictionResult containing the score on the test set
+    :return: A  LearningCurveData containing the score on the test set
     """
-    record = PredictionResult()
+    record = LearningCurveData()
     predictor.train(dataset.training_set.input, dataset.training_set.target)
     training_cost = evaluate_predictor(predictor, test_set = dataset.training_set, evaluation_function=evaluation_function)
     test_cost = evaluate_predictor(predictor, test_set = dataset.test_set, evaluation_function=evaluation_function)
@@ -106,6 +117,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, report_tes
 
 def assess_online_predictor(predictor, dataset, evaluation_function, test_points, minibatch_size, report_test_scores=True):
     """
+    Train an online predictor and return the LearningCurveData.
 
     :param predictor:  An IPredictor object
     :param dataset: A DataSet object
@@ -113,10 +125,10 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
     :param test_points:
     :param minibatch_size:
     :param report_test_scores: Print out the test scores as they're computed (T/F)
-    :return: A PredictionResult containing the score on the test set
+    :return: A  LearningCurveData containing the score on the test set
     """
 
-    record = PredictionResult()
+    record = LearningCurveData()
 
     def report_test(current_sample_number):
         current_epoch = float(current_sample_number)/dataset.training_set.n_samples
@@ -144,6 +156,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
 
 def assess_incremental_predictor(predictor, dataset, evaluation_function, sampling_points, accumulation_function='mean', report_test_scores=True):
     """
+    Train an incremental predictor and return the LearningCurveData.
 
     :param predictor: An IPredictor object
     :param dataset: A DataSet object
@@ -151,11 +164,11 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
     :param sampling_points:
     :param accumulation_function:
     :param report_test_scores: Print out the test scores as they're computed (T/F)
-    :return: A PredictionResult containing the score on the test set
+    :return: A  LearningCurveData containing the score on the test set
     """
 
     assert sampling_points.dtype == 'int' and np.all(sampling_points[:-1] <= sampling_points[1:])
-    record = PredictionResult()
+    record = LearningCurveData()
     accumulators = {
         'mean': lambda: RunningAverage(),
         'latest': lambda: lambda x: x
@@ -180,8 +193,12 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
     return record
 
 
-class PredictionResult(object):
-
+class LearningCurveData(object):
+    """
+    A container for the learning curves resulting from running a predictor
+    on a dataset.  Use this object to incrementally write results, and then
+    retrieve them as a whole.
+    """
     def __init__(self):
         self._times = []
         self._scores = None

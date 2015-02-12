@@ -16,9 +16,12 @@ class MultiLayerPerceptron(IParameterized):
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_init_mag = 0.1, rng = None):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
-        :param hidden_types: A string or list of strings indicating the type of each hidden layer.
-        :param output_type: A string indicating the type of the output layer
-        :return:
+        :param input_size: An integer indicating the size of the input layer
+        :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
+            {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
+        :param output_activation: A string (see above) identifying the activation function for the output layer
+        :param w_init_mag: Standard-Deviation of the gaussian-distributed initial weights
+        :param rng: The Random number generator to use for initial weight values.
         """
         if rng is None:
             rng = np.random.RandomState()
@@ -42,14 +45,23 @@ class MultiLayerPerceptron(IParameterized):
 
 @symbolic_stateless
 class Layer(object):
+    """
+    An element that applies a nonlinearity to its inputs.  If multiple vectors
+    of input feed into a layer, they are summed before the nonlinearity.
+    """
 
     def __init__(self, activation_fcn):
+        """
+        :param activation_fcn: A string identifying the type of activation function.
+            {'sig', 'lin', 'tanh', 'rect-lin', 'softmax'}
+        """
         if isinstance(activation_fcn, str):
             activation_fcn = {
                 'sig': tt.nnet.sigmoid,
                 'lin': lambda x: x,
                 'tanh': tt.tanh,
                 'rect-lin': lambda x: tt.maximum(0, x),
+                'softmax': lambda x: tt.nnet.softmax(x)
             }[activation_fcn]
         self._activation_fcn = activation_fcn
 
@@ -61,12 +73,21 @@ class Layer(object):
 
 @symbolic_stateless
 class StochasticLayer(IParameterized, IFreeEnergy):
+    """
+    A stochastic layer, which can also be called without the stochastic component
+    (see smooth method).  These are building blocks in RBMs.
+    """
 
-    def __init__(self, activation_type, rng = None, shape = None):
-
+    def __init__(self, activation_fcn, rng = None, shape = None):
+        """
+        :param activation_fcn: A string identifying the type of activation function.
+            {'bernoulli', 'gaussian', 'adaptive_gaussian', 'rect-lin'}
+        :param rng: Numpy random number generator for the stochastic component
+        :param shape: Optionally, reshape the output to this shape.
+        """
         rng = RandomStreams(rng.randint(1e9) if rng is not None else None)
         self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._params = \
-            self._stochastic_layer_name_to_functions(activation_type, rng)
+            self._stochastic_layer_name_to_functions(activation_fcn, rng)
         self._shape = shape
 
     def __call__(self, *input_currents):
@@ -122,6 +143,9 @@ class StochasticLayer(IParameterized, IFreeEnergy):
 
 @symbolic_stateless
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
+    """
+    An element which multiplies the input by some weight matrix w and adds a bias.
+    """
 
     def __init__(self, w, b = None, b_rev = None):
         if isinstance(w, np.ndarray):  # Initialize from array

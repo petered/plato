@@ -6,7 +6,7 @@ from utils.datasets.synthetic_logistic import get_logistic_regression_data
 from utils.predictors.i_predictor import IPredictor
 from utils.predictors.mock_predictor import MockPredictor
 from utils.tools.mymath import sigm
-from utils.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
+from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
 
 __author__ = 'peter'
 

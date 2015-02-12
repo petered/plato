@@ -1,7 +1,7 @@
 from plato.tools.old_sampling import simple_binary_gibbs_regressor, simple_herded_binary_gibbs_regressor, \
     OldGibbsRegressor
 from utils.datasets.synthetic_logistic import get_logistic_regression_data
-from utils.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
+from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
 
 __author__ = 'peter'
 import numpy as np

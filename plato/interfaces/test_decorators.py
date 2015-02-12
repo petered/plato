@@ -109,7 +109,10 @@ def test_function_format_checking():
 
     @symbolic_standard
     def bad_format_thing(a, b):
-        # This function has the standard decorator, but failes to return values in the standard format of (outputs, updates)
+        """
+        This function has the standard decorator, but fails to return values in the
+        standard format of (outputs, updates)
+        """
         return a+b
 
     with pytest.raises(SymbolicFormatError):
@@ -186,7 +189,7 @@ def test_dual_decoration():
     assert recon == 37
 
 
-def test_view_internals():
+def test_omniscence():
     """
     This test demonstrates a useful bit of evil that we've added to the
     framework.  It violates the basic idea of encapsulation, but is useful
@@ -214,7 +217,7 @@ def test_view_internals():
 
 
 if __name__ == '__main__':
-    test_view_internals()
+    test_omniscence()
     test_stateless_decorators()
     test_standard_decorators()
     test_pure_updater()
