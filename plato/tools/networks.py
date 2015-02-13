@@ -1,3 +1,4 @@
+from collections import namedtuple
 from plato.interfaces.decorators import symbolic_standard, symbolic_stateless, find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt
@@ -141,6 +142,9 @@ class StochasticLayer(IParameterized, IFreeEnergy):
         return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, params
 
 
+BridgeParams = namedtuple('BridgeParams', ['w', 'b', 'b_rev'])
+
+
 @symbolic_stateless
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
     """
@@ -172,6 +176,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     @property
     def parameters(self):
+        # return BridgeParams(w=self._w_param, b = self._b, b_rev = self._b_rev)
         return [self._w_param, self._b, self._b_rev]
 
     def reverse(self, y):

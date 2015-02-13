@@ -30,17 +30,22 @@ def demo_rbm():
         )
 
     train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile()
-    sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
+    # sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
 
-    stream = LiveStream(lambda: {
-        'visible': visible.reshape(-1, 28, 28),
-        'hidden': hidden.reshape(-1, 25, 20),
-        'w': rbm.vars['bridge']._w.get_value().T[:25].reshape(-1, 28, 28),
-        'b_rev': rbm.vars['bridge']._b_rev.get_value().reshape(28, 28),
-        'b': rbm.vars['bridge']._b.get_value().reshape(25, 20)
-        }, update_every=10)
+    def debug_variable_setter():
+        locvars = train_function.symbolic.locals()
+        return {
+            'hidden': locvars['hidden_layer'].reshape(-1, 25, 20),
+            'visible': locvars['hidden_layer'].smooth(locvars['bridge'](locvars['sleep_hidden'])).reshape(-1, 28, 28),
+            'w': locvars['bridge'].parameters[0],
+            'b': locvars['bridge'].parameters[1],
+            'b_rev': locvars['bridge'].parameters[2],
+            }
+    train_function.set_debug_variables(debug_variable_setter)
+
+    stream = LiveStream(train_function.get_debug_values, update_every=10)
     for _, visible_data, _ in dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = 10, single_channel = True):
-        visible, hidden = sampling_function()
+        # visible, hidden = sampling_function()
         train_function(visible_data)
         stream.update()
 

@@ -200,6 +200,23 @@ def test_omniscence():
     the "locals" property.
     """
 
+    # Way 1: ees nice ja?
+    # t = time.time()
+    #
+    # @symbolic_stateless
+    # def average(a, b):
+    #     sum_a_b = a+b
+    #     return sum_a_b/2.
+    #
+    # average_fcn = average.compile(mode = 'omniscent')
+    #
+    # mean = average_fcn(3, 6)
+    # assert mean == 4.5
+    # assert average_fcn.locals()['sum_a_b'] == 9
+    #
+    # print time.time() - t
+
+    # Way 2
     t = time.time()
 
     @symbolic_stateless
@@ -207,21 +224,39 @@ def test_omniscence():
         sum_a_b = a+b
         return sum_a_b/2.
 
-    average_fcn = average.compile(mode = 'omniscent')
+    @symbolic_stateless
+    def Averager(object):
 
-    mean = average_fcn(3, 6)
-    assert mean == 4.5
-    assert average_fcn.locals['sum_a_b'] == 9
+        def __call__(self, a, b):
+            sum_a_b = a+b
+            return sum_a_b/2.
 
-    print time.time() - t
+    class TwoNumberOperator(object):
 
+        @symbolic_stateless
+        def average(self, a, b):
+            sum_a_b = a+b
+            return sum_a_b/2.
+
+    for op in [average, Averager(), TwoNumberOperator.average]:
+
+        average_fcn = op.compile(mode = 'omniscent')
+        average_fcn.set_debug_variables('locals')
+
+        mean = average_fcn(3, 6)
+        assert mean == 4.5
+        assert average_fcn.get_debug_values()['sum_a_b'] == 9
+
+        print time.time() - t
+
+        pass
 
 if __name__ == '__main__':
     test_omniscence()
-    test_stateless_decorators()
-    test_standard_decorators()
-    test_pure_updater()
-    test_function_format_checking()
-    test_callable_format_checking()
-    test_inhereting_from_decorated()
-    test_dual_decoration()
+    # test_stateless_decorators()
+    # test_standard_decorators()
+    # test_pure_updater()
+    # test_function_format_checking()
+    # test_callable_format_checking()
+    # test_inhereting_from_decorated()
+    # test_dual_decoration()

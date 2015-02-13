@@ -67,6 +67,13 @@ class ISymbolicFunction(object):
         Returns the original decorated function/method/class
         """
 
+    @abstractmethod
+    def locals(self):
+        """
+        Return a dictionary of variables INSIDE the symbolic funciton, at the time the return statement
+        is executed.  This can be useful for debugging.
+        """
+
 
 class BaseSymbolicFunction(ISymbolicFunction):
 
@@ -119,10 +126,16 @@ class BaseSymbolicFunction(ISymbolicFunction):
             # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
             def tracer(frame, event, arg):
                 if event == 'return':
-                    self._locals = frame.f_locals.copy()
+                    # self._locals = frame.f_locals.copy()
+                    #if 'self' in frame.f_locals and isinstance(frame.f_locals['self'], BaseSymbolicFunction):
+
+                    local_vars = frame.f_locals.copy()
+                    print 'Saving locals from function %s, frame %s, arg %s: %s' % (self._fcn, frame, arg, local_vars.keys())
+                    self._locals = local_vars
 
             sys.setprofile(tracer)
             try:
+                # print self._fcn
                 return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
             finally:
                 sys.setprofile(None)
@@ -130,8 +143,9 @@ class BaseSymbolicFunction(ISymbolicFunction):
             return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
         return return_val
 
-    @property
     def locals(self):
+        if self._locals is None:
+            raise Exception('Locals not yet defined!  Has the function been called yet?')
         return self._locals
 
     @abstractmethod
@@ -141,6 +155,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
     @abstractproperty
     def original(self):
         return self._fcn
+
 
 class SymbolicStatelessFunction(BaseSymbolicFunction):
     """
@@ -397,9 +412,9 @@ class AutoCompilingFunction(object):
             'banned until someone can provide a good reason for allowing it.'
         assert self._compiled_fcn is None, 'You can only set debug variables before the first call to this function.'
         if callback == 'locals':
-            callback = lambda: self._fcn.locals
+            callback = self._fcn.locals
         elif callback == 'locals+class':
-            callback = lambda: dict(self._fcn.locals.items() + [('self.'+k, v) for k, v in self._fcn.locals['self'].__dict__.iteritems()])
+            callback = lambda: dict(self._fcn.locals().items() + [('self.'+k, v) for k, v in self._fcn.locals()['self'].__dict__.iteritems()])
         else:
             assert inspect.isfunction(callback)
 
@@ -425,6 +440,7 @@ class AutoCompilingFunction(object):
     def symbolic(self):
         """ Return the symbolic function """
         return self._fcn
+
 
 def _is_symbol_or_value(var):
     return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
