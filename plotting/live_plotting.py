@@ -1,7 +1,7 @@
 from collections import namedtuple
 from abc import abstractmethod
 from general.nested_structures import flatten_struct
-from plotting.data_conversion import vector_length_to_tile_dims
+from plotting.easy_plotting import plot_data_dict
 import plotting.matplotlib_backend as eplt
 
 
@@ -21,21 +21,24 @@ class BaseStream(object):
         if self._counter % self._update_every != 0:
             return
 
-        data_dict = self._get_data_structure()
+        name_data_pairs = self._get_data_structure()
 
         if self._plots is None:
-            fig = eplt.figure()
+
             # fig.set_size_inches(10, 8, forward = True)
             # self._plots = {k: eplt.get_plot_from_data(v) for k, v in flat_struct}
-            self._plots = self._get_plots_from_first_data(data_dict)
-            n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
-            for i, (k, v) in enumerate(data_dict.iteritems()):
-                eplt.subplot(n_rows, n_cols, i+1)
-                self._plots[k].update(v)
-                eplt.title(k, fontdict = {'fontsize': 8})
-            eplt.show()
+            self._plots = self._get_plots_from_first_data(name_data_pairs)
+
+            plot_data_dict(name_data_pairs, plots = self._plots)
+            # eplt.figure()
+            # n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
+            # for i, (k, v) in enumerate(data_dict.iteritems()):
+            #     eplt.subplot(n_rows, n_cols, i+1)
+            #     self._plots[k].update(v)
+            #     eplt.title(k, fontdict = {'fontsize': 8})
+            # eplt.show()
         else:
-            for k, v in data_dict.iteritems():
+            for k, v in name_data_pairs:
                 self._plots[k].update(v)
         eplt.draw()
 
@@ -70,7 +73,7 @@ class LiveStream(BaseStream):
         return flat_struct
 
     def _get_plots_from_first_data(self, first_data):
-        return {k: eplt.get_plot_from_data(v) for k, v in first_data}
+        return {k: eplt.get_plot_from_data(v, mode = 'live') for k, v in first_data}
 
 
 LivePlot = namedtuple('PlotBuilder', ['plot', 'cb'])
@@ -94,10 +97,11 @@ class LiveCanal(BaseStream):
         BaseStream.__init__(self, **kwargs)
 
     def _get_data_structure(self):
-        return {k: cb() for k, cb in self._callbacks.iteritems()}
+        return [(k, cb()) for k, cb in self._callbacks.iteritems()]
 
     def _get_plots_from_first_data(self, first_data):
-        return {k: self._plot_builders.plot if isinstance(pb, LivePlot) else eplt.get_plot_from_data(first_data[k]) for k, pb in self._live_plots.iteritems()}
+        first_data = dict(first_data)
+        return {k: pb.plot if isinstance(pb, LivePlot) else eplt.get_plot_from_data(first_data[k]) for k, pb in self._live_plots.iteritems()}
 
 #
 #

@@ -61,6 +61,12 @@ class ISymbolicFunction(object):
         Call the function as it was defined, but do input/output type checking to confirm that it was implemented correctly
         """
 
+    @abstractproperty
+    def original(self):
+        """
+        Returns the original decorated function/method/class
+        """
+
 
 class BaseSymbolicFunction(ISymbolicFunction):
 
@@ -132,6 +138,9 @@ class BaseSymbolicFunction(ISymbolicFunction):
     def __call__(self, *args, **kwargs):
         raise NotImplementedError()
 
+    @abstractproperty
+    def original(self):
+        return self._fcn
 
 class SymbolicStatelessFunction(BaseSymbolicFunction):
     """
@@ -255,6 +264,8 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
 
         def __init__(self, *args, **kwargs):
             callable_class.__init__(self, *args, **kwargs)
+
+        original = callable_class
 
     return CallableSymbolicFunction
 

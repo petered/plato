@@ -1,4 +1,4 @@
-from plato.tools.restricted_boltzmann_machine import simple_rbm
+from plato.tools.rbm import simple_rbm
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent
 from plotting.live_plotting import LiveStream
