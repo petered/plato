@@ -15,9 +15,6 @@ def demo_rbm():
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
 
     As learning progresses, we should see that the samples from the markov chain look increasingly like the data.
-
-    TODO: Nicer way to access parameters.  Possibly just visualize persistent training chain instead of independent free
-    sampling chain.
     """
     minibatch_size = 9
 
@@ -31,8 +28,6 @@ def demo_rbm():
 
     train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile()
     sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
-
-    pass
 
     def debug_variable_setter():
         lv = train_function.symbolic.locals()

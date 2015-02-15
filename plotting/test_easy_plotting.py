@@ -1,6 +1,6 @@
 import numpy as np
 from plotting.easy_plotting import easy_plot
-
+from matplotlib import pyplot as plt
 __author__ = 'peter'
 
 
@@ -23,6 +23,7 @@ def test_easy_plot():
         text = 'adsagfdsf',
         number = 5
         )
+    plt.ion()
     easy_plot(thing)
 
 

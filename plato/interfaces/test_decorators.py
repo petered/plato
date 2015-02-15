@@ -211,26 +211,7 @@ def test_omniscence():
     the "locals" property.
     """
 
-    # Way 1: ees nice ja?
-    # t = time.time()
-    #
-    # @symbolic_stateless
-    # def average(a, b):
-    #     sum_a_b = a+b
-    #     return sum_a_b/2.
-    #
-    # average_fcn = average.compile(mode = 'omniscent')
-    #
-    # mean = average_fcn(3, 6)
-    # assert mean == 4.5
-    # assert average_fcn.locals()['sum_a_b'] == 9
-    #
-    # print time.time() - t
-
     # Way 2
-    t = time.time()
-
-
     @symbolic_stateless
     def average(a, b):
         sum_a_b = a+b
@@ -266,40 +247,6 @@ def test_omniscence():
         mean = average_fcn(3, 6)
         assert mean == (4.5 if i<3 else [4.5])
         assert average_fcn.get_debug_values()['sum_a_b'] == 9
-
-    print time.time() - t
-
-
-
-
-
-
-
-    # def get_locals():
-    #     return loc_vars[0]
-    #
-    #
-    #
-    # sys.setprofile(tracer)
-    # out = _module_level_fcn()
-    # sys.setprofile(None)
-    # assert out == 7
-    # assert get_locals() == {'a': 3}
-    #
-    # fcn = _get_nested_fcn()
-    # sys.setprofile(tracer)
-    # out = fcn()
-    # sys.setprofile(None)
-    # assert out == 9
-    # assert get_locals() == {'b': 4}
-    #
-    # fcn = _get_nested_nested_fcn()()
-    # sys.setprofile(tracer)
-    # out = fcn()
-    # sys.setprofile(None)
-    # assert out == 5+6+7
-    # assert get_locals() == {'c': 5, 'd': 6}
-
 
 
 if __name__ == '__main__':

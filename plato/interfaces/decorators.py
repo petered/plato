@@ -1,6 +1,4 @@
-from collections import namedtuple
 import inspect
-import sys
 from abc import abstractproperty, abstractmethod
 from general.local_capture import execute_and_capture_locals
 from theano.compile.sharedvalue import SharedVariable
@@ -177,36 +175,15 @@ class BaseSymbolicFunction(ISymbolicFunction):
 
     def _call_fcn(self, *args, **kwargs):
 
-        # fcn = self._fcn if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
         if ENABLE_OMNISCENCE:
             # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
             # inherently evil, but useful for debugging purposes.  Use the trick from
             # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
-            # def tracer(frame, event, arg):
-            #     # print event
-            #     if event == 'return':
-            #         # Note - this is called for every return of every function called within.  The only
-            #         # reason it's ok is that the final return is always that of the decorated function.
-            #         # Still, we're often doing thousands of unnecessary copies.
-            #         local_vars = frame.f_locals.copy()
-            #         # if 'wake_hidden' in local_vars:
-            #             # print 'AAAAAAAA'
-            #         # print local_vars.keys()
-            #         self._locals = local_vars
-            #
-            # sys.setprofile(tracer)
-            # try:
-            #     return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
-            # finally:
-            #     # pass
-            #     sys.setprofile(None)
             if self._instance is None:
                 return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
             else:
                 return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
-            # print sys.getprofile()
             assert self._locals is not None
-            # execute_and_capture_locals(fcn, *args, **kwargs)
         else:
             return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
         return return_val
@@ -221,12 +198,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
         else:
             raise Exception('Unexpected type: %s' % (self._type))
 
-        return LocalContainer(local_vars)
-        # else:
-        #     if self._locals is None:
-        #         raise Exception('Locals not yet defined!  Has the function been called yet?')
-        #     local_vars = self._locals
-        # return local_vars
+        return LocalsContainer(local_vars)
 
     @abstractmethod
     def __call__(self, *args, **kwargs):
@@ -240,12 +212,30 @@ class BaseSymbolicFunction(ISymbolicFunction):
         return self._type
 
 
-class LocalContainer(object):
+class LocalsContainer(object):
+    """
+    Just a dict that you can also reference by field.
+    """
 
     def __init__(self, local_vars):
         for k, v in local_vars.iteritems():
             setattr(self, k, v)
+        self._local_vars = local_vars
 
+    def items(self):
+        return self._local_vars.items()
+
+    def iteritems(self):
+        return self._local_vars.iteritems()
+
+    def keys(self):
+        return self._local_vars.keys()
+
+    def values(self):
+        return self._local_vars.values()
+
+    def __getitem__(self, item):
+        return self._local_vars[item]
 
 
 class SymbolicStatelessFunction(BaseSymbolicFunction):
@@ -454,9 +444,6 @@ class AutoCompilingFunction(object):
                 assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
                     'It returned %s' % (filtered_debug_variables, )
                 debug_variables = filtered_debug_variables
-
-                # assert isinstance(debug_variables, dict) and all(isinstance(v, Variable) for v in debug_variables.values()), \
-                #     "debug_variable_getter should return a dict<str: Variable>.  It returned %s instead." % (debug_variables, )
                 self._debug_variable_keys = debug_variables.keys()
                 outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)

@@ -25,10 +25,7 @@ class BaseStream(object):
 
         if self._plots is None:
 
-            # fig.set_size_inches(10, 8, forward = True)
-            # self._plots = {k: eplt.get_plot_from_data(v) for k, v in flat_struct}
             self._plots = self._get_plots_from_first_data(name_data_pairs)
-
             plot_data_dict(name_data_pairs, plots = self._plots)
             # eplt.figure()
             # n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
@@ -101,74 +98,4 @@ class LiveCanal(BaseStream):
 
     def _get_plots_from_first_data(self, first_data):
         first_data = dict(first_data)
-        return {k: pb.plot if isinstance(pb, LivePlot) else eplt.get_plot_from_data(first_data[k]) for k, pb in self._live_plots.iteritems()}
-
-#
-#
-#
-#
-#
-# class LiveStream(object):
-#
-#     def __init__(self, callback, update_every = 1):
-#         self._callback = callback
-#         self._plots = None
-#         eplt.ion()  # Bad?
-#         self._counter = -1
-#         self._update_every = update_every
-#
-#     def update(self):
-#         self._counter += 1
-#         if self._counter % self._update_every != 0:
-#             return
-#         struct = self._callback()
-#
-#         flat_struct = flatten_struct(struct)  # list<*tuple<str, data>>
-#         if self._plots is None:
-#             eplt.figure()
-#             self._plots = {k: eplt.get_plot_from_data(v) for k, v in flat_struct}
-#             n_rows, n_cols = vector_length_to_tile_dims(len(flat_struct))
-#             for i, (k, v) in enumerate(flat_struct):
-#                 eplt.subplot(n_rows, n_cols, i+1)
-#                 self._plots[k].update(v)
-#                 eplt.title(k, fontdict = {'fontsize': 8})
-#             eplt.show()
-#         else:
-#             for k, v in flat_struct:
-#                 self._plots[k].update(v)
-#         eplt.draw()
-#
-#
-#
-#
-# class LiveKnownStream(object):
-#
-#     def __init__(self, plot_builders, update_every = 1):
-#         self._plot_builders = plot_builders
-#         self._plots = None
-#         eplt.ion()  # Bad?
-#         self._counter = -1
-#         self._update_every = update_every
-#
-#     def update(self):
-#
-#         self._counter += 1
-#         if self._counter % self._update_every != 0:
-#             return
-#
-#         data = {k: pb.cb() for k, pb in self._plot_builders}
-#
-#         # Copy paste copy paste
-#         if self._plots is None:
-#             eplt.figure()
-#             self._plots = {k: self._plot_builders.plot if isinstance(pb, LivePlot) else eplt.get_plot_from_data(data[k]) for k, pb in self._plot_builders}
-#             n_rows, n_cols = vector_length_to_tile_dims(len(self._plots))
-#             for i, k in enumerate(data):
-#                 eplt.subplot(n_rows, n_cols, i+1)
-#                 self._plots[k].update(data[k])
-#                 eplt.title(k, fontdict = {'fontsize': 8})
-#             eplt.show()
-#         else:
-#             for k, v in data:
-#                 self._plots[k].update(v)
-#         eplt.draw()
+        return {k: pb.plot if isinstance(pb, LivePlot) else eplt.get_plot_from_data(first_data[k], mode = 'live') for k, pb in self._live_plots.iteritems()}

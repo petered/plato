@@ -48,14 +48,16 @@ def demo_binary_regression():
         if isinstance(predictor, SamplingPredictor):
             # variable_getter = lambda: predictor.train_function.locals
             predictor.train_function.set_debug_variables('locals+class')
-            plotter = LiveCanal({
-                'alpha': lambda: predictor.train_function.get_debug_values()['self._alpha'],
-                'w': lambda: predictor.train_function.get_debug_values()['self._w'],
-                'p_wa': lambda: predictor.train_function.get_debug_values()['p_wa'].squeeze(),
-                'y': lambda: predictor.train_function.get_debug_values()['y'],
-                'phi': lambda: predictor.train_function.get_debug_values()['self._phi'].squeeze(),
-                })
-            predictor.train_function.add_callback(plotter.update)
+
+            def get_plotting_vals():
+                lv = predictor.train_function.get_debug_values()
+                return {
+                    'alpha': lv['self._alpha'],
+                    'w': lv['self._w'],
+                    'p_wa': lv['p_wa'].squeeze(),
+                    'y': lv['y'],
+                    }
+            predictor.train_function.add_callback(get_plotting_vals)
 
     records = compare_predictors(
         dataset = dataset,
@@ -69,29 +71,28 @@ def demo_binary_regression():
                 sample_y = sample_y,
                 n_alpha = 1,
                 seed = None,
-                alpha_update_policy = 'random',
                 ), mode = 'tr'),
-            # 'batch-gibbs': lambda: SamplingPredictor(GibbsRegressor(
-            #     n_dim_in=x_tr.shape[1],
-            #     n_dim_out=y_tr.shape[1],
-            #     sample_y = sample_y,
-            #     n_alpha = 'all',
-            #     seed = None,
-            #     ), mode = 'tr'),
-            # 'herded-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
-            #     n_dim_in=x_tr.shape[1],
-            #     n_dim_out=y_tr.shape[1],
-            #     sample_y = sample_y,
-            #     n_alpha = 1,
-            #     seed = None,
-            #     ), mode = 'tr'),
-            # 'herded-batch-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
-            #     n_dim_in=x_tr.shape[1],
-            #     n_dim_out=y_tr.shape[1],
-            #     sample_y = sample_y,
-            #     n_alpha = 'all',
-            #     seed = None,
-            #     ), mode = 'tr'),
+            'batch-gibbs': lambda: SamplingPredictor(GibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 'all',
+                seed = None,
+                ), mode = 'tr'),
+            'herded-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 1,
+                seed = None,
+                ), mode = 'tr'),
+            'herded-batch-gibbs': lambda: SamplingPredictor(HerdedGibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 'all',
+                seed = None,
+                ), mode = 'tr'),
             },
         test_points = np.arange(n_steps).astype('float'),
         evaluation_function = 'mse',
@@ -109,7 +110,5 @@ if __name__ == '__main__':
 
     if demo == 'compare':
         demo_binary_regression()
-    elif demo == 'inspect':
-        demo_inspect_gibbs()
     else:
         raise Exception()

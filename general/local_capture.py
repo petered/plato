@@ -2,22 +2,22 @@ import sys
 
 
 def execute_and_capture_locals(fcn, *args, **kwargs):
-
+    """
+    Execute the function with the provided arguments, and return both the output and
+    the LOCAL VARIABLES of the function.  This is crazy.  It actually looks inside the
+    function at the time that return is called and grabs all the local variables.
+    """
     _locs = [None]
 
     def tracer(frame, event, arg):
-        # print event
         if event == 'return':
             # Note - this is called for every return of every function called within.  The only
             # reason it's ok is that the final return is always that of the decorated function.
             # Still, we're often doing thousands of unnecessary copies.
             local_variables = frame.f_locals.copy()
-            # if 'wake_hidden' in local_vars:
-                # print 'AAAAAAAA'
-            # print local_vars.keys()
             _locs[0] = local_variables
 
-    with CaptureInnards(tracer):
+    with _CaptureInnards(tracer):
         out = fcn(*args, **kwargs)
 
     local_vars, = _locs
@@ -27,13 +27,10 @@ def execute_and_capture_locals(fcn, *args, **kwargs):
     return out, local_vars
 
 
-# class capture_locals(fcn):
-
-
-
-class CaptureInnards(object):
+class _CaptureInnards(object):
     """
-    So.
+    Implementation detail that you shouldn't need to look at.  It's job in life is to make the local things work
+    when execute_and_capture_locals is called from within another execute_and_capture_locals.
     """
     _profiler_stack = []
 
@@ -41,12 +38,10 @@ class CaptureInnards(object):
         self._profile_fcn = profile_fcn
 
     def __enter__(self):
-        CaptureInnards._profiler_stack.append(self._profile_fcn)
+        _CaptureInnards._profiler_stack.append(self._profile_fcn)
         sys.setprofile(self._profile_fcn)
-        # print 'Depth: %s' % len(CaptureInnards._profiler_stack)
 
     def __exit__(self, _, _1, _2):
-        CaptureInnards._profiler_stack.pop()
-        new_profiler = None if len(CaptureInnards._profiler_stack)==0 else CaptureInnards._profiler_stack[-1]
-        # print 'Depth: %s' % len(CaptureInnards._profiler_stack)
+        _CaptureInnards._profiler_stack.pop()
+        new_profiler = None if len(_CaptureInnards._profiler_stack)==0 else _CaptureInnards._profiler_stack[-1]
         sys.setprofile(new_profiler)
