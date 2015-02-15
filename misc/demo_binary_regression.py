@@ -37,7 +37,7 @@ def demo_binary_regression():
     n_test = 100
     noise_factor = 0.0
     sample_y = False
-    plot = True
+    plot = False
 
     x_tr, y_tr, x_ts, y_ts, w_true = get_logistic_regression_data(n_dims = n_dims,
         n_training=n_training, n_test=n_test, noise_factor = noise_factor)
@@ -57,7 +57,9 @@ def demo_binary_regression():
                     'p_wa': lv['p_wa'].squeeze(),
                     'y': lv['y'],
                     }
-            predictor.train_function.add_callback(get_plotting_vals)
+            plotter = LiveStream(get_plotting_vals)
+
+            predictor.train_function.add_callback(plotter.update)
 
     records = compare_predictors(
         dataset = dataset,
@@ -65,12 +67,21 @@ def demo_binary_regression():
             'Optimal': lambda: MockPredictor(lambda x: sigm(x.dot(w_true))),
             },
         incremental_predictor_constructors = {
-            'gibbs-single': lambda: SamplingPredictor(GibbsRegressor(
+            'gibbs-single-rand': lambda: SamplingPredictor(GibbsRegressor(
                 n_dim_in=x_tr.shape[1],
                 n_dim_out=y_tr.shape[1],
                 sample_y = sample_y,
                 n_alpha = 1,
                 seed = None,
+                alpha_update_policy = 'random'
+                ), mode = 'tr'),
+            'gibbs-single-seq': lambda: SamplingPredictor(GibbsRegressor(
+                n_dim_in=x_tr.shape[1],
+                n_dim_out=y_tr.shape[1],
+                sample_y = sample_y,
+                n_alpha = 1,
+                seed = None,
+                alpha_update_policy = 'sequential'
                 ), mode = 'tr'),
             'batch-gibbs': lambda: SamplingPredictor(GibbsRegressor(
                 n_dim_in=x_tr.shape[1],

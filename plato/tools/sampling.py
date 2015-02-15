@@ -26,8 +26,8 @@ class GibbsRegressor(object):
     def _get_alpha_update(self):
         new_alpha = (self._alpha+self._n_alpha) % self._w.shape[0] \
             if self._alpha_update_policy == 'sequential' else \
-            self._rng.choice(a=self._w.shape[0], size = (self._n_alpha, ), replace = False)
-        return (self._alpha, new_alpha)
+            self._rng.choice(a=self._w.shape[0], size = (self._n_alpha, ), replace = False).reshape([-1])  # Reshape is for some reason necessary when n_alpha=1
+        return self._alpha, new_alpha
 
     @staticmethod
     def compute_p_wa(w, x, y, alpha, possible_ws = np.array([0, 1])):

@@ -8,7 +8,6 @@ import numpy as np
 
 
 def test_correctness_of_weight_shortcut():
-
     # Make data with 10 samples, 20 input dims, 5 output dims
     n_samples = 10
     n_input_dims = 20

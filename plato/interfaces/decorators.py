@@ -96,8 +96,6 @@ class BaseSymbolicFunction(ISymbolicFunction):
         self._instance = instance
         self._locals = None
         self._dispatched_symbolic_methods = {}
-        # self._type = 'function' if inspect.isfunction(fcn)
-
         # Ok, there're basically 5 situations:
         # 1: This is an ordinary function
         #    inspect.isfunction: True
