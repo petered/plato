@@ -1,3 +1,4 @@
+import sys
 from abc import abstractmethod
 import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError
@@ -15,6 +16,10 @@ def test_stateless_decorators():
     def multiply_by_two(x):
         return x*2
 
+    f1 = multiply_by_two
+    assert f1.compile()(2) == 4
+    assert f1.symbolic_standard.compile()(2) == [4]
+
     # Case 2: Method
     class GenericClass(object):
 
@@ -24,6 +29,11 @@ def test_stateless_decorators():
         @symbolic_stateless
         def multiply_by_two(self, x):
             return x*self._factor
+
+    obj = GenericClass()
+    f2 = obj.multiply_by_two
+    assert f2.compile()(2) == 4
+    assert f2.symbolic_standard.compile()(2) == [4]
 
     # Case 3: Callable class
     @symbolic_stateless
@@ -35,18 +45,19 @@ def test_stateless_decorators():
         def __call__(self, x):
             return x*self._factor
 
-    f1 = multiply_by_two
-    assert f1.compile()(2) == 4
-    assert f1.symbolic_standard.compile()(2) == [4]
-
-    obj = GenericClass()
-    f2 = obj.multiply_by_two
-    assert f2.compile()(2) == 4
-    assert f2.symbolic_standard.compile()(2) == [4]
-
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
     assert f3.symbolic_standard.compile()(2) == [4]
+
+    # Check that the types were correctly determined (igore this
+    # if you're using this test as a tutorial - it's a detail)
+    assert f1.get_decorated_type() == 'function'
+    assert f1.symbolic_standard.get_decorated_type() == 'reformat'
+    assert f2.get_decorated_type() == 'method'
+    assert f2.symbolic_standard.get_decorated_type() == 'reformat'
+    assert f3.get_decorated_type() == 'callable_class'
+    assert f3.__call__.get_decorated_type() == 'method'
+    assert f3.symbolic_standard.get_decorated_type() == 'reformat'
 
 
 def test_standard_decorators():
@@ -219,13 +230,15 @@ def test_omniscence():
     # Way 2
     t = time.time()
 
+
     @symbolic_stateless
     def average(a, b):
         sum_a_b = a+b
         return sum_a_b/2.
 
+
     @symbolic_stateless
-    def Averager(object):
+    class Averager(object):
 
         def __call__(self, a, b):
             sum_a_b = a+b
@@ -238,25 +251,63 @@ def test_omniscence():
             sum_a_b = a+b
             return sum_a_b/2.
 
-    for op in [average, Averager(), TwoNumberOperator.average]:
+    for i, op in enumerate([
+            average,
+            Averager(),
+            TwoNumberOperator().average,
+            average.symbolic_standard,
+            Averager().symbolic_standard,
+            TwoNumberOperator().average.symbolic_standard
+            ]):
 
         average_fcn = op.compile(mode = 'omniscent')
         average_fcn.set_debug_variables('locals')
 
         mean = average_fcn(3, 6)
-        assert mean == 4.5
+        assert mean == (4.5 if i<3 else [4.5])
         assert average_fcn.get_debug_values()['sum_a_b'] == 9
 
-        print time.time() - t
+    print time.time() - t
 
-        pass
+
+
+
+
+
+
+    # def get_locals():
+    #     return loc_vars[0]
+    #
+    #
+    #
+    # sys.setprofile(tracer)
+    # out = _module_level_fcn()
+    # sys.setprofile(None)
+    # assert out == 7
+    # assert get_locals() == {'a': 3}
+    #
+    # fcn = _get_nested_fcn()
+    # sys.setprofile(tracer)
+    # out = fcn()
+    # sys.setprofile(None)
+    # assert out == 9
+    # assert get_locals() == {'b': 4}
+    #
+    # fcn = _get_nested_nested_fcn()()
+    # sys.setprofile(tracer)
+    # out = fcn()
+    # sys.setprofile(None)
+    # assert out == 5+6+7
+    # assert get_locals() == {'c': 5, 'd': 6}
+
+
 
 if __name__ == '__main__':
     test_omniscence()
-    # test_stateless_decorators()
-    # test_standard_decorators()
-    # test_pure_updater()
-    # test_function_format_checking()
-    # test_callable_format_checking()
-    # test_inhereting_from_decorated()
-    # test_dual_decoration()
+    test_stateless_decorators()
+    test_standard_decorators()
+    test_pure_updater()
+    test_function_format_checking()
+    test_callable_format_checking()
+    test_inhereting_from_decorated()
+    test_dual_decoration()

@@ -19,7 +19,7 @@ def demo_rbm():
     TODO: Nicer way to access parameters.  Possibly just visualize persistent training chain instead of independent free
     sampling chain.
     """
-    minibatch_size = 10
+    minibatch_size = 9
 
     dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1), ))
 
@@ -30,22 +30,24 @@ def demo_rbm():
         )
 
     train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile()
-    # sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
+    sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
+
+    pass
 
     def debug_variable_setter():
-        locvars = train_function.symbolic.locals()
+        lv = train_function.symbolic.locals()
         return {
-            'hidden': locvars['hidden_layer'].reshape(-1, 25, 20),
-            'visible': locvars['hidden_layer'].smooth(locvars['bridge'](locvars['sleep_hidden'])).reshape(-1, 28, 28),
-            'w': locvars['bridge'].parameters[0],
-            'b': locvars['bridge'].parameters[1],
-            'b_rev': locvars['bridge'].parameters[2],
+            'hidden-neg-chain': lv.sleep_hidden.reshape((-1, 25, 20)),
+            'visible-neg-chain': lv.hidden_layer.smooth(lv.bridge.reverse(lv.sleep_hidden)).reshape((-1, 28, 28)),
+            'w': lv.bridge.parameters[0].T[:25].reshape((-1, 28, 28)),
+            'b': lv.bridge.parameters[1].reshape((25, 20)),
+            'b_rev': lv.bridge.parameters[2].reshape((28, 28)),
             }
     train_function.set_debug_variables(debug_variable_setter)
 
-    stream = LiveStream(train_function.get_debug_values, update_every=10)
+    stream = LiveStream(lambda: dict(train_function.get_debug_values().items()+[('visible-sample', visible_samples.reshape((-1, 28, 28)))]), update_every=10)
     for _, visible_data, _ in dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = 10, single_channel = True):
-        # visible, hidden = sampling_function()
+        visible_samples, _ = sampling_function()
         train_function(visible_data)
         stream.update()
 

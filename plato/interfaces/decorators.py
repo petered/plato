@@ -1,6 +1,8 @@
+from collections import namedtuple
 import inspect
 import sys
 from abc import abstractproperty, abstractmethod
+from general.local_capture import execute_and_capture_locals
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as ts
@@ -77,10 +79,17 @@ class ISymbolicFunction(object):
 
 class BaseSymbolicFunction(ISymbolicFunction):
 
+    IS_DYNAMIC_CLASS = False
+
     def __new__(cls, *args, **kwargs):
 
         obj = object.__new__(cls)
-        BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
+
+        if issubclass(cls, BaseSymbolicFunction) and cls.IS_DYNAMIC_CLASS:
+            # We're dealing with a callable class.  Since the decorated class can have its own
+            # __init__ method, we need to sneakily call our own __init__ from here.
+
+            BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
         return obj
 
     def __init__(self, fcn, instance = None):
@@ -88,6 +97,46 @@ class BaseSymbolicFunction(ISymbolicFunction):
         self._fcn = fcn
         self._instance = instance
         self._locals = None
+        self._dispatched_symbolic_methods = {}
+        # self._type = 'function' if inspect.isfunction(fcn)
+
+        # Ok, there're basically 5 situations:
+        # 1: This is an ordinary function
+        #    inspect.isfunction: True
+        #    instance is None
+        # 2: This is a method before it has been bound to a class.
+        #    inspect.isfunction: True
+        #    instance is None
+        #    The result of this seems to be discarded.
+        # 3: This is a method
+        #    inspect.isfunction: True
+        #    instance is an object with class of the decorated method
+        # 4: This is the __call__ function, which is decorated when its parent
+        #    class is decorated.
+        # 5: This is a decorated class
+        #    inspect.isfunction: False
+        #    instance is None
+        #    IS_DYNAMIC_CLASS True
+        # 6: This is a modified-format call of one of the above.
+        #    inspect.isfunction: False
+        #    instance: None
+
+        # We need to distinguish between these situations, because locals need to be found
+        # differently in each case.
+
+        is_function = inspect.isfunction(fcn)
+        is_method = inspect.ismethod(fcn)
+        has_instance = instance is not None
+        is_callable_class = hasattr(fcn, 'IS_DYNAMIC_CLASS') and fcn.IS_DYNAMIC_CLASS
+
+        this_is_a = {
+            (True, False, False, False): 'function',
+            (False, True, False, False): 'reformat',
+            (False, False, False, True): 'callable_class',
+            (False, True, True, False): 'method',
+            (True, False, True, False): 'method'
+            }[is_function, is_method, has_instance, is_callable_class]
+        self._type = this_is_a
 
     def _assert_is_tensor(self, arg, name):
         if not isinstance(arg, Variable):
@@ -113,40 +162,71 @@ class BaseSymbolicFunction(ISymbolicFunction):
             self._assert_all_updates(updates)
 
     def __get__(self, instance, owner):
-        return self.__class__(self._fcn, instance=instance)
+
+        if self in self._dispatched_symbolic_methods:
+            # The caching is necessary for the .locals() method to work - we need to make
+            # sure we're returning the same object every time a method is requested.
+            dispatched_symbolic_method = self._dispatched_symbolic_methods[self]
+        else:
+            dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
+            self._dispatched_symbolic_methods[self] = dispatched_symbolic_method
+        return dispatched_symbolic_method
 
     def compile(self, **kwargs):
         return AutoCompilingFunction(self, **kwargs)
 
     def _call_fcn(self, *args, **kwargs):
 
+        # fcn = self._fcn if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
         if ENABLE_OMNISCENCE:
             # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
             # inherently evil, but useful for debugging purposes.  Use the trick from
             # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
-            def tracer(frame, event, arg):
-                if event == 'return':
-                    # self._locals = frame.f_locals.copy()
-                    #if 'self' in frame.f_locals and isinstance(frame.f_locals['self'], BaseSymbolicFunction):
-
-                    local_vars = frame.f_locals.copy()
-                    print 'Saving locals from function %s, frame %s, arg %s: %s' % (self._fcn, frame, arg, local_vars.keys())
-                    self._locals = local_vars
-
-            sys.setprofile(tracer)
-            try:
-                # print self._fcn
-                return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
-            finally:
-                sys.setprofile(None)
+            # def tracer(frame, event, arg):
+            #     # print event
+            #     if event == 'return':
+            #         # Note - this is called for every return of every function called within.  The only
+            #         # reason it's ok is that the final return is always that of the decorated function.
+            #         # Still, we're often doing thousands of unnecessary copies.
+            #         local_vars = frame.f_locals.copy()
+            #         # if 'wake_hidden' in local_vars:
+            #             # print 'AAAAAAAA'
+            #         # print local_vars.keys()
+            #         self._locals = local_vars
+            #
+            # sys.setprofile(tracer)
+            # try:
+            #     return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+            # finally:
+            #     # pass
+            #     sys.setprofile(None)
+            if self._instance is None:
+                return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
+            else:
+                return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
+            # print sys.getprofile()
+            assert self._locals is not None
+            # execute_and_capture_locals(fcn, *args, **kwargs)
         else:
-            return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+            return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
         return return_val
 
     def locals(self):
-        if self._locals is None:
-            raise Exception('Locals not yet defined!  Has the function been called yet?')
-        return self._locals
+        if self._type in ('function', 'method'):
+            local_vars = self._locals
+        elif self._type == 'callable_class':
+            local_vars = self.__call__._locals
+        elif self._type == 'reformat':
+            local_vars = self._fcn.__self__.locals()
+        else:
+            raise Exception('Unexpected type: %s' % (self._type))
+
+        return LocalContainer(local_vars)
+        # else:
+        #     if self._locals is None:
+        #         raise Exception('Locals not yet defined!  Has the function been called yet?')
+        #     local_vars = self._locals
+        # return local_vars
 
     @abstractmethod
     def __call__(self, *args, **kwargs):
@@ -155,6 +235,17 @@ class BaseSymbolicFunction(ISymbolicFunction):
     @abstractproperty
     def original(self):
         return self._fcn
+
+    def get_decorated_type(self):
+        return self._type
+
+
+class LocalContainer(object):
+
+    def __init__(self, local_vars):
+        for k, v in local_vars.iteritems():
+            setattr(self, k, v)
+
 
 
 class SymbolicStatelessFunction(BaseSymbolicFunction):
@@ -273,6 +364,8 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
         This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
         the callable class comply to the ISymbolicFunction interface.
         """
+
+        IS_DYNAMIC_CLASS = True
 
         # Also decorate the __call__ method, so that type checking is done.
         __call__ = symbolic_function_class(callable_class.__call__)
