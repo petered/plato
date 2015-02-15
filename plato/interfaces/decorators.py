@@ -1,6 +1,6 @@
 import inspect
-import sys
 from abc import abstractproperty, abstractmethod
+from general.local_capture import execute_and_capture_locals
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as ts
@@ -61,13 +61,33 @@ class ISymbolicFunction(object):
         Call the function as it was defined, but do input/output type checking to confirm that it was implemented correctly
         """
 
+    @abstractproperty
+    def original(self):
+        """
+        Returns the original decorated function/method/class
+        """
+
+    @abstractmethod
+    def locals(self):
+        """
+        Return a dictionary of variables INSIDE the symbolic funciton, at the time the return statement
+        is executed.  This can be useful for debugging.
+        """
+
 
 class BaseSymbolicFunction(ISymbolicFunction):
+
+    IS_DYNAMIC_CLASS = False
 
     def __new__(cls, *args, **kwargs):
 
         obj = object.__new__(cls)
-        BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
+
+        if issubclass(cls, BaseSymbolicFunction) and cls.IS_DYNAMIC_CLASS:
+            # We're dealing with a callable class.  Since the decorated class can have its own
+            # __init__ method, we need to sneakily call our own __init__ from here.
+
+            BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
         return obj
 
     def __init__(self, fcn, instance = None):
@@ -75,6 +95,46 @@ class BaseSymbolicFunction(ISymbolicFunction):
         self._fcn = fcn
         self._instance = instance
         self._locals = None
+        self._dispatched_symbolic_methods = {}
+        # self._type = 'function' if inspect.isfunction(fcn)
+
+        # Ok, there're basically 5 situations:
+        # 1: This is an ordinary function
+        #    inspect.isfunction: True
+        #    instance is None
+        # 2: This is a method before it has been bound to a class.
+        #    inspect.isfunction: True
+        #    instance is None
+        #    The result of this seems to be discarded.
+        # 3: This is a method
+        #    inspect.isfunction: True
+        #    instance is an object with class of the decorated method
+        # 4: This is the __call__ function, which is decorated when its parent
+        #    class is decorated.
+        # 5: This is a decorated class
+        #    inspect.isfunction: False
+        #    instance is None
+        #    IS_DYNAMIC_CLASS True
+        # 6: This is a modified-format call of one of the above.
+        #    inspect.isfunction: False
+        #    instance: None
+
+        # We need to distinguish between these situations, because locals need to be found
+        # differently in each case.
+
+        is_function = inspect.isfunction(fcn)
+        is_method = inspect.ismethod(fcn)
+        has_instance = instance is not None
+        is_callable_class = hasattr(fcn, 'IS_DYNAMIC_CLASS') and fcn.IS_DYNAMIC_CLASS
+
+        this_is_a = {
+            (True, False, False, False): 'function',
+            (False, True, False, False): 'reformat',
+            (False, False, False, True): 'callable_class',
+            (False, True, True, False): 'method',
+            (True, False, True, False): 'method'
+            }[is_function, is_method, has_instance, is_callable_class]
+        self._type = this_is_a
 
     def _assert_is_tensor(self, arg, name):
         if not isinstance(arg, Variable):
@@ -100,7 +160,15 @@ class BaseSymbolicFunction(ISymbolicFunction):
             self._assert_all_updates(updates)
 
     def __get__(self, instance, owner):
-        return self.__class__(self._fcn, instance=instance)
+
+        if self in self._dispatched_symbolic_methods:
+            # The caching is necessary for the .locals() method to work - we need to make
+            # sure we're returning the same object every time a method is requested.
+            dispatched_symbolic_method = self._dispatched_symbolic_methods[self]
+        else:
+            dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
+            self._dispatched_symbolic_methods[self] = dispatched_symbolic_method
+        return dispatched_symbolic_method
 
     def compile(self, **kwargs):
         return AutoCompilingFunction(self, **kwargs)
@@ -111,26 +179,63 @@ class BaseSymbolicFunction(ISymbolicFunction):
             # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
             # inherently evil, but useful for debugging purposes.  Use the trick from
             # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
-            def tracer(frame, event, arg):
-                if event == 'return':
-                    self._locals = frame.f_locals.copy()
-
-            sys.setprofile(tracer)
-            try:
-                return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
-            finally:
-                sys.setprofile(None)
+            if self._instance is None:
+                return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
+            else:
+                return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
+            assert self._locals is not None
         else:
-            return_val = self._fcn(*args, **kwargs) if self._instance is None else self._fcn(self._instance, *args, **kwargs)
+            return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
         return return_val
 
-    @property
     def locals(self):
-        return self._locals
+        if self._type in ('function', 'method'):
+            local_vars = self._locals
+        elif self._type == 'callable_class':
+            local_vars = self.__call__._locals
+        elif self._type == 'reformat':
+            local_vars = self._fcn.__self__.locals()
+        else:
+            raise Exception('Unexpected type: %s' % (self._type))
+
+        return LocalsContainer(local_vars)
 
     @abstractmethod
     def __call__(self, *args, **kwargs):
         raise NotImplementedError()
+
+    @abstractproperty
+    def original(self):
+        return self._fcn
+
+    def get_decorated_type(self):
+        return self._type
+
+
+class LocalsContainer(object):
+    """
+    Just a dict that you can also reference by field.
+    """
+
+    def __init__(self, local_vars):
+        for k, v in local_vars.iteritems():
+            setattr(self, k, v)
+        self._local_vars = local_vars
+
+    def items(self):
+        return self._local_vars.items()
+
+    def iteritems(self):
+        return self._local_vars.iteritems()
+
+    def keys(self):
+        return self._local_vars.keys()
+
+    def values(self):
+        return self._local_vars.values()
+
+    def __getitem__(self, item):
+        return self._local_vars[item]
 
 
 class SymbolicStatelessFunction(BaseSymbolicFunction):
@@ -250,11 +355,15 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
         the callable class comply to the ISymbolicFunction interface.
         """
 
+        IS_DYNAMIC_CLASS = True
+
         # Also decorate the __call__ method, so that type checking is done.
         __call__ = symbolic_function_class(callable_class.__call__)
 
         def __init__(self, *args, **kwargs):
             callable_class.__init__(self, *args, **kwargs)
+
+        original = callable_class
 
     return CallableSymbolicFunction
 
@@ -271,7 +380,7 @@ class AutoCompilingFunction(object):
     instantiate the input tensors.
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run'):
+    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', debug_getter = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
@@ -293,7 +402,10 @@ class AutoCompilingFunction(object):
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
-        self._locals = None
+        self._debug_values = None
+        self._debug_variable_getter = None
+        self._debug_values = None
+        self._callbacks = []
         if mode in ('test_and_run', 'debug'):
             theano.config.compute_test_value = 'warn'
             if mode == 'debug':
@@ -319,12 +431,21 @@ class AutoCompilingFunction(object):
             else:
                 raise Exception("Get OUT!")
 
-            if self._mode == 'omniscent':
-                single_output = not isinstance(outputs, (list, tuple))
-                if single_output:
-                    outputs = [outputs]
-                self._local_keys = self._fcn.locals.keys()
-                outputs_and_internals = tuple(outputs)+tuple(self._fcn.locals.values())
+            self._there_are_debug_variables = self._debug_variable_getter is not None
+            if self._there_are_debug_variables:
+                # Setup debug variables
+                self._single_output = not isinstance(outputs, (list, tuple))
+                if self._single_output:
+                    outputs = (outputs, )
+                debug_variables = self._debug_variable_getter()
+
+                # There may be some non-symbolic variables in the mix (like self).  We just filter these out.
+                filtered_debug_variables = {k: v for k, v in debug_variables.iteritems() if isinstance(v, Variable)}
+                assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
+                    'It returned %s' % (filtered_debug_variables, )
+                debug_variables = filtered_debug_variables
+                self._debug_variable_keys = debug_variables.keys()
+                outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
@@ -338,23 +459,68 @@ class AutoCompilingFunction(object):
             else:
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
 
-        if self._mode == 'omniscent':
+        # Now, run the actual numeric function!
+        if self._there_are_debug_variables:
             all_out = self._compiled_fcn(*args)
-            self._locals = {k: v for k, v in zip(self._local_keys, all_out[-len(self._local_keys):])}
-            true_out = all_out[:-len(self._local_keys)]
-            if single_output:
-                true_out, = true_out
-            return true_out
-
+            self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
+            numeric_output = all_out[:-len(self._debug_variable_keys)]
+            if self._single_output:
+                numeric_output, = numeric_output
         else:
-            return self._compiled_fcn(*args)
+            numeric_output = self._compiled_fcn(*args)
+
+        for c in self._callbacks:
+            c()
+
+        return numeric_output
+
+    def set_debug_variables(self, callback):
+        """
+        Define a callback that is called AFTER the graph is constructed.
+        The callback should be of the form:
+
+            dict<str: Variable> = callback()
+
+        Where str is the name of each element, and Variables are symbolic variables
+        linked to the graph.  After calling the function, you can retrieve the arrays
+        associated with these variables through the method get_debug_values().
+
+        You can also provide 'locals' as a callback.  In this case, the debug variables will be
+        the locals of the symbolic function.
+        """
+        assert self._debug_variable_getter is None, 'You tried to set debug variables twice.  This remains ' \
+            'banned until someone can provide a good reason for allowing it.'
+        assert self._compiled_fcn is None, 'You can only set debug variables before the first call to this function.'
+        if callback == 'locals':
+            callback = self._fcn.locals
+        elif callback == 'locals+class':
+            callback = lambda: dict(self._fcn.locals().items() + [('self.'+k, v) for k, v in self._fcn.locals()['self'].__dict__.iteritems()])
+        else:
+            assert inspect.isfunction(callback)
+
+        self._debug_variable_getter = callback
+
+    def get_debug_values(self):
+        if self._debug_values is None:
+            if self._debug_variable_getter is None:
+                raise Exception('You need to define debug variables before requesting debug values.\n'
+                    'See AutoCompilingFunction.set_debug_variables()')
+            elif self._compiled_fcn is None:
+                raise Exception('You need to run this function at lest once before requesting debug values')
+            elif self._mode != 'omniscent':
+                raise Exception("Function must be compiled in 'omniscent' mode to view debug variables.  It's in %s mode." % self._mode)
+            else:
+                raise Exception("I don't know why you're not getting an answer")
+        return self._debug_values
+
+    def add_callback(self, fcn):
+        self._callbacks.append(fcn)
 
     @property
-    def locals(self):
-        assert self._mode == 'omniscent', "You must set mode = 'omniscent' to view locals.  Current mode is '%s'." % (self._mode, )
-        if self._locals is None:
-            raise Exception('Locals not available yet.  You must call this function before asking for locals.')
-        return self._locals
+    def symbolic(self):
+        """ Return the symbolic function """
+        return self._fcn
+
 
 def _is_symbol_or_value(var):
     return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)

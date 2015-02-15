@@ -6,8 +6,9 @@ from utils.tools.processors import RunningAverage
 from utils.tools.progress_indicator import ProgressIndicator
 
 
-def compare_predictors(dataset, online_predictor_constructors = {}, offline_predictor_constuctors = {}, incremental_predictor_constructors = {},
-        minibatch_size = 1, test_points = sqrtspace(0, 1, 10), evaluation_function = 'mse', report_test_scores = True):
+def compare_predictors(dataset, online_predictor_constructors = {}, offline_predictor_constructors = {},
+        incremental_predictor_constructors = {}, minibatch_size = 1, test_points = sqrtspace(0, 1, 10),
+        evaluation_function = 'mse', report_test_scores = True, on_construction_callback = None):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -31,14 +32,19 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
         The final test point determines the end of training.
     :param evaluation_function: Function used to evaluate output of predictors
     :param report_test_scores: Boolean indicating whether you'd like to report results online.
+    :param on_construction_callback: A function of the form callback(predictor) that is called when a predictor
+        is constructed.  This may be useful for debugging.
     :return: An OrderedDict<LearningCurveData>
     """
 
-    assert not (online_predictor_constructors is None and offline_predictor_constuctors is None and incremental_predictor_constructors is None), \
-        'You have to give some predictors.'
-
-    all_keys = online_predictor_constructors.keys()+offline_predictor_constuctors.keys()+incremental_predictor_constructors.keys()
-    assert len(all_keys)==len(np.unique(all_keys)), "You have multiple predictors using the same names. Change that."
+    all_keys = online_predictor_constructors.keys()+offline_predictor_constructors.keys()+incremental_predictor_constructors.keys()
+    assert len(all_keys) > 0, 'You have to give at least one predictor.'
+    assert len(all_keys) == len(np.unique(all_keys)), "You have multiple predictors using the same names. Change that."
+    type_constructor_dict = dict(
+        [(k, ('offline', pc)) for k, pc in offline_predictor_constructors.iteritems()] +
+        [(k, ('online', pc)) for k, pc in online_predictor_constructors.iteritems()] +
+        [(k, ('incremental', pc)) for k, pc in incremental_predictor_constructors.iteritems()]
+        )
 
     if isinstance(minibatch_size, int):
         minibatch_size = {predictor_name: minibatch_size for predictor_name in online_predictor_constructors.keys()}
@@ -54,40 +60,34 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
     records = OrderedDict()
 
     # Run the offline predictors
-    for predictor_name, predictor_constructor in offline_predictor_constuctors.iteritems():
+    for predictor_name, (predictor_type, predictor_constructor) in type_constructor_dict.iteritems():
+        predictor = predictor_constructor()
+        if on_construction_callback is not None:
+            on_construction_callback(predictor)
         print '%s\nRunning predictor %s\n%s' % ('='*20, predictor_name, '-'*20)
-        records[predictor_name] = assess_offline_predictor(
-            predictor=predictor_constructor(),
-            dataset = dataset,
-            evaluation_function = evaluation_function,
-            report_test_scores = report_test_scores
-            )
-
-    # Run the online predictors
-    for predictor_name, predictor_constructor in online_predictor_constructors.iteritems():
-        print '%s\nRunning predictor %s\n%s' % ('='*20, predictor_name, '-'*20)
-        records[predictor_name] = assess_online_predictor(
-            predictor=predictor_constructor(),
-            dataset = dataset,
-            evaluation_function = evaluation_function,
-            test_points = test_points,
-            minibatch_size = minibatch_size[predictor_name],
-            report_test_scores = report_test_scores
-            )
-
-    # Run the incremental predictors
-    for predictor_name, predictor_constructor in incremental_predictor_constructors.iteritems():
-        print '%s\nRunning predictor %s\n%s' % ('='*20, predictor_name, '-'*20)
-        records[predictor_name] = assess_incremental_predictor(
-            predictor=predictor_constructor(),
-            dataset = dataset,
-            evaluation_function = evaluation_function,
-            sampling_points = np.sort(np.unique(np.ceil(test_points/dataset.training_set.n_samples).astype(int))),
-            accumulation_function='mean',
-            report_test_scores = report_test_scores
-            )
-        # print 'Scores for %s: %s' % (predictor_name, records[predictor_name].get_results()[1]['Test'])
-
+        records[predictor_name] = \
+            assess_offline_predictor(
+                predictor=predictor,
+                dataset = dataset,
+                evaluation_function = evaluation_function,
+                report_test_scores = report_test_scores
+                ) if predictor_type == 'offline' else \
+            assess_online_predictor(
+                predictor=predictor,
+                dataset = dataset,
+                evaluation_function = evaluation_function,
+                test_points = test_points,
+                minibatch_size = minibatch_size[predictor_name],
+                report_test_scores = report_test_scores
+                ) if predictor_type == 'online' else \
+            assess_incremental_predictor(
+                predictor=predictor,
+                dataset = dataset,
+                evaluation_function = evaluation_function,
+                sampling_points = np.sort(np.unique(np.ceil(test_points/dataset.training_set.n_samples).astype(int))),
+                accumulation_function='mean',
+                report_test_scores = report_test_scores
+                )
     print 'Done!'
 
     return records
@@ -145,7 +145,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
 
         if n_samples_seen >= test_points[test_point_index]:
             report_test(n_samples_seen)
-            test_point_index +=1
+            test_point_index += 1
             if test_point_index == len(test_points):
                 break
 
@@ -216,7 +216,7 @@ class LearningCurveData(object):
         elif isinstance(scores, tuple):
             scores = [scores]
         else:
-            assert isinstance(scores, list) and all(len(s)==2 for s in scores)
+            assert isinstance(scores, list) and all(len(s) == 2 for s in scores)
 
         self._times.append(time)
         if self._scores is None:

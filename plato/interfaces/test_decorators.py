@@ -1,3 +1,4 @@
+import sys
 from abc import abstractmethod
 import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError
@@ -15,6 +16,10 @@ def test_stateless_decorators():
     def multiply_by_two(x):
         return x*2
 
+    f1 = multiply_by_two
+    assert f1.compile()(2) == 4
+    assert f1.symbolic_standard.compile()(2) == [4]
+
     # Case 2: Method
     class GenericClass(object):
 
@@ -24,6 +29,11 @@ def test_stateless_decorators():
         @symbolic_stateless
         def multiply_by_two(self, x):
             return x*self._factor
+
+    obj = GenericClass()
+    f2 = obj.multiply_by_two
+    assert f2.compile()(2) == 4
+    assert f2.symbolic_standard.compile()(2) == [4]
 
     # Case 3: Callable class
     @symbolic_stateless
@@ -35,18 +45,19 @@ def test_stateless_decorators():
         def __call__(self, x):
             return x*self._factor
 
-    f1 = multiply_by_two
-    assert f1.compile()(2) == 4
-    assert f1.symbolic_standard.compile()(2) == [4]
-
-    obj = GenericClass()
-    f2 = obj.multiply_by_two
-    assert f2.compile()(2) == 4
-    assert f2.symbolic_standard.compile()(2) == [4]
-
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
     assert f3.symbolic_standard.compile()(2) == [4]
+
+    # Check that the types were correctly determined (igore this
+    # if you're using this test as a tutorial - it's a detail)
+    assert f1.get_decorated_type() == 'function'
+    assert f1.symbolic_standard.get_decorated_type() == 'reformat'
+    assert f2.get_decorated_type() == 'method'
+    assert f2.symbolic_standard.get_decorated_type() == 'reformat'
+    assert f3.get_decorated_type() == 'callable_class'
+    assert f3.__call__.get_decorated_type() == 'method'
+    assert f3.symbolic_standard.get_decorated_type() == 'reformat'
 
 
 def test_standard_decorators():
@@ -200,20 +211,42 @@ def test_omniscence():
     the "locals" property.
     """
 
-    t = time.time()
-
+    # Way 2
     @symbolic_stateless
     def average(a, b):
         sum_a_b = a+b
         return sum_a_b/2.
 
-    average_fcn = average.compile(mode = 'omniscent')
 
-    mean = average_fcn(3, 6)
-    assert mean == 4.5
-    assert average_fcn.locals['sum_a_b'] == 9
+    @symbolic_stateless
+    class Averager(object):
 
-    print time.time() - t
+        def __call__(self, a, b):
+            sum_a_b = a+b
+            return sum_a_b/2.
+
+    class TwoNumberOperator(object):
+
+        @symbolic_stateless
+        def average(self, a, b):
+            sum_a_b = a+b
+            return sum_a_b/2.
+
+    for i, op in enumerate([
+            average,
+            Averager(),
+            TwoNumberOperator().average,
+            average.symbolic_standard,
+            Averager().symbolic_standard,
+            TwoNumberOperator().average.symbolic_standard
+            ]):
+
+        average_fcn = op.compile(mode = 'omniscent')
+        average_fcn.set_debug_variables('locals')
+
+        mean = average_fcn(3, 6)
+        assert mean == (4.5 if i<3 else [4.5])
+        assert average_fcn.get_debug_values()['sum_a_b'] == 9
 
 
 if __name__ == '__main__':

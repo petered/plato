@@ -1,3 +1,4 @@
+from collections import namedtuple
 from plato.interfaces.decorators import symbolic_standard, symbolic_stateless, find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt

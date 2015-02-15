@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit
+from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit, data_to_image
 
 __author__ = 'peter'
 
@@ -18,20 +18,20 @@ class IPlot(object):
 
 class ImagePlot(object):
 
-    def __init__(self, cmap = 'gray', interpolation = 'nearest', show_axes = False):
+    def __init__(self, interpolation = 'nearest', show_axes = False, scale = None):
         self._plot = None
-        self._cmap = cmap
         self._interpolation = interpolation
         self._show_axes = show_axes
+        self._scale = scale
 
     def update(self, data):
 
-        plottable_data = put_data_in_grid(data) \
+        plottable_data = put_data_in_grid(data, scale = self._scale) \
             if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
-            scale_data_to_8_bit(data)
+            data_to_image(data, scale = self._scale)
 
         if self._plot is None:
-            self._plot = imshow(plottable_data, cmap = self._cmap, interpolation = self._interpolation)
+            self._plot = imshow(plottable_data, interpolation = self._interpolation)
             if not self._show_axes:
                 # self._plot.axes.get_xaxis().set_visible(False)
                 self._plot.axes.tick_params(labelbottom = 'off')
@@ -39,50 +39,140 @@ class ImagePlot(object):
             # colorbar()
         else:
             self._plot.set_array(plottable_data)
-            self._plot.axes.set_xlabel('%.2f - %.2f' % (np.min(data), np.max(data)))
+            self._plot.axes.set_xlabel('%.2f - %.2f' % (np.nanmin(data), np.nanmax(data)))
             # self._plot.axes.get_caxis
+
+
+class MovingImagePlot(ImagePlot):
+
+    def __init__(self, buffer_len = 100, **kwargs):
+        ImagePlot.__init__(self, **kwargs)
+        self._buffer = RecordBuffer(buffer_len)
+
+    def update(self, data):
+        if np.isscalar(data):
+            data = np.array([data])
+        elif data.ndim != 1 and data.size == np.max(data.shape):
+            data = data.flatten()
+        else:
+            assert data.ndim == 1
+
+        buffer_data = self._buffer(data)
+        ImagePlot.update(self, buffer_data)
 
 
 class LinePlot(object):
 
-    def __init__(self):
+    def __init__(self, yscale = None):
         self._plots = None
+        self._yscale = yscale
         self._oldlims = (float('inf'), -float('inf'))
 
     def update(self, data):
 
-        lims = np.min(data), np.max(data)
+        lower, upper = (np.nanmin(data), np.nanmax(data)) if self._yscale is None else self._yscale
 
         if self._plots is None:
-            self._plots = plot(data)
+            self._plots = plot(np.arange(-data.shape[0]+1, 1), data)
+            for p, d in zip(self._plots, data[None] if data.ndim==1 else data.T):
+                p.axes.set_xbound(-len(d), 0)
+                p.axes.set_ybound(lower, upper)
         else:
             for p, d in zip(self._plots, data[None] if data.ndim==1 else data.T):
                 p.set_ydata(d)
-                if lims[0]!=self._oldlims[0] or lims[1]!=self._oldlims[1]:
-                    p.axes.relim()
-                    p.axes.autoscale_view()
+                if lower!=self._oldlims[0] or upper!=self._oldlims[1]:
+                    p.axes.set_ybound(lower, upper)
 
-        self._oldlims = lims
+        self._oldlims = lower, upper
 
 
 class MovingPointPlot(LinePlot):
 
-    def __init__(self, buffer_len=100):
-        LinePlot.__init__(self)
+    def __init__(self, buffer_len=100, **kwargs):
+        LinePlot.__init__(self, **kwargs)
         self._buffer = RecordBuffer(buffer_len)
 
     def update(self, data):
+        if not np.isscalar(data):
+            data = data.flatten()
+
         buffer_data = self._buffer(data)
         LinePlot.update(self, buffer_data)
 
 
-def get_plot_from_data(data, line_to_image_threshold = 8):
+class TextPlot(IPlot):
 
-    if np.isscalar(data) or data.ndim==1 and data.shape[0]<line_to_image_threshold:
+    def __init__(self, max_history = 8):
+        self._buffer = RecordBuffer(buffer_len = max_history, initial_value='')
+        self._max_history = 10
+        self._text_plot = None
+
+    def update(self, string):
+        if not isinstance(string, basestring):
+            string = str(string)
+        history = self._buffer(string)
+        full_text = '\n'.join(history)
+        if self._text_plot is None:
+            ax = gca()
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            self._text_plot = ax.text(0.05, 0.05, full_text)
+        else:
+            self._text_plot.set_text(full_text)
+
+
+def get_plot_from_data(data, mode):
+
+    assert mode in ('live', 'static')
+
+    if mode == 'live':
+        plot = get_live_plot_from_data(data)
+    else:
+        plot = get_static_plot_from_data(data)
+    return plot
+
+
+def get_live_plot_from_data(data, line_to_image_threshold = 8):
+
+    if isinstance(data, basestring):
+        return TextPlot()
+
+    is_scalar = np.isscalar(data) or data.shape == ()
+    if is_scalar:
+        data = np.array(data)
+
+    is_1d = not is_scalar and data.size == np.max(data.shape)
+    few_values = data.size < line_to_image_threshold
+
+    if is_scalar or is_1d and few_values:
         return MovingPointPlot()
-    elif data.ndim == 1 or data.ndim==2 and data.shape[1]<line_to_image_threshold:
+    elif is_1d:
+        return MovingImagePlot()
+    elif data.ndim == 2 and data.shape[1]<line_to_image_threshold:
         return LinePlot()
-    if data.ndim in (2, 3, 4, 5):
+    elif data.ndim in (2, 3, 4, 5):
         return ImagePlot()
     else:
         raise NotImplementedError('We have no way to plot data of shape %s.  Make one!' % (data.shape, ))
+
+
+def get_static_plot_from_data(data, line_to_image_threshold=8):
+
+    if isinstance(data, basestring):
+        return TextPlot()
+
+    is_scalar = np.isscalar(data) or data.shape == ()
+    if is_scalar or data.size==1:
+        return TextPlot()
+
+    is_1d = not is_scalar and data.size == np.max(data.shape)
+    if is_1d:
+        n_unique = len(np.unique(data))
+        if n_unique == 2:
+            return ImagePlot()
+        else:
+            return LinePlot()
+    elif data.ndim == 2 and data.shape[1] < line_to_image_threshold:
+        return LinePlot()
+    else:
+        return ImagePlot()

@@ -10,7 +10,8 @@ __author__ = 'peter'
 
 class GibbsRegressor(object):
 
-    def __init__(self, n_dim_in, n_dim_out, sample_y = False, n_alpha = 1, possible_ws = [0, 1], seed = None):
+    def __init__(self, n_dim_in, n_dim_out, sample_y = False, n_alpha = 1, possible_ws = [0, 1],
+            alpha_update_policy = 'sequential', seed = None):
         self._w = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = 'int'), name = 'w')
         self._rng = RandomStreams(seed)
         if n_alpha == 'all':
@@ -19,6 +20,14 @@ class GibbsRegressor(object):
         self._alpha = theano.shared(np.arange(n_alpha))  # scalar
         self._sample_y = sample_y
         self._possible_ws = theano.shared(np.array(possible_ws), name = 'possible_ws')
+        assert alpha_update_policy in ('sequential', 'random')
+        self._alpha_update_policy = alpha_update_policy
+
+    def _get_alpha_update(self):
+        new_alpha = (self._alpha+self._n_alpha) % self._w.shape[0] \
+            if self._alpha_update_policy == 'sequential' else \
+            self._rng.choice(a=self._w.shape[0], size = (self._n_alpha, ), replace = False)
+        return (self._alpha, new_alpha)
 
     @staticmethod
     def compute_p_wa(w, x, y, alpha, possible_ws = np.array([0, 1])):
@@ -43,7 +52,7 @@ class GibbsRegressor(object):
         w_indices = sample_categorical(self._rng, p_wa)
         w_sample = self._possible_ws[w_indices]  # (n_alpha, n_dim_out)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), (self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])]
+        return [(self._w, w_new), self._get_alpha_update()]
 
     @symbolic_stateless
     def sample_posterior(self, x):
@@ -71,7 +80,7 @@ class HerdedGibbsRegressor(GibbsRegressor):
         # new_phi_alpha = phi_alpha - w_sample
         new_phi = tt.set_subtensor(self._phi[self._alpha], new_phi_alpha)  # (n_dim_in, n_dim_out, n_possible_ws)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), (self._phi, new_phi), (self._alpha, (self._alpha+1) % self._w.shape[0])]
+        return [(self._w, w_new), (self._phi, new_phi), self._get_alpha_update()]
 
 
 def sample_categorical(rng, p):
