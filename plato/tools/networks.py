@@ -1,6 +1,7 @@
 from collections import namedtuple
 from plato.interfaces.decorators import symbolic_standard, symbolic_stateless, find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
+from theano.gof.graph import Variable
 import theano.tensor as tt
 import theano
 import numpy as np
@@ -142,6 +143,7 @@ class StochasticLayer(IParameterized, IFreeEnergy):
         return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, params
 
 
+
 @symbolic_stateless
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
     """
@@ -161,27 +163,11 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
             - A numpy vector representing the initial bias on the visible layer, where len(b) = w.shape[0]
             - A scaler, which just initializes the full vector to this value
             - None, in which case b_rev is not created (for instance in an MLP).
-        :return:
         """
-        if isinstance(w, np.ndarray):  # Initialize from array
-            assert w.ndim == 2, 'w must be a 2-d matrix of initial weights'
-            self._w = self._w_param = theano.shared(w, name = 'w', borrow = True, allow_downcast=True)
-            n_in, n_out = w.shape
-        else:  # Initialize from a variable
-            self._w = w
-            self._w_param, = find_shared_ancestors(w)
-            assert self._w_param.get_value().ndim == 2
-            n_in, n_out = w.shape if w is self._w_param else self._w_param.shape[::-1]
-
-        if np.isscalar(b):
-            b = np.zeros(n_out, dtype = theano.config.floatX)+b
-        if np.isscalar(b_rev):
-            b_rev = np.zeros(n_in, dtype = theano.config.floatX)
-        elif isinstance(b_rev, np.ndarray):
-            assert b_rev.ndim == 1
-        assert b.ndim == 1, 'b must be a vector representing the inital biases'
-        self._b = theano.shared(b, 'b', borrow = True, allow_downcast=True)
-        self._b_rev = theano.shared(b_rev, 'b_rev', borrow = True, allow_downcast=True) if b_rev is not None else None
+        self._w, w_params, w_shape = _initialize_param(w, shape = (None, None), name = 'w')
+        self._b, b_params, b_shape = _initialize_param(b, shape = w_shape[1], name = 'b')
+        self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = w_shape[0], name = 'b_rev')
+        self._params = w_params+b_params+b_rev_params
 
     def __call__(self, x):
         y = x.flatten(2).dot(self._w) + self._b
@@ -189,10 +175,106 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     @property
     def parameters(self):
-        return [self._w_param, self._b] + ([self._b_rev] if self._b_rev is not None else [])
+        return self._params
 
     def reverse(self, y):
         return y.flatten(2).dot(self._w.T)+self._b_rev
 
     def free_energy(self, visible):
         return -visible.flatten(2).dot(self._b_rev)
+
+
+@symbolic_stateless
+class ConvolutionalBridge(IParameterized, IFreeEnergy):
+
+    def __init__(self, w, b=0, b_rev=None, stride = (1, 1)):
+        self._w, w_params, w_shape = _initialize_param(w, shape = (None, None, None, None), name = 'w')
+        self._b, b_params, b_shape = _initialize_param(b, shape = (w_shape[0], 1, 1), name = 'b')
+        self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = (w_shape[1], 1, 1), name = 'b_rev')
+        self._params = w_params+b_params+b_rev_params
+        self._stride = stride
+
+    def __call__(self, x):
+        y = tt.nnet.conv2d(x, self._w, border_mode='valid', subsample = self._stride) + self._b
+        return y
+
+    @property
+    def parameters(self):
+        return self._params
+
+    def reverse(self, y):
+
+        assert self._stride == (1, 1), 'Only support single-step strides for now...'
+        # But there's this approach... https://groups.google.com/forum/#!topic/theano-users/Xw4d00iV4yk
+        return tt.nnet.conv2d(y, self._w.swapaxes(0, 1)[:, :, ::-1, ::-1], border_mode='full') + self._b_rev
+
+    def free_energy(self, visible):
+        return -visible.flatten(2).dot(self._b_rev)
+
+
+def _initialize_param(initial_value, shape = None, name = None):
+    """
+    Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
+    instantiate a parameter:
+    - With a numpy array, in which case you'll want to make sure it's the appropriate shape.
+    - With a scalar, in which case you just want a scalar shared variable.
+    - With a scalar and a shape, in which case you want an array of that shape filled with the value of the scalar.
+    - With a symbolic variable descenting from some other shared variable - this is the case when you want to tie
+      parameters together, or make the bias be the result of a previous computation, etc.
+    - With None, which we take to mean that this was an optional variable that should not be included, so return None
+      for variable, param, and shape.
+
+    :param initial_value: An array, scalar, or symbolic variable.:
+    :param shape: The shape that the variable should have.  None if it is already fully specified by initial_value.
+    :param name: Optionally, the name for the shared variable.
+    :return: (variable, param): Variable is the shared variable, and param is the associated parameter.  If you
+        instantiated with scalar or ndarray, variable and param will be the same object.
+    """
+
+    if isinstance(shape, int):
+        shape = (shape, )
+
+    if np.isscalar(initial_value):
+        if shape is None:
+            initial_value = np.array(initial_value)
+        else:
+            initial_value = np.zeros(shape)+initial_value
+    if isinstance(initial_value, np.ndarray):
+        assert_compatible_shape(initial_value.shape, shape, name = name)
+        variable = theano.shared(initial_value.astype(theano.config.floatX), name = name, borrow = True, allow_downcast=True)
+        params = [variable]
+        variable_shape = initial_value.shape
+    elif initial_value is Variable:
+        assert name is None, "Can't give name '%s' to an already-existing symbolic variable" % (name, )
+        params = find_shared_ancestors(initial_value)
+        # Note to self: possibly remove this constraint for things like factored weight matrices?
+        if len(params)==1 and initial_value is params[0]:
+            variable_shape = initial_value.get_value().shape
+            assert_compatible_shape(variable_shape, shape, name = name)
+        else:
+            raise NotImplementedError("Can't yet get variable shape from base-params, though this can be done cheaply in "
+                'Theano by compiling a function wholse input is the params and whose output is the shape.')
+    elif initial_value is None:
+        variable = None
+        params = []
+        variable_shape = None
+    else:
+        raise Exception("Don't know how to instantiate variable from %s" % initial_value)
+    return variable, params, variable_shape
+
+
+def assert_compatible_shape(actual_shape, desired_shape, name = None):
+    """
+    Return a boolean indicating whether the actual shape is compatible with the desired shape.  "None" serves as a wildcard.
+    :param actual_shape: A tuple<int>
+    :param desired_shape: A tuple<int> or None
+    :return: A boolean
+
+    examples (actual_desired, desired_shape : result)
+    (1, 2), None: True        # Because None matches everything
+    (1, 2), (1, None): True   # Because they have the same length, 1 matches 1 and 2 matches None
+    (1, 2), (1, 3): False     # Because 2 != 3
+    (1, 2, 1), (1, 2): False  # Because they have different lengths.
+    """
+    return desired_shape is None or len(actual_shape) == len(desired_shape) and all(ds is None or s==ds for s, ds in zip(actual_shape, desired_shape)), \
+        "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
