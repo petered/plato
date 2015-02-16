@@ -31,23 +31,25 @@ class SamplingPredictor(IPredictor):
 
 
 def setup_visualization(predictor):
-    pass
-    # """ Lets you plot internals of predictor in as it trains. """
-    # if isinstance(predictor, SamplingPredictor):
-    #     # variable_getter = lambda: predictor.train_function.locals
-    #     predictor.train_function.set_debug_variables('locals+class')
-    #
-    #     def get_plotting_vals():
-    #         lv = predictor.train_function.get_debug_values()
-    #         return {
-    #             'alpha': lv['self._alpha'],
-    #             'w': lv['self._w'],
-    #             'p_wa': lv['p_wa'].squeeze(),
-    #             'y': lv['y'],
-    #             }
-    #     plotter = LiveStream(get_plotting_vals)
-    #
-    #     predictor.train_function.add_callback(plotter.update)
+    """ Lets you plot internals of predictor in as it trains. """
+    if isinstance(predictor, SamplingPredictor):
+        # variable_getter = lambda: predictor.train_function.locals
+        predictor.train_function.set_debug_variables('locals+class')
+
+        def get_plotting_vals():
+            lv = predictor.train_function.get_debug_values()
+            plot_dict = {
+                'alpha': lv['self._alpha'],
+                'w': lv['self._w'],
+                'p_wa': lv['p_wa'].squeeze(),
+                'y': lv['y'],
+                }
+            if 'self._phi' in lv:
+                plot_dict['phi'] = lv['self._phi'].squeeze()
+            return plot_dict
+        plotter = LiveStream(get_plotting_vals)
+
+        predictor.train_function.add_callback(plotter.update)
 
 
 DataParams = namedtuple('DataParams', ['x_tr', 'y_tr', 'x_ts', 'y_ts', 'w_true', 'n_dims', 'n_training', 'n_test', 'noise_factor'])
@@ -66,11 +68,13 @@ def get_data_for_figure(which_figure):
             '2C': 0.0,
             '2D': 1.0
             }[which_figure]
-    elif which_figure[0] in ('3', '4'):
+    elif which_figure[0] in ('3', '4', 'X'):
         n_dims = 20
         n_training = 50
         n_test = 100
         noise_factor = 0.0
+    else:
+        raise Exception('No configuration for figure "%s"' % (which_figure, ))
 
     x_tr, y_tr, x_ts, y_ts, w_true = get_logistic_regression_data(n_dims = n_dims,
     n_training=n_training, n_test=n_test, noise_factor = noise_factor)
@@ -79,16 +83,17 @@ def get_data_for_figure(which_figure):
         n_test = n_test, noise_factor = noise_factor)
 
 
-def demo_binary_regression(which_figure, test_mode = False):
+def demo_binary_regression(which_figure, test_mode = False, plot = False):
     """
     Code for creating plots in our report.
-    :param which_figure:
-    :return:
+
+    :param which_figure: Which figure of the report to replicate.  Or "X" for just
+       experimenting with stuff.
+    :param test_mode: Just makes things run really fast to assert that they don't break.
     """
 
     n_steps = 3 if test_mode else 1000
     sample_y = False
-    plot = False
 
     d = get_data_for_figure(which_figure)
     dataset = DataSet(DataCollection(d.x_tr, d.y_tr), DataCollection(d.x_ts, d.y_ts))
@@ -124,6 +129,7 @@ def demo_binary_regression(which_figure, test_mode = False):
         }
 
     regressors_to_compare = {
+        'X': ['herded-1/2-seq'],
         '1': ['gibbs-single-seq'],
         '2A': ['gibbs-single-seq', 'herded-single-seq'],
         '2B': ['gibbs-single-seq', 'herded-single-seq'],
@@ -155,5 +161,7 @@ def demo_binary_regression(which_figure, test_mode = False):
 
 if __name__ == '__main__':
 
-    figure = '2A'
-    demo_binary_regression(figure)
+    figure = 'X'
+    plot = True
+
+    demo_binary_regression(figure, plot=plot)

@@ -15,7 +15,7 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
     :param dataset: A DataSet object
     :param online_predictor_constructors: A dict<str:function> of online predictors.  An online predictor is
         sequentially fed minibatches of data and updates its parameters with each minibatch.
-    :param offline_predictor_constuctors: A dict<str:function> of offline predictors.  An offline predictor
+    :param offline_predictor_constructors: A dict<str:function> of offline predictors.  An offline predictor
         trains just once on the full training data, and then makes a prediction on the test data.  Unlike
         Online, Incremental predictors, an Offline predictor has no initial state, so it doesn't make sense
         to ask it to predict before any training has been done.

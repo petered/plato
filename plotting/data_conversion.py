@@ -121,7 +121,8 @@ class RecordBuffer(object):
     def __call__(self, data):
         if self._buffer is None:
             shape = () if np.isscalar(data) else data.shape
-            dtype = data.dtype if isinstance(data, np.ndarray) else type(data) if isinstance(data, (int, float, bool)) else object
+            dtype_data = data+self._initial_value
+            dtype = dtype_data.dtype if isinstance(dtype_data, np.ndarray) else type(dtype_data) if isinstance(dtype_data, (int, float, bool)) else object
             self._buffer = np.empty((self._buffer_len, )+shape, dtype = dtype)
             self._buffer[:] = self._initial_value
         self._buffer[self._ix] = data
