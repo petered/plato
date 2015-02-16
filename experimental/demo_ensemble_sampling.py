@@ -34,11 +34,12 @@ def demo_rf_ensemble():
     # Using
     # a) Gibbs
     # b) Herded Gibbs
-    raise NotImplementedError('Under Construction...')
+    # raise NotImplementedError('Under Construction...')
     rf_embedding = RandomTreesEmbedding(n_estimators=10, random_state = np.random.RandomState(seed))
     rf_embedding.fit(x_tr, y_tr)
     out = rf_embedding.transform(x_tr)
     tree_outputs = rf_classifier.apply(x_ts)
+    pass
 
 
 if __name__ == '__main__':

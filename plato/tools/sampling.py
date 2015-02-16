@@ -12,7 +12,7 @@ class GibbsRegressor(object):
 
     def __init__(self, n_dim_in, n_dim_out, sample_y = False, n_alpha = 1, possible_ws = [0, 1],
             alpha_update_policy = 'sequential', seed = None):
-        self._w = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = 'int'), name = 'w')
+        self._w = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = theano.config.floatX), name = 'w')
         self._rng = RandomStreams(seed)
         if n_alpha == 'all':
             n_alpha = n_dim_in
