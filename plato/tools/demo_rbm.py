@@ -32,7 +32,7 @@ def demo_rbm():
 
     rbm = simple_rbm(
         visible_layer = StochasticLayer('bernoulli'),
-        bridge=FullyConnectedBridge(w = 0.001*np.random.randn(28*28, 500).astype(theano.config.floatX)),
+        bridge=FullyConnectedBridge(w = 0.001*np.random.randn(28*28, 500).astype(theano.config.floatX), b=0, b_rev = 0),
         hidden_layer = StochasticLayer('bernoulli')
         )
 

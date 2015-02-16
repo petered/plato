@@ -148,7 +148,21 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
     An element which multiplies the input by some weight matrix w and adds a bias.
     """
 
-    def __init__(self, w, b = None, b_rev = None):
+    def __init__(self, w, b = 0, b_rev = None):
+        """
+        :param w: Initial weight value.  Can be:
+            - A numpy array, in which case a shared variable is instantiated from this data.
+            - A symbolic variable that is either a shared variabe or descended from a shared variable.
+              This is used when there are shared parameters.
+        :param b: Can be:
+            - A numpy vector representing the initial bias on the hidden layer, where len(b) = w.shape[1]
+            - A scaler, which just initializes the full vector to this value
+        :param b_rev: Can be:
+            - A numpy vector representing the initial bias on the visible layer, where len(b) = w.shape[0]
+            - A scaler, which just initializes the full vector to this value
+            - None, in which case b_rev is not created (for instance in an MLP).
+        :return:
+        """
         if isinstance(w, np.ndarray):  # Initialize from array
             assert w.ndim == 2, 'w must be a 2-d matrix of initial weights'
             self._w = self._w_param = theano.shared(w, name = 'w', borrow = True, allow_downcast=True)
@@ -159,13 +173,15 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
             assert self._w_param.get_value().ndim == 2
             n_in, n_out = w.shape if w is self._w_param else self._w_param.shape[::-1]
 
-        if b is None:
-            b = np.zeros(n_out, dtype = theano.config.floatX)
-        if b_rev is None:
+        if np.isscalar(b):
+            b = np.zeros(n_out, dtype = theano.config.floatX)+b
+        if np.isscalar(b_rev):
             b_rev = np.zeros(n_in, dtype = theano.config.floatX)
-        assert b.ndim == b_rev.ndim == 1, 'b must be a vector representing the inital biases'
+        elif isinstance(b_rev, np.ndarray):
+            assert b_rev.ndim == 1
+        assert b.ndim == 1, 'b must be a vector representing the inital biases'
         self._b = theano.shared(b, 'b', borrow = True, allow_downcast=True)
-        self._b_rev = theano.shared(b_rev, 'b_rev', borrow = True, allow_downcast=True)
+        self._b_rev = theano.shared(b_rev, 'b_rev', borrow = True, allow_downcast=True) if b_rev is not None else None
 
     def __call__(self, x):
         y = x.flatten(2).dot(self._w) + self._b
@@ -173,7 +189,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     @property
     def parameters(self):
-        return [self._w_param, self._b, self._b_rev]
+        return [self._w_param, self._b] + ([self._b_rev] if self._b_rev is not None else [])
 
     def reverse(self, y):
         return y.flatten(2).dot(self._w.T)+self._b_rev
