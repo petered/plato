@@ -96,8 +96,6 @@ class BaseSymbolicFunction(ISymbolicFunction):
         self._instance = instance
         self._locals = None
         self._dispatched_symbolic_methods = {}
-        # self._type = 'function' if inspect.isfunction(fcn)
-
         # Ok, there're basically 5 situations:
         # 1: This is an ordinary function
         #    inspect.isfunction: True
@@ -160,14 +158,22 @@ class BaseSymbolicFunction(ISymbolicFunction):
             self._assert_all_updates(updates)
 
     def __get__(self, instance, owner):
-
-        if self in self._dispatched_symbolic_methods:
+        # What's going on here:
+        # self is an ISymbolicFunction that wrapps a method - it is created at the time the class is, before
+        # any object is instantiated.  Every time the method is requested from an instantiated object, this
+        # function is called.  This function has 2 jobs: 1: Make sure the dispatched method is a symbolic function
+        # of the same type as this (e.g. StatelessSymbolicFunction).  2: Make sure that each time the method is
+        # requested for a particular instance, we return the same method.  2 is important for (a) efficiency - there's
+        # no reason to create a separate object every time we want to get the method, and (b) debugging - because we
+        # attach the local variables to the method, and want to get them later, so the returned method better have
+        # the same address every time we request it.
+        if instance in self._dispatched_symbolic_methods:
             # The caching is necessary for the .locals() method to work - we need to make
             # sure we're returning the same object every time a method is requested.
-            dispatched_symbolic_method = self._dispatched_symbolic_methods[self]
+            dispatched_symbolic_method = self._dispatched_symbolic_methods[instance]
         else:
             dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
-            self._dispatched_symbolic_methods[self] = dispatched_symbolic_method
+            self._dispatched_symbolic_methods[instance] = dispatched_symbolic_method
         return dispatched_symbolic_method
 
     def compile(self, **kwargs):
@@ -197,7 +203,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
             local_vars = self._fcn.__self__.locals()
         else:
             raise Exception('Unexpected type: %s' % (self._type))
-
+        assert local_vars is not None, 'You tried to retrieve locals, but they are not available.  Have you called the function yet?'
         return LocalsContainer(local_vars)
 
     @abstractmethod

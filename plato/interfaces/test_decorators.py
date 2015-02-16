@@ -232,24 +232,57 @@ def test_omniscence():
             sum_a_b = a+b
             return sum_a_b/2.
 
-    for i, op in enumerate([
-            average,
-            Averager(),
-            TwoNumberOperator().average,
-            average.symbolic_standard,
-            Averager().symbolic_standard,
-            TwoNumberOperator().average.symbolic_standard
-            ]):
+    for k, op in [
+            ('function', average),
+            ('callable_class', Averager()),
+            ('method', TwoNumberOperator().average),
+            ('standard_function', average.symbolic_standard),
+            ('standard_callable_class', Averager().symbolic_standard),
+            ('standard_method', TwoNumberOperator().average.symbolic_standard)
+            ]:
 
         average_fcn = op.compile(mode = 'omniscent')
         average_fcn.set_debug_variables('locals')
 
         mean = average_fcn(3, 6)
-        assert mean == (4.5 if i<3 else [4.5])
+        assert mean == ([4.5] if k.startswith('standard_') else 4.5)
         assert average_fcn.get_debug_values()['sum_a_b'] == 9
 
 
+def test_method_caching_bug():
+    """
+    Previously there was a bug in BaseSymbolicFunction.__get__ where dispatched
+    methods were cached using the method-wrapper as a key rather than the instance.
+    This caused the same method to be dispatched for different objects.  This test
+    catches that bug.  Before it was fixed, the second counter would appear to just
+    continue the counting of the first, which is obviously not what you want.
+    """
+    class Counter(object):
+
+        def __init__(self, initial_value = 0):
+            self._count_var = theano.shared(np.array([initial_value]))
+
+        @symbolic_standard
+        def count(self):
+            return (self._count_var, ), [(self._count_var, self._count_var+1)]
+
+        @symbolic_stateless
+        def get_count(self):
+            return self._initial_value
+
+    ca = Counter().count.compile()
+    c1 = ca()
+    assert c1 == [0]
+    c2 = ca()
+    assert c2 == [1]
+
+    cb = Counter().count.compile()
+    c1 = cb()
+    assert c1 == [0]  # Before the fix, this was [2]
+
+
 if __name__ == '__main__':
+    test_method_caching_bug()
     test_omniscence()
     test_stateless_decorators()
     test_standard_decorators()

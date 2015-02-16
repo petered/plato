@@ -14,7 +14,17 @@ def demo_rbm():
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
 
-    As learning progresses, we should see that the samples from the markov chain look increasingly like the data.
+    What you see:
+    A plot will appear with 6 subplots.  The subplots are as follows:
+    hidden-neg-chain: The activity of the hidden layer for each of the persistent CD chains for draewing negative samples.
+    visible-neg-chain: The probabilities of the visible activations corresponding to the state of hidden-neg-chain.
+    w: A subset of the weight vectors, reshaped to the shape of the input.
+    b: The bias of the hidden units.
+    b_rev: The bias of the visible units.
+    visible-sample: The probabilities of the visible samples drawin from an independent free-sampling chain (outside the
+        training function).
+
+    As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
     minibatch_size = 9
 
