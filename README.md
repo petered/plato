@@ -24,7 +24,8 @@ Arrow from A to B indicates "A imports from B, but B doesn't import from A"
 
 
 **Getting Started**
-To get started:
+
+To get started (Works on OSX, and maybe Linux):
 
 1. Open a terminal.
 1. Make sure you have virtualenv (run `virtualenv` to check).  If you do not, run `sudo pip install virtualenv`
@@ -32,11 +33,11 @@ To get started:
 ```
 git clone https://github.com/petered/plato.git
 cd plato
-setup.sh  # This installs a bunch of stuff, and may take some time.
+source setup.sh  # This installs a bunch of stuff, and may take some time.
 ```
 You should now be in the virtual environment (there should be a little `(venv)` on the left side in the terminal).  To see if everything worked, try running the RBM demo: 
 ```
-python plato/tools/demo_restricted_boltzmann_machine.py 
+python plato/tools/demo_rbm.py 
 ```
 A window should pop up, visualizing an RBM as it learns on MNIST data.
 
