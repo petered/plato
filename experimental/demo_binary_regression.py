@@ -46,6 +46,8 @@ def setup_visualization(predictor):
                 }
             if 'self._phi' in lv:
                 plot_dict['phi'] = lv['self._phi'].squeeze()
+
+            print plot_dict['w'].T
             return plot_dict
         plotter = LiveStream(get_plotting_vals)
 
@@ -68,9 +70,19 @@ def get_data_for_figure(which_figure):
             '2C': 0.0,
             '2D': 1.0
             }[which_figure]
-    elif which_figure[0] in ('3', '4', 'X'):
+    elif which_figure[0] in ('3', '4'):
         n_dims = 20
         n_training = 50
+        n_test = 100
+        noise_factor = 0.0
+    elif which_figure[0] == '5':
+        n_dims = 20
+        n_training = {'5A': 50, '5B': 50, '5C': 1000, '5D': 1000}[which_figure]
+        n_test = 100
+        noise_factor = 0.0
+    elif which_figure[0] == 'X':
+        n_dims = 20
+        n_training = 500
         n_test = 100
         noise_factor = 0.0
     else:
@@ -93,13 +105,18 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
     :param test_mode: Just makes things run really fast to assert that they don't break.
     """
 
-    n_steps = 3 if test_mode else 1000
+    n_steps = \
+        3 if test_mode else \
+        1000 if which_figure[0] in ('1', '2', '3', '4') else \
+        10000 if which_figure[0] == '5' else \
+        100000
+
     sample_y = False
 
     d = get_data_for_figure(which_figure)
     dataset = DataSet(DataCollection(d.x_tr, d.y_tr), DataCollection(d.x_ts, d.y_ts))
 
-    def get_regressor_constructor(sampling_type, n_alpha, alpha_update_policy = 'sequential'):
+    def get_regressor_constructor(sampling_type, n_alpha, alpha_update_policy = 'sequential', possible_ws = (0, 1)):
         klass = {'gibbs': GibbsRegressor, 'herded': HerdedGibbsRegressor}[sampling_type]
         return lambda: SamplingPredictor(klass(
                 n_dim_in=d.x_tr.shape[1],
@@ -107,41 +124,50 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
                 sample_y = sample_y,
                 n_alpha = n_alpha,
                 seed = None,
-                alpha_update_policy = alpha_update_policy
+                alpha_update_policy = alpha_update_policy,
+                possible_ws = possible_ws
                 ), mode = 'tr')
 
     full_set_of_regressors = {
-        'gibbs-single-seq': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='sequential'),
-        'herded-single-seq': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='sequential'),
-        'gibbs-single-rand': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='random'),
-        'herded-single-rand': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='random'),
-        'gibbs-1/4-seq': get_regressor_constructor('gibbs', n_alpha = 5, alpha_update_policy='sequential'),
-        'herded-1/4-seq': get_regressor_constructor('herded', n_alpha = 5, alpha_update_policy='sequential'),
+        'gibbs': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='sequential'),
+        'herded': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='sequential'),
+        'gibbs-rand': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='random'),
+        'herded-rand': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='random'),
+        'gibbs-1/4': get_regressor_constructor('gibbs', n_alpha = 5, alpha_update_policy='sequential'),
+        'herded-1/4': get_regressor_constructor('herded', n_alpha = 5, alpha_update_policy='sequential'),
         'gibbs-1/4-rand': get_regressor_constructor('gibbs', n_alpha = 5, alpha_update_policy='random'),
         'herded-1/4-rand': get_regressor_constructor('herded', n_alpha = 5, alpha_update_policy='random'),
-        'gibbs-1/2-seq': get_regressor_constructor('gibbs', n_alpha = 10, alpha_update_policy='sequential'),
-        'herded-1/2-seq': get_regressor_constructor('herded', n_alpha = 10, alpha_update_policy='sequential'),
+        'gibbs-1/2': get_regressor_constructor('gibbs', n_alpha = 10, alpha_update_policy='sequential'),
+        'herded-1/2': get_regressor_constructor('herded', n_alpha = 10, alpha_update_policy='sequential'),
         'gibbs-1/2-rand': get_regressor_constructor('gibbs', n_alpha = 10, alpha_update_policy='random'),
         'herded-1/2-rand': get_regressor_constructor('herded', n_alpha = 10, alpha_update_policy='random'),
-        'gibbs-full-seq': get_regressor_constructor('gibbs', n_alpha = 20, alpha_update_policy='sequential'),
-        'herded-full-seq': get_regressor_constructor('herded', n_alpha = 20, alpha_update_policy='sequential'),
+        'gibbs-full': get_regressor_constructor('gibbs', n_alpha = 20, alpha_update_policy='sequential'),
+        'herded-full': get_regressor_constructor('herded', n_alpha = 20, alpha_update_policy='sequential'),
         'gibbs-full-rand': get_regressor_constructor('gibbs', n_alpha = 20, alpha_update_policy='random'),
         'herded-full-rand': get_regressor_constructor('herded', n_alpha = 20, alpha_update_policy='random'),
+        'gibbs-5choice': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='sequential', possible_ws=[0, 0.25, 0.5, 0.75, 1]),
+        'herded-5choice': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='sequential', possible_ws=[0, 0.25, 0.5, 0.75, 1]),
+        'gibbs-20choice': get_regressor_constructor('gibbs', n_alpha = 1, alpha_update_policy='sequential', possible_ws=np.linspace(0, 1, 20)),
+        'herded-20choice': get_regressor_constructor('herded', n_alpha = 1, alpha_update_policy='sequential', possible_ws=np.linspace(0, 1, 20)),
         }
 
     regressors_to_compare = {
-        'X': ['herded-1/2-seq'],
-        '1': ['gibbs-single-seq'],
-        '2A': ['gibbs-single-seq', 'herded-single-seq'],
-        '2B': ['gibbs-single-seq', 'herded-single-seq'],
-        '2C': ['gibbs-single-seq', 'herded-single-seq'],
-        '2D': ['gibbs-single-seq', 'herded-single-seq'],
-        '3A': ['gibbs-single-seq', 'gibbs-1/4-seq', 'gibbs-1/2-seq', 'gibbs-full-seq'],
-        '3B': ['herded-single-seq', 'herded-1/4-seq', 'herded-1/2-seq', 'herded-full-seq'],
-        '4A': ['gibbs-single-seq', 'gibbs-single-rand', 'herded-single-seq', 'herded-single-rand'],
-        '4B': ['gibbs-1/4-seq', 'gibbs-1/4-rand', 'herded-1/4-seq', 'herded-1/4-rand'],
-        '4C': ['gibbs-1/2-seq', 'gibbs-1/2-rand', 'herded-1/2-seq', 'herded-1/2-rand'],
-        '4D': ['gibbs-full-seq', 'gibbs-full-rand', 'herded-full-seq', 'herded-full-rand'],
+        'X': ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
+        '1': ['gibbs'],
+        '2A': ['gibbs', 'herded'],
+        '2B': ['gibbs', 'herded'],
+        '2C': ['gibbs', 'herded'],
+        '2D': ['gibbs', 'herded'],
+        '3A': ['gibbs', 'gibbs-1/4', 'gibbs-1/2', 'gibbs-full'],
+        '3B': ['herded', 'herded-1/4', 'herded-1/2', 'herded-full'],
+        '4A': ['gibbs', 'gibbs-rand', 'herded', 'herded-rand'],
+        '4B': ['gibbs-1/4', 'gibbs-1/4-rand', 'herded-1/4', 'herded-1/4-rand'],
+        '4C': ['gibbs-1/2', 'gibbs-1/2-rand', 'herded-1/2', 'herded-1/2-rand'],
+        '4D': ['gibbs-full', 'gibbs-full-rand', 'herded-full', 'herded-full-rand'],
+        '5A': ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
+        '5B': ['herded', 'herded-5choice', 'herded-20choice'],
+        '5C': ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
+        '5D': ['herded', 'herded-5choice', 'herded-20choice'],
         }
 
     records = compare_predictors(
@@ -162,7 +188,7 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
 
 if __name__ == '__main__':
 
-    figure = 'X'
-    plot = True
+    figure = '5D'
+    plot = False
 
     demo_binary_regression(figure, plot=plot)
