@@ -165,7 +165,9 @@ class BaseSymbolicFunction(ISymbolicFunction):
             dispatched_symbolic_method = self._dispatched_symbolic_methods[self]
         else:
             dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
-            self._dispatched_symbolic_methods[self] = dispatched_symbolic_method
+            # print 'Dispatching method from'
+            # TODO: FIX AND TEST BIG BUG HERE!
+            # self._dispatched_symbolic_methods[self] = dispatched_symbolic_method
         return dispatched_symbolic_method
 
     def compile(self, **kwargs):

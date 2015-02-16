@@ -40,10 +40,10 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
     all_keys = online_predictor_constructors.keys()+offline_predictor_constructors.keys()+incremental_predictor_constructors.keys()
     assert len(all_keys) > 0, 'You have to give at least one predictor.'
     assert len(all_keys) == len(np.unique(all_keys)), "You have multiple predictors using the same names. Change that."
-    type_constructor_dict = dict(
-        [(k, ('offline', pc)) for k, pc in offline_predictor_constructors.iteritems()] +
-        [(k, ('online', pc)) for k, pc in online_predictor_constructors.iteritems()] +
-        [(k, ('incremental', pc)) for k, pc in incremental_predictor_constructors.iteritems()]
+    type_constructor_dict = OrderedDict(
+        [(k, ('offline', offline_predictor_constructors[k])) for k in sorted(offline_predictor_constructors.keys())] +
+        [(k, ('online', online_predictor_constructors[k])) for k in sorted(online_predictor_constructors.keys())] +
+        [(k, ('incremental', incremental_predictor_constructors[k])) for k in sorted(incremental_predictor_constructors.keys())]
         )
 
     if isinstance(minibatch_size, int):

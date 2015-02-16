@@ -1,5 +1,5 @@
-from misc.demo_binary_regression import simple_binary_gibbs_regressor
 import numpy as np
+from plato.tools.old_sampling import simple_binary_gibbs_regressor
 from scipy.stats.stats import ttest_ind
 from utils.benchmarks.train_and_test import mean_squared_error
 from utils.datasets.synthetic_logistic import get_logistic_regression_data
@@ -10,11 +10,11 @@ __author__ = 'peter'
 
 def test_binary_logistic_regression(plot = True):
 
-    n_steps = 1000
+    n_steps = 100
     n_dims = 10
     noise_factor = 0.2
 
-    x, y, _, _, _ = get_logistic_regression_data(n_training = 1000, n_test = 100, n_dims=n_dims, noise_factor = noise_factor)
+    x, y, _, _, _ = get_logistic_regression_data(n_training = 100, n_test = 100, n_dims=n_dims, noise_factor = noise_factor)
 
     sampler = simple_binary_gibbs_regressor(n_dim_in = n_dims, n_dim_out = 1, seed = 5)
 

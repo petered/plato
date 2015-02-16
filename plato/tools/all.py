@@ -1,6 +1,6 @@
 import cost
 import linking
-import misc
+import experimental
 import networks
 import optimizers
 import rbm

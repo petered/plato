@@ -251,10 +251,10 @@ def test_omniscence():
 
 if __name__ == '__main__':
     test_omniscence()
-    test_stateless_decorators()
-    test_standard_decorators()
-    test_pure_updater()
-    test_function_format_checking()
-    test_callable_format_checking()
-    test_inhereting_from_decorated()
-    test_dual_decoration()
+    # test_stateless_decorators()
+    # test_standard_decorators()
+    # test_pure_updater()
+    # test_function_format_checking()
+    # test_callable_format_checking()
+    # test_inhereting_from_decorated()
+    # test_dual_decoration()
