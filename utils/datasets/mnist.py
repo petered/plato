@@ -1,4 +1,3 @@
-import gzip
 from utils.datasets.datasets import DataSet, DataCollection
 from utils.file_getter import get_file, unzip_gz
 import pickle
@@ -6,7 +5,7 @@ import pickle
 __author__ = 'peter'
 
 
-def get_mnist_dataset():
+def get_mnist_dataset(n_training_samples = None, n_test_samples = None):
     """
     :return: A DataSet object containing the MNIST data
     """
@@ -17,5 +16,8 @@ def get_mnist_dataset():
 
     with open(filename) as f:
         data = pickle.load(f)
-    collections = [DataCollection(inputs = d[0], targets = d[1]) for d in data]
-    return DataSet(*collections)
+
+    x_tr, y_tr = data[0] if n_training_samples is None else (data[0][0][:n_training_samples], data[0][1][:n_training_samples])
+    x_ts, y_ts = data[1] if n_training_samples is None else (data[1][0][:n_training_samples], data[1][1][:n_training_samples])
+    x_vd, y_vd = data[2]
+    return DataSet(training_set=DataCollection(x_tr, y_tr), test_set=DataCollection(x_ts, y_ts), validation_set=DataCollection(x_vd, y_vd))

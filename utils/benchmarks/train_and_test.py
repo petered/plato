@@ -30,8 +30,12 @@ def mean_squared_error(actual, target):
 
 
 def fraction_correct(actual, target):
-    return np.mean(np.eq(actual, target))
+    return np.mean(actual == target)
+
+
+def percent_correct(actual, target):
+    return 100*fraction_correct(actual, target)
 
 
 def percent_argmax_correct(actual, target):
-    return 100*fraction_correct(actual, target)
+    return 100*fraction_correct(np.argmax(actual, axis = 1), target)
