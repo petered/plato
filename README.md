@@ -8,7 +8,7 @@ To separate the messy, experimental stuff from the clean, reuseable stuff, I've 
 
 **utils** - Various utilities that don't involve theano (for loading datasets, doing numpy operations, comparing predictors, etc)
 
-**misc** - Various scripts and experiments.  Don't expect much hygene here.
+**experimental** - Various scripts and experiments.  Don't expect much hygene here.
 
 **general** - Generally useful things that don't necessairily relate to machine learning.  Things here should be nice and individually useful, and probably just included in python/numpy one day.
 
@@ -16,9 +16,9 @@ To separate the messy, experimental stuff from the clean, reuseable stuff, I've 
 
 Dependency:
 ```
-misc --> plato --> utils --> general
-  |                            ^
-  '--> plotting ---------------|
+experimental --> plato --> utils --> general
+  |                                    /\
+  '----------> plotting ---------------'
 ```
 Arrow from A to B indicates "A imports from B, but B doesn't import from A"
 
