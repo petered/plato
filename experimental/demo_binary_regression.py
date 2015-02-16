@@ -88,7 +88,8 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
     Code for creating plots in our report.
 
     :param which_figure: Which figure of the report to replicate.  Or "X" for just
-       experimenting with stuff.
+       experimenting with stuff.  The report is here:
+       https://docs.google.com/document/d/1zBQdI-1tcEvqmizCuL2GX_ceqhLnOvGoN8ljciw9uGE/edit?usp=sharing
     :param test_mode: Just makes things run really fast to assert that they don't break.
     """
 

@@ -23,6 +23,8 @@ def demo_rbm():
     b_rev: The bias of the visible units.
     visible-sample: The probabilities of the visible samples drawin from an independent free-sampling chain (outside the
         training function).
+
+    As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
     minibatch_size = 9
 

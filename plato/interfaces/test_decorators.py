@@ -256,8 +256,6 @@ def test_method_caching_bug():
     This caused the same method to be dispatched for different objects.  This test
     catches that bug.  Before it was fixed, the second counter would appear to just
     continue the counting of the first, which is obviously not what you want.
-
-    :return:
     """
     class Counter(object):
 
