@@ -8,12 +8,19 @@ from utils.datasets.mnist import get_mnist_dataset
 __author__ = 'peter'
 
 
-def demo_mnist():
+def demo_mnist_mlp(test_mode = False):
     """
     Train an MLP on MNIST and print the test scores as training progresses.
     """
 
-    test_period = 1000
+    if test_mode:
+        test_period = 200
+        minibatch_size = 5
+        n_epochs = 0.01
+    else:
+        test_period = 1000
+        minibatch_size = 20
+        n_epochs = 10
 
     dataset = get_mnist_dataset()
 
@@ -32,14 +39,16 @@ def demo_mnist():
         print 'Test score at iteration %s: %s' % (i, test_cost)
 
     # Train and periodically report the test score.
-    for i, (_, image_minibatch, label_minibatch) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = 20, epochs = 10, single_channel = True)):
+    print 'Running MLP on MNIST Dataset...'
+    for i, (_, image_minibatch, label_minibatch) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = n_epochs, single_channel = True)):
         if i % test_period == 0:
             report_test(i)
         training_function(image_minibatch, label_minibatch)
     report_test('Final')
+    print '...Done.'
 
 
 if __name__ == '__main__':
 
     logging.getLogger().setLevel(logging.INFO)
-    demo_mnist()
+    demo_mnist_mlp()

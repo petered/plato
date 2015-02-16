@@ -1,4 +1,3 @@
-from StringIO import StringIO
 import urllib2
 from StringIO import StringIO
 import gzip

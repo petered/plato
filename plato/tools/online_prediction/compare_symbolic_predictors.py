@@ -1,11 +1,15 @@
 from collections import namedtuple
-import itertools
 from plato.interfaces.decorators import symbolic_stateless
 import numpy as np
-from matplotlib import pyplot as pp
+from matplotlib import pyplot as plt
 
 
 class CompareOnlinePredictors(object):
+    """
+    Compare symbolic predictors.  This is possibly a bit more efficient than compare_predictors, because the entire
+    evaluation is done in one compiled function.  However, it only works with theano-based predictors, and probably
+    doesn't speed things up that much, it may become depricated.
+    """
 
     def __init__(self, dataset, classifier_constructors, minibatch_size, test_points, evaluation_function):
         """
@@ -55,7 +59,7 @@ class CompareOnlinePredictors(object):
 
             @symbolic_stateless
             def symbolic_evaluation_fcn(inputs, labels):
-                predictions = classifier.classify(inputs)
+                predictions = classifier.predict(inputs)
                 score = self._evaluation_function(predictions, labels)
                 return score
 
@@ -73,7 +77,7 @@ class CompareOnlinePredictors(object):
             test_points = (self._test_points * self._dataset.training_set.n_samples).astype(int)
             test_point_index = 0
 
-            for i, (input_minibatch, label_minibatch) in enumerate(self._dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True)):
+            for i, (_, input_minibatch, label_minibatch) in enumerate(self._dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True)):
 
                 current_sample = i * minibatch_size
                 if current_sample >= self._test_points[test_point_index]:
@@ -92,11 +96,11 @@ class CompareOnlinePredictors(object):
 Record = namedtuple('TrainingRecord', ('training_score', 'test_score'))
 
 
-def plot_records(records):
+def plot_records(records, hang = True):
 
     colours = ['r', 'g', 'b', 'k', 'p']
 
-    pp.figure()
+    plt.figure()
 
     legend = []
 
@@ -107,11 +111,13 @@ def plot_records(records):
         test_times = np.array([t for t, _ in record.test_score])
         test_scores = np.array([s for _, s in record.test_score])
 
-        pp.plot(test_times, test_scores, '-'+colour)
-        pp.plot(training_times, training_scores, '--'+colour)
+        plt.plot(test_times, test_scores, '-'+colour)
+        plt.plot(training_times, training_scores, '--'+colour)
         legend+=['%s-test' % record_name, '%s-training' % record_name]
 
-    pp.xlabel('Epoch')
-    pp.ylabel('Score')
-    pp.legend(legend, loc = 'best')
-    pp.show()
+    plt.xlabel('Epoch')
+    plt.ylabel('Score')
+    plt.legend(legend, loc = 'best')
+    if not hang:
+        plt.ion()
+    plt.show()
