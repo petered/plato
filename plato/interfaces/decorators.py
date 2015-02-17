@@ -412,6 +412,8 @@ class AutoCompilingFunction(object):
         self._debug_variable_getter = None
         self._debug_values = None
         self._callbacks = []
+        if debug_getter is not None:
+            self.set_debug_variables(debug_getter)
         if mode in ('test_and_run', 'debug'):
             theano.config.compute_test_value = 'warn'
             if mode == 'debug':

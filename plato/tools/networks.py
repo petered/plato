@@ -189,13 +189,13 @@ class ConvolutionalBridge(IParameterized, IFreeEnergy):
 
     def __init__(self, w, b=0, b_rev=None, stride = (1, 1)):
         self._w, w_params, w_shape = _initialize_param(w, shape = (None, None, None, None), name = 'w')
-        self._b, b_params, b_shape = _initialize_param(b, shape = (w_shape[0], 1, 1), name = 'b')
-        self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = (w_shape[1], 1, 1), name = 'b_rev')
+        self._b, b_params, b_shape = _initialize_param(b, shape = w_shape[0], name = 'b')
+        self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = w_shape[1], name = 'b_rev')
         self._params = w_params+b_params+b_rev_params
         self._stride = stride
 
     def __call__(self, x):
-        y = tt.nnet.conv2d(x, self._w, border_mode='valid', subsample = self._stride) + self._b
+        y = tt.nnet.conv2d(x, self._w, border_mode='valid', subsample = self._stride) + self._b.dimshuffle('x', 0, 'x', 'x')
         return y
 
     @property
@@ -206,10 +206,10 @@ class ConvolutionalBridge(IParameterized, IFreeEnergy):
 
         assert self._stride == (1, 1), 'Only support single-step strides for now...'
         # But there's this approach... https://groups.google.com/forum/#!topic/theano-users/Xw4d00iV4yk
-        return tt.nnet.conv2d(y, self._w.swapaxes(0, 1)[:, :, ::-1, ::-1], border_mode='full') + self._b_rev
+        return tt.nnet.conv2d(y, self._w.dimshuffle(1, 0, 2, 3)[:, :, ::-1, ::-1], border_mode='full') + self._b_rev.dimshuffle('x', 0, 'x', 'x')
 
     def free_energy(self, visible):
-        return -visible.flatten(2).dot(self._b_rev)
+        return -tt.sum(visible*self._b_rev.dimshuffle('x', 0, 'x', 'x'), axis = (2, 3))
 
 
 def _initialize_param(initial_value, shape = None, name = None):
@@ -226,6 +226,9 @@ def _initialize_param(initial_value, shape = None, name = None):
 
     :param initial_value: An array, scalar, or symbolic variable.:
     :param shape: The shape that the variable should have.  None if it is already fully specified by initial_value.
+        If shape is a tuple, elements of shape s can be:
+        - integers: In which case, they mean (the dimension of in this direction shall be <s>
+        - None: In which case, the initial_value must be defined as an array, and the array may have any shape along this axis.
     :param name: Optionally, the name for the shared variable.
     :return: (variable, param): Variable is the shared variable, and param is the associated parameter.  If you
         instantiated with scalar or ndarray, variable and param will be the same object.
