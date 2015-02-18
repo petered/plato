@@ -28,6 +28,9 @@ var/
 *.manifest
 *.spec
 
+# IPython Notebooks (we instead run with —script to auto generate py files)
+*.ipynb
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
