@@ -1,6 +1,4 @@
 import time
-import matplotlib
-matplotlib.use('Qt5Agg')
 from plotting.live_plotting import LiveStream, LiveCanal, LivePlot
 from plotting.matplotlib_backend import MovingImagePlot, MovingPointPlot, LinePlot, ImagePlot
 from itertools import count
@@ -10,7 +8,6 @@ import numpy as np
 
 
 def test_streaming(duration = 10):
-    # 8.9 FPS with default matplotlib backend
 
     c = count()
 
@@ -65,5 +62,5 @@ def test_canaling(duration = 10):
 
 if __name__ == '__main__':
 
-    test_streaming(500)
-    # test_canaling(10)
+    test_streaming(10)
+    test_canaling(10)
