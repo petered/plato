@@ -22,11 +22,15 @@ var/
 .installed.cfg
 *.egg
 
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+
+# IPython Notebooks (we instead run with —script to auto generate py files)
+*.ipynb
 
 # Installer logs
 pip-log.txt
