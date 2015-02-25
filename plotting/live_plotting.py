@@ -27,13 +27,6 @@ class BaseStream(object):
 
             self._plots = self._get_plots_from_first_data(name_data_pairs)
             plot_data_dict(name_data_pairs, plots = self._plots)
-            # eplt.figure()
-            # n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
-            # for i, (k, v) in enumerate(data_dict.iteritems()):
-            #     eplt.subplot(n_rows, n_cols, i+1)
-            #     self._plots[k].update(v)
-            #     eplt.title(k, fontdict = {'fontsize': 8})
-            # eplt.show()
         else:
             for k, v in name_data_pairs:
                 self._plots[k].update(v)

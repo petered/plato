@@ -47,7 +47,7 @@ def setup_visualization(predictor):
             if 'self._phi' in lv:
                 plot_dict['phi'] = lv['self._phi'].squeeze()
 
-            print plot_dict['w'].T
+            #print plot_dict['w'].T
             return plot_dict
         plotter = LiveStream(get_plotting_vals)
 
@@ -82,7 +82,7 @@ def get_data_for_figure(which_figure):
         noise_factor = 0.0
     elif which_figure[0] == 'X':
         n_dims = 20
-        n_training = 500
+        n_training = 50
         n_test = 100
         noise_factor = 0.0
     else:
@@ -152,7 +152,7 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
         }
 
     regressors_to_compare = {
-        'X': ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
+        'X': ['gibbs'],
         '1': ['gibbs'],
         '2A': ['gibbs', 'herded'],
         '2B': ['gibbs', 'herded'],
@@ -188,7 +188,7 @@ def demo_binary_regression(which_figure, test_mode = False, plot = False):
 
 if __name__ == '__main__':
 
-    figure = '5D'
-    plot = False
+    figure = 'X'
+    plot = True
 
     demo_binary_regression(figure, plot=plot)
