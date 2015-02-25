@@ -32,6 +32,10 @@ class DataSet(object):
             validation_set=self._validation_set.process_with(inputs_processor, targets_processor) if self._validation_set is not None else None,
         )
 
+    @staticmethod
+    def from_xyxy(training_inputs, training_targets, test_inputs, test_targets):
+        return DataSet(training_set = DataCollection(training_inputs, training_targets), test_set = DataCollection(test_inputs, test_targets))
+
 
 class DataCollection(object):
 
