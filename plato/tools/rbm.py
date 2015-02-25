@@ -10,9 +10,6 @@ rbm = namedtuple('RBM', ['propup', 'propdown', 'get_training_fcn', 'get_free_sam
 
 
 def simple_rbm(visible_layer, bridge, hidden_layer):
-    """
-    A simple RBM with one visible and one hidden layer.  For cases with multiple
-    """
 
     @symbolic_stateless
     def propup(x):
@@ -87,25 +84,3 @@ def simple_rbm(visible_layer, bridge, hidden_layer):
         return bounce_from_visible if start_from == 'visible' else bounce_from_hidden
 
     return rbm(propup, propdown, get_training_fcn, get_free_sampling_fcn, vars = locals())
-
-
-def multi_rbm(visible_layers, bridges, hidden_layers):
-    """
-    An RBM with N visible layers, N hidden layers, and connecting bridges.  Bridges need not connect
-    all layers to all layers.
-
-    :param visible_layers:
-    :param bridges:
-    :param hidden_layers:
-    :return:
-    """
-
-
-
-    @symbolic_standard
-    def propup(visible_activations):
-        bridge_outputs = {(vis_id, hid_id): b(visible_activations[vis_id]) for (vis_id, hid_id), b in bridges.iteritems()}
-        hidden_outputs = [hidden_layers(*[bo for (_, hid_id), bo in bridge_outputs.iteritems() if hid_id in hidden_layer_id])
-            for hidden_layer_id in hidden_layers]
-        return hidden_outputs
-
