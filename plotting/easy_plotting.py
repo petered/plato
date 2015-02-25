@@ -6,7 +6,7 @@ import plotting.matplotlib_backend as eplt
 __author__ = 'peter'
 
 
-def easy_plot(anything, plots = None):
+def ezplot(anything, plots = None):
     """
     Make a plot of anything.  Anything at all.
     :param anything: Anything.

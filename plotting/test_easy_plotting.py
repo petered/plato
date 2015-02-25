@@ -1,5 +1,5 @@
 import numpy as np
-from plotting.easy_plotting import easy_plot
+from plotting.easy_plotting import ezplot
 from matplotlib import pyplot as plt
 __author__ = 'peter'
 
@@ -24,7 +24,7 @@ def test_easy_plot():
         number = 5
         )
     plt.ion()
-    easy_plot(thing)
+    ezplot(thing)
 
 
 if __name__ == '__main__':
