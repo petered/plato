@@ -38,4 +38,15 @@ def percent_correct(actual, target):
 
 
 def percent_argmax_correct(actual, target):
+    """
+    :param actual: An (n_samples, n_dims) array
+    :param target: An (n_samples, ) array of indices OR an (n_samples, n_dims) array
+    :return:
+    """
+    assert actual.ndim==2
+    if target.ndim == 2:
+        target = np.argmax(target, axis = 1)
+    else:
+        assert target.ndim==1
+
     return 100*fraction_correct(np.argmax(actual, axis = 1), target)

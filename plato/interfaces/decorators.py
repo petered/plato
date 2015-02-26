@@ -414,10 +414,10 @@ class AutoCompilingFunction(object):
         self._callbacks = []
         if debug_getter is not None:
             self.set_debug_variables(debug_getter)
-        if mode in ('test_and_run', 'debug'):
+        if mode in ('test_and_run', 'debug', 'omniscent'):
             theano.config.compute_test_value = 'warn'
-            if mode == 'debug':
-                __builtins__['showloc'] = show_all_locals
+            __builtins__['showloc'] = show_all_locals
+            __builtins__['locinfo'] = get_local_info
 
     def __call__(self, *args):
         """
@@ -504,7 +504,9 @@ class AutoCompilingFunction(object):
         elif callback == 'locals+class':
             callback = lambda: dict(self._fcn.locals().items() + [('self.'+k, v) for k, v in self._fcn.locals()['self'].__dict__.iteritems()])
         else:
-            assert inspect.isfunction(callback)
+            assert inspect.isfunction(callback), 'You can either provide a callback returning locals, or a string in ' \
+                '{"locals", "class", "locals+class"}.  "%s" is not a valid argument.' % (callback, )
+
 
         self._debug_variable_getter = callback
 
@@ -553,10 +555,16 @@ def get_shared_ancestors(variable):
 def show_all_locals():
     locals_of_calling_frame = inspect.currentframe().f_back.f_locals
     print '=== Locals ==='
-    for k in locals_of_calling_frame.keys():
-        v = locals_of_calling_frame[k]
-        print '%s = %s' % (k, var_info(v))
+    for k, v_info in get_local_info(locals_of_calling_frame).iteritems():
+        print '%s = %s' % (k, v_info)
     print '--------------'
+
+
+def get_local_info(locals_of_calling_frame=None):
+    if locals_of_calling_frame is None:
+        locals_of_calling_frame = inspect.currentframe().f_back.f_locals
+    info = {k: var_info(v) for k, v in locals_of_calling_frame.iteritems()}
+    return info
 
 
 def var_info(var):

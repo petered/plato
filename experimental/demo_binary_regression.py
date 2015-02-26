@@ -47,8 +47,6 @@ def setup_visualization(predictor):
             if 'self._phi' in lv:
                 plot_dict['phi'] = lv['self._phi'].squeeze()
 
-            print plot_dict['w'].T
-            return plot_dict
         plotter = LiveStream(get_plotting_vals)
 
         predictor.train_function.add_callback(plotter.update)

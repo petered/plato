@@ -154,9 +154,12 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
     return record
 
 
-def assess_incremental_predictor(predictor, dataset, evaluation_function, sampling_points, accumulation_function='mean', report_test_scores=True):
+def assess_incremental_predictor(predictor, dataset, evaluation_function, sampling_points, accumulation_function='mean',
+        sampling_period = 1, report_test_scores=True, which_sets = 'training+test'):
     """
     Train an incremental predictor and return the LearningCurveData.
+
+    These are a bit complicated.
 
     :param predictor: An IPredictor object
     :param dataset: A DataSet object
@@ -168,6 +171,7 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
     """
 
     assert sampling_points.dtype == 'int' and np.all(sampling_points[:-1] <= sampling_points[1:])
+    assert which_sets in ('training', 'test', 'training+test')
     record = LearningCurveData()
     accumulators = {
         'mean': lambda: RunningAverage(),
@@ -177,17 +181,26 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
     test_accumulator = accumulators[accumulation_function]()
 
     pi = ProgressIndicator(sampling_points[-1], update_every = (2, 'seconds'), post_info_callback=lambda: scores)
-    for epoch in xrange(sampling_points[-1]):
+    for epoch in xrange(sampling_points[-1]+1):
+        if epoch % sampling_period == 0:
+            if 'training' in which_sets:
+                accumulated_training_output = training_accumulator(predictor.predict(dataset.training_set.input))
+            if 'test' in which_sets:
+                accumulated_test_output = test_accumulator(predictor.predict(dataset.test_set.input))
+
         if epoch in sampling_points:
-            accumulated_training_output = training_accumulator(predictor.predict(dataset.training_set.input))
-            training_score = evaluation_function(actual = accumulated_training_output, target = dataset.training_set.target)
-            accumulated_test_output = test_accumulator(predictor.predict(dataset.test_set.input))
-            test_score = evaluation_function(actual = accumulated_test_output, target = dataset.test_set.target)
-            scores = [('Training', training_score), ('Test', test_score)]
+            scores = []
+            if 'training' in which_sets:
+                training_score = evaluation_function(actual = accumulated_training_output, target = dataset.training_set.target)
+                scores.append(('Training', training_score))
+                if report_test_scores:
+                    print 'Training score at epoch %s: %s' % (epoch, training_score)
+            if 'test' in which_sets:
+                test_score = evaluation_function(actual = accumulated_test_output, target = dataset.test_set.target)
+                scores.append(('Test', test_score))
+                if report_test_scores:
+                    print 'Test score at epoch %s: %s' % (epoch, test_score)
             record.add(epoch, scores)
-            if report_test_scores:
-                print 'Training score at epoch %s: %s' % (epoch, training_score)
-                print 'Test score at epoch %s: %s' % (epoch, test_score)
         predictor.train(dataset.training_set.input, dataset.training_set.target)
         pi()
     return record
@@ -231,3 +244,28 @@ class LearningCurveData(object):
             scores is a (length_N, n_scores) array indicating the each score at each time.
         """
         return np.array(self._times), OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
+
+
+# Following were meant to remove duplicated code in incremental/online/offline tests but ran into problem with incremental
+#
+# def _compute_scores(dataset, prediction_function, evaluation_function, which_sets):
+#
+#     if which_sets == 'training':
+#         sets = [('Training', dataset.training_set)]
+#     elif which_sets == 'test':
+#         sets = [('Test', dataset.test_set)]
+#     elif which_sets == 'training+test':
+#         sets = [('Training', dataset.training_set), ('Test', dataset.test_set)]
+#
+#     scores = []
+#     for set_name, data_collection in sets:
+#         output = prediction_function(data_collection.input)
+#         score = evaluation_function(actual = output, target = data_collection.target)
+#         scores.append[(set_name, score)]
+#
+#     return scores
+#
+#
+# def _report_scores(scores, epoch):
+#     for set_name, score in scores:
+#         print '%s score at epoch %s: %s' % (set_name, epoch, score)

@@ -1,3 +1,4 @@
+from general.should_be_builtins import all_equal
 import numpy as np
 
 __author__ = 'peter'
@@ -6,6 +7,11 @@ __author__ = 'peter'
 class DataSet(object):
 
     def __init__(self, training_set, test_set, validation_set = None):
+
+        sets = [training_set, test_set] + [validation_set] if validation_set is not None else []
+        assert all_equal(*[[x.shape[1:] for x in s.inputs] for s in sets])
+        assert all_equal(*[[x.shape[1:] for x in s.targets] for s in sets])
+
         self.training_set = training_set
         self.test_set = test_set
         self._validation_set = validation_set
@@ -35,6 +41,13 @@ class DataSet(object):
     @staticmethod
     def from_xyxy(training_inputs, training_targets, test_inputs, test_targets):
         return DataSet(training_set = DataCollection(training_inputs, training_targets), test_set = DataCollection(test_inputs, test_targets))
+
+    def __repr__(self):
+        return '<%s with %s training samples, %s test samples, input_shapes = %s, target_shapes = %s at %s>' \
+            % (self.__class__.__name__, self.training_set.n_samples, self.test_set.n_samples,
+               [x.shape[1:] for x in self.training_set.inputs], [x.shape[1:] for x in self.training_set.targets],
+                hex(id(self))
+            )
 
 
 class DataCollection(object):

@@ -36,11 +36,17 @@ class GibbsRegressor(object):
         value 1.
 
         """
+        assert x.tag.test_value.ndim == y.tag.test_value.ndim == 2
+        assert x.tag.test_value.shape[0] == y.tag.test_value.shape[0]
+        assert w.get_value().shape[1] == y.tag.test_value.shape[1]
         v_current = x.dot(w)  # (n_samples, n_dim_out)
         v_0 = v_current[None, :, :] - w[alpha, None, :]*x.T[alpha, :, None]  # (n_alpha, n_samples, n_dim_out)
         possible_vs = v_0[:, :, :, None] + possible_ws[None, None, None, :]*x.T[alpha, :, None, None]  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
+        # v_0 = v_current[None, :, :] - w[alpha, None, :]*x.T[alpha, :, None]  # (n_alpha, n_samples, n_dim_out)
+        # possible_vs = v_0[:, :, :, None] + possible_ws[None, None, None, :]*x.T[alpha, :, None, None]  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
+
         all_zs = tt.nnet.sigmoid(possible_vs)  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
-        log_likelihoods = tt.sum(tt.log(bernoulli(y[None, :, :, None], all_zs)), axis = 1)  # (n_alpha, n_dim_out, n_possible_ws)
+        log_likelihoods = tt.sum(tt.log(bernoulli(y[None, :, :, None], all_zs[:, :, :, :])), axis = 1)  # (n_alpha, n_dim_out, n_possible_ws)
         # Question: Need to shift for stability here or will Theano take care of that?
         # Stupid theano didn't implement softmax very nicely so we have to do some reshaping.
         return tt.nnet.softmax(log_likelihoods.reshape([alpha.shape[0]*w.shape[1], possible_ws.shape[0]]))\

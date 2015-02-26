@@ -31,11 +31,15 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
         times, scores = record.get_results()
         if len(times)==1 and times[0] is None:
             assert all(len(s)==1 for s in scores.values())
-            plt.axhline(scores['Training'], color=colour, linestyle = '--')
-            plt.axhline(scores['Test'], color=colour, linestyle = '-')
+            if 'Training' in scores:
+                plt.axhline(scores['Training'], color=colour, linestyle = '--')
+            if 'Test' in scores:
+                plt.axhline(scores['Test'], color=colour, linestyle = '-')
         else:
-            plt.plot(times+(1 if xscale == 'log' else 0), scores['Training'], '--'+colour)
-            plt.plot(times+(1 if xscale == 'log' else 0), scores['Test'], '-'+colour)
+            if 'Training' in scores:
+                plt.plot(times+(1 if xscale == 'log' else 0), scores['Training'], '--'+colour)
+            if 'Test' in scores:
+                plt.plot(times+(1 if xscale == 'log' else 0), scores['Test'], '-'+colour)
         plt.gca().set_xscale(xscale)
         plt.gca().set_yscale(yscale)
         legend+=['%s-training' % record_name, '%s-test' % record_name]
