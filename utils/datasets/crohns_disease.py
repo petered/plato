@@ -7,7 +7,7 @@ import numpy as np
 __author__ = 'peter'
 
 
-def get_chrone_dataset(frac_training = 0.7):
+def get_crohns_dataset(frac_training = 0.7):
 
     filename = get_file('data/is-pro.csv')
 
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     from plotting.easy_plotting import ezplot, plot_data_dict
     from plotting.matplotlib_backend import ImagePlot
 
-    ds = get_chrone_dataset()
+    ds = get_crohns_dataset()
 
     x_tr, y_tr, x_ts, y_ts = ds.xyxy
 

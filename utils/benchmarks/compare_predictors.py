@@ -244,28 +244,3 @@ class LearningCurveData(object):
             scores is a (length_N, n_scores) array indicating the each score at each time.
         """
         return np.array(self._times), OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
-
-
-# Following were meant to remove duplicated code in incremental/online/offline tests but ran into problem with incremental
-#
-# def _compute_scores(dataset, prediction_function, evaluation_function, which_sets):
-#
-#     if which_sets == 'training':
-#         sets = [('Training', dataset.training_set)]
-#     elif which_sets == 'test':
-#         sets = [('Test', dataset.test_set)]
-#     elif which_sets == 'training+test':
-#         sets = [('Training', dataset.training_set), ('Test', dataset.test_set)]
-#
-#     scores = []
-#     for set_name, data_collection in sets:
-#         output = prediction_function(data_collection.input)
-#         score = evaluation_function(actual = output, target = data_collection.target)
-#         scores.append[(set_name, score)]
-#
-#     return scores
-#
-#
-# def _report_scores(scores, epoch):
-#     for set_name, score in scores:
-#         print '%s score at epoch %s: %s' % (set_name, epoch, score)

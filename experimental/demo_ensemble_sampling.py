@@ -61,6 +61,11 @@ def get_rf_ensemble_dataset(source_dataset, n_trees, n_classes = None, seed=None
 
 
 def demo_rf_ensemble():
+    """
+    See if we can find a better way to combine ensembles of trees than the standard "mode".
+
+    Answer - We can, slightly.
+    """
     # TODO: Remove redundancy with demo_binary_regression
 
     seed = 1
@@ -78,7 +83,7 @@ def demo_rf_ensemble():
 
     if which_dataset == 'ensemble':
         # Now, train our thing instead and see how it compares.
-        dataset = get_rf_ensemble_dataset(source_dataset = mnist_dataset, n_trees=n_trees, n_classes = 10, seed=seed)
+        dataset = get_rf_ensemble_dataset(source_dataset = mnist_dataset, n_trees=n_trees, n_classes = n_classes, seed=seed)
     else:
         raise Exception()
 
