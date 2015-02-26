@@ -28,7 +28,7 @@ def get_crohns_dataset(frac_training = 0.7):
 
 if __name__ == '__main__':
 
-    from plotting.easy_plotting import ezplot, plot_data_dict
+    from plotting.easy_plotting import plot_data_dict
     from plotting.matplotlib_backend import ImagePlot
 
     ds = get_crohns_dataset()
