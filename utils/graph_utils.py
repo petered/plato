@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 __author__ = 'peter'
 
 """
@@ -35,6 +37,13 @@ class SignalGraph(set):
         assert self._graph_dict is not None, 'You can only dereference a SignalGraph that was instantiated with a dict.'
         sanitized_index = _tuplefy_node(index)
         return self._graph_dict[sanitized_index]
+
+    def items(self):
+        assert self._graph_dict is not None, 'You can only call iteritems on a SignalGraph that was instantiated with a dict.'
+        return self._graph_dict.items()
+
+    def is_graph_dict(self):
+        return self._graph_dict is not None
 
     def reverse(self):
         return self.__class__({(d, s) for s, d in self})
@@ -142,9 +151,9 @@ class SignalGraph(set):
 
     def get_parallel_order(self):
         """
-        Get the a list of sets of function indices, where the index of the first list indicates the order in which that function
+        Get the a list of sets of function nodes, where the index of the first list indicates the order in which that function
         can be executed (all functions in the i'th list must wait until all functions in 0th to i-1th lists are complete).
-        :return: a list<set<tuple<tuple<*str>, tuple<*str>>>>
+        :return: a list<SignalGraph>
         """
         known_signals = self.get_input_signals().copy()
         remaining_function_nodes = self.copy()
@@ -160,8 +169,24 @@ class SignalGraph(set):
                     this_layers_outputs.update(output_signals)
             assert len(this_layers_outputs)> 0, 'Your graph seems to have loops.'
             known_signals.update(this_layers_outputs)
-            parallel_levels.append(this_level)
+            parallel_levels.append(self.filter_graph(lambda n: n in this_level))
         return parallel_levels
+
+    def get_serial_order(self):
+        """
+        Get a list/OrderedDict of function nodes.  Executing the graph in this order guarantees that all signals are
+        computed before they become inputs to another node.  This order can be partly arbitrary because within a parallel
+        level it doesn't matter which nodes are executed, so don't expect this to always return the same order for a
+        given graph.
+        :return: A list<*tuple<tuple<*str>, tuple<*str>>> if this is a graph_dict, else a
+            OrderedDict<*tuple<tuple<*str>, tuple<*str>>:object>
+        """
+        parallel_order = self.get_parallel_order()
+
+        if self.is_graph_dict():
+            return OrderedDict(sum([level.items() for level in parallel_order], []))
+        else:
+            return sum([list(level) for level in parallel_order], [])
 
 
 def clean_graph(graph_specifier):
