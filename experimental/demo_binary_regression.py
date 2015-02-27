@@ -4,7 +4,6 @@ import numpy as np
 from plotting.live_plotting import LiveStream
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
-from utils.datasets.crohns_disease import get_crohns_dataset
 from utils.datasets.synthetic_logistic import get_logistic_regression_dataset
 from utils.predictors.mock_predictor import MockPredictor
 from utils.tools.mymath import sigm
@@ -18,6 +17,14 @@ __author__ = 'peter'
 
 """
 Here, we do logistic regression with binary weights.
+
+This is an exersize in organization.  There are 3 levels at which we can define our plot:
+
+1) Just say the figure numner
+2) Give high-level "user" commands
+3) The actual predictors and objects to plot.
+
+1 should translate to 2 should translate to 3.
 """
 
 
@@ -40,34 +47,6 @@ def setup_visualization(predictor):
 
         plotter = LiveStream(get_plotting_vals)
         predictor.train_function.add_callback(plotter.update)
-
-
-def _get_dataset_for_figures_1_thru_5(fig):
-
-    assert 1 <= fig.number <= 5
-
-    n_dims = 20
-
-    noise_factor = \
-        0.1 if fig.id == 1 else \
-        {'A': 0.1, 'B': 0.1, 'C': 0.0, 'D': 0.1}[fig.letter] if fig.number == 2 else \
-        0.0
-
-    n_training = \
-        1000 if fig.number in (1, 2) else \
-        50 if fig.number in (3, 4) else \
-        {'A': 50, 'B': 50, 'C': 1000, 'D': 1000}[fig.letter] if fig.number == 5 else \
-        500
-
-    n_test = 100
-
-    dataset = get_logistic_regression_dataset(n_dims = n_dims,
-        n_training=n_training, n_test=n_test, noise_factor = noise_factor)
-
-    title = 'Logistic Regression Dataset. \nn_training=%s, n_test=%s, n_dims=%s, noise_factor=%s' \
-        % (dataset.training_set.n_samples, dataset.test_set.n_samples, dataset.input_shape, noise_factor)
-
-    return dataset, title
 
 
 def bad_value(value):
@@ -125,11 +104,68 @@ def get_named_predictors(names, n_dim_in, n_dim_out, sample_y = False, w_range =
     return predictors_to_compare
 
 
-def get_predictors_for_figure(which_figure, n_dim_in, n_dim_out, w_range = (0, 1)):
+def lookup_figure(figure_id_or_alias):
+    aliases = {
+        'mnist-ensemble': '6A',
+        'mnist-ensemble-full': '6B',
+        }
+    reverse_aliases = {fig_id: alias for alias, fig_id in aliases.iteritems()}
+    assert set(reverse_aliases.viewkeys()).isdisjoint(aliases.viewkeys())
+    if figure_id_or_alias in aliases:
+        figure_id = aliases[figure_id_or_alias]
+        figure_alias = figure_id_or_alias
+    elif figure_id_or_alias in reverse_aliases:
+        figure_alias = reverse_aliases[figure_id_or_alias]
+        figure_id = figure_id_or_alias
+    else:
+        figure_id = figure_alias = figure_id_or_alias
+    fignum, figlet = split_figure_id(figure_id_or_alias)
+    fig = Figure(id = figure_id, alias = figure_alias, number = fignum, letter = figlet)
+    return fig
 
-    sample_y = True if which_figure in ('2G', '2H') else False,
 
-    predictor_for_figure = {
+def split_figure_id(fig_id):
+    split = np.argmax([s.isdigit() for s in fig_id])
+    fig_number = int(fig_id[:split+1])
+    fig_letter = fig_id[split+1:]
+    return fig_number, fig_letter
+
+
+def demo_create_figure(which_figure, live_plots = False, test_mode = False):
+
+    fig = lookup_figure(which_figure)
+
+    params = lambda: None  # Cheap container, like a plastic bag.
+
+    params.dataset_name = \
+        'syn_log_reg' if 1 <= fig.number <= 5 else \
+        'mnist_ensemble' if fig.number == 6 else \
+        bad_value(fig.number)
+
+    if params.dataset_name == 'syn_log_reg':
+        params.noise_factor = \
+            0.1 if fig.id == 1 else \
+            {'A': 0.1, 'B': 0.1, 'C': 0.0, 'D': 0.1}[fig.letter] if fig.number == 2 else \
+            0.0
+
+        params.max_test_samples = 100
+    elif params.dataset_name == 'mnist_ensemble':
+        params.max_training_samples = \
+            100 if fig.alias == 'mnist-ensemble' else \
+            1000 if fig.alias == 'mnist-ensemble-full' else \
+            bad_value(fig.alias)
+    else:
+        params.max_training_samples = None
+        params.max_test_samples = None
+
+    params.max_training_samples = \
+        1000 if fig.number in (1, 2) else \
+        50 if fig.number in (3, 4) else \
+        {'A': 50, 'B': 50, 'C': 1000, 'D': 1000}[fig.letter] if fig.number == 5 else \
+        {'A': 100, 'B': 1000}[fig.letter] if fig.number == 6 else \
+        bad_value(fig.number)
+
+    params.predictors = {
         'X': ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
         '1': ['gibbs'],
         '2A': ['gibbs', 'herded'],
@@ -148,96 +184,51 @@ def get_predictors_for_figure(which_figure, n_dim_in, n_dim_out, w_range = (0, 1
         '5D': ['herded', 'herded-5choice', 'herded-20choice'],
         '6A': ['gibbs', 'herded'],
         '6B': ['gibbs', 'herded'],
-        }[which_figure]
+        }[fig.id]
 
-    return get_named_predictors(predictor_for_figure, n_dim_in, n_dim_out, sample_y=sample_y, w_range = w_range)
+    demo_create_figure_from_commands(live_plot = live_plots, test_mode = test_mode, **params.__dict__)
 
 
-def lookup_figure(figure_id_or_alias):
+def cascading_defaults(default_dict, kwarg_dict):
+    parameter_dict = default_dict.copy()
+    remaining_kwargs = kwarg_dict.copy()
+    for k in default_dict:
+        if k in kwarg_dict:
+            default_dict[k] = kwarg_dict[k]
+            del remaining_kwargs[k]
+    return parameter_dict, remaining_kwargs
 
-    aliases = {
-        'mnist-ensemble': '6A',
-        'mnist-ensemble-full': '6B',
-        }
 
-    reverse_aliases = {fig_id: alias for alias, fig_id in aliases.iteritems()}
+def demo_create_figure_from_commands(dataset_name, max_training_samples = None, max_test_samples = None, predictors = ('gibbs', 'herded'),
+        w_range = (0, 1), n_steps = 1000, evaluation_fcn = 'mse', live_plot = False, test_mode = False, **kwargs):
 
-    assert set(reverse_aliases.viewkeys()).isdisjoint(aliases.viewkeys())
-
-    if figure_id_or_alias in aliases:
-        figure_id = aliases[figure_id_or_alias]
-        figure_alias = figure_id_or_alias
-    elif figure_id_or_alias in reverse_aliases:
-        figure_alias = reverse_aliases[figure_id_or_alias]
-        figure_id = figure_id_or_alias
+    if dataset_name == 'syn_log_reg':
+        params, kwargs = cascading_defaults(dict(noise_factor= 0.1, n_dims = 20), kwargs)
+        assert max_training_samples is not None and max_test_samples is not None
+        dataset = get_logistic_regression_dataset(n_training = max_training_samples, n_test = max_test_samples,
+            noise_factor = params['noise_factor'])
+        title = 'Logistic Regression Dataset. \nn_training=%s, n_test=%s, n_dims=%s, noise_factor=%s' \
+            % (dataset.training_set.n_samples, dataset.test_set.n_samples, dataset.input_shape, params['noise_factor'])
+        offline_predictors = {'Optimal': lambda: MockPredictor(lambda x: sigm(x.dot(dataset.w_true)))}
+    elif dataset_name == 'mnist_ensemble':
+        params, kwargs = cascading_defaults(dict(n_trees = 10), kwargs)
+        dataset = get_mnist_rf_ensemble_dataset(
+            max_training_samples = max_training_samples,
+            max_test_samples = None,
+            n_trees = params['n_trees'],
+            seed = None
+            )
+        title = 'MNIST Ensemble using %s training samples' % (max_training_samples, )
+        offline_predictors = {'Mode Combination': lambda: MockModePredictor(n_classes = 10)}
     else:
-        figure_id = figure_alias = figure_id_or_alias
+        bad_value(dataset_name)
 
-    fignum, figlet = split_figure_id(figure_id_or_alias)
+    n_dim_in=dataset.input_shape[0]
+    n_dim_out=dataset.target_shape[0]
 
-    fig = Figure(id = figure_id, alias = figure_alias, number = fignum, letter = figlet)
+    incremental_predictors = get_named_predictors(predictors, n_dim_in, n_dim_out, sample_y = False, w_range = w_range)
 
-    return fig
-
-def split_figure_id(fig_id):
-    split = np.argmax([s.isdigit() for s in fig_id])
-    fig_number = int(fig_id[:split+1])
-    fig_letter = fig_id[split+1:]
-    return fig_number, fig_letter
-
-
-def _get_dataset_for_figure_6(fig):
-
-    n_trees = 10
-
-    max_training_samples = \
-        100 if fig.alias == 'mnist-ensemble' else \
-        1000 if fig.alias == 'mnist-ensemble-full' else \
-        bad_value(fig.alias)
-
-    dataset = get_mnist_rf_ensemble_dataset(
-        max_training_samples = max_training_samples,
-        max_test_samples = None,
-        n_trees = n_trees,
-        seed = None
-        )
-
-    return dataset, 'MNIST Ensemble with %s Trees, %s training_samples, %s test samples' \
-           % (n_trees, dataset.training_set.n_samples, dataset.test_set.n_samples)
-
-
-def demo_create_figure(which_figure, live_plot = False, test_mode = False):
-    """
-    :param which_figure: Which figure of the report to replicate.  Or "X" for just
-        experimenting with stuff.  The report is here:
-        https://docs.google.com/document/d/1zBQdI-1tcEvqmizCuL2GX_ceqhLnOvGoN8ljciw9uGE/edit?usp=sharing
-    """
-
-    fig = lookup_figure(which_figure)
-
-    dataset, title = \
-        _get_dataset_for_figures_1_thru_5(fig) if 1 <= fig.number <= 5 else \
-        _get_dataset_for_figure_6(fig) if fig.number == 6 else \
-        bad_value(fig.number)
-
-    evaluation_fcn = \
-        'mse' if 1 <= fig.number <= 5 else \
-        'percent_argmax_correct' if fig.number == 6 else \
-        bad_value(fig.number)
-
-    offline_predictors = \
-        {'Optimal': lambda: MockPredictor(lambda x: sigm(x.dot(dataset.w_true)))} if 1 <= fig.number <= 5 else \
-        {'Mode Combination': lambda: MockModePredictor(n_classes = 10)} if fig.number == 6 else \
-        bad_value(fig.number)
-
-    incremental_predictors = get_predictors_for_figure(fig.id, n_dim_in=dataset.input_shape[0], n_dim_out = dataset.target_shape[0])
-
-    n_steps = \
-        3 if test_mode else \
-        1000 if 1 <= fig.number <= 4 else \
-        10000 if fig.number == 5 else \
-        2000 if fig.number == 6 else \
-        bad_value(fig.number)
+    assert len(kwargs)==0, 'Unused kwargs remain: %s' % (kwargs, )
 
     demo_plot_binary_regression_learning(
         dataset=dataset,
@@ -273,45 +264,52 @@ def demo_plot_binary_regression_learning(dataset, offline_predictors, incrementa
 if __name__ == '__main__':
 
     # -- Params -- #
-    CREATE_FIGURE = True
+    SPECITY_AS = 'DIRECT'
     TEST_MODE = False
     LIVE_PLOT = False
     # ------------ #
 
-    if CREATE_FIGURE:
+    if SPECITY_AS=='FIGURE':
         # -- Params -- #
         WHICH_FIGURE = '6A'
         # ------------ #
         demo_create_figure(WHICH_FIGURE, live_plot=LIVE_PLOT, test_mode=TEST_MODE)
-    else:
+    elif SPECITY_AS == 'COMMANDS':
+        demo_create_figure_from_commands(
+            dataset_name = 'mnist_ensemble',
+            max_training_samples = None,
+            max_test_samples = None,
+            predictors = ('gibbs', 'herded'),
+            w_range = (0, 1),
+            n_steps = 1000,
+            evaluation_fcn = 'mse',
+            live_plot = LIVE_PLOT,
+            test_mode = TEST_MODE,
+            )
+    elif SPECITY_AS == 'DIRECT':
         # -- Params -- #
-        DATASET = get_crohns_dataset()
-        PREDICTORS = ['gibbs-1/4', 'herded-1/4']
-        EVALUATION_FCN = 'percent_argmax_correct'
-        N_TREES = 10
-        N_STEPS = 2000
-        # ------------ #
-        offline_predictors = {'Mode Combination': lambda: MockModePredictor(n_classes = 10)}
-        incremental_predictors = get_named_predictors(PREDICTORS, DATASET.input_shape[0], DATASET.target_shape[0])
-        predictor_factory_factory = get_predictor_factory_factory(n_dim_in=DATASET.input_shape[0], n_dim_out=DATASET.target_shape[0])
+        DATASET = get_mnist_rf_ensemble_dataset(max_training_samples=100, max_test_samples = None, n_trees = 50)
+        PREDICTOR_FACTORY_FACTORY = get_predictor_factory_factory(n_dim_in=DATASET.input_shape[0], n_dim_out=DATASET.target_shape[0])
         demo_plot_binary_regression_learning(
             dataset=DATASET,
-            offline_predictors=offline_predictors,
+            offline_predictors={'Mode Combination': lambda: MockModePredictor(n_classes = 10)},
             incremental_predictors={
-                'gibbs': predictor_factory_factory(
+                'gibbs': PREDICTOR_FACTORY_FACTORY(
                     sampling_type = 'gibbs',
                     possible_ws=np.linspace(0, 1, 5),
                     n_alpha = 5
                     ),
-                'herded-gibbs': predictor_factory_factory(
+                'herded-gibbs': PREDICTOR_FACTORY_FACTORY(
                     sampling_type = 'herded',
                     possible_ws=np.linspace(0, 1, 5),
                     n_alpha = 5
                     ),
                 },
-            test_epochs = np.arange(N_STEPS).astype(float),
+            test_epochs = np.arange(2000).astype(float),
+            evaluation_fcn='percent_argmax_correct',
             live_plot=LIVE_PLOT,
-            evaluation_fcn=EVALUATION_FCN,
             test_mode=TEST_MODE,
-            title = 'SADFSDfdS'
+            title = 'Somethignsomething'
             )
+    else:
+        bad_value(SPECITY_AS)
