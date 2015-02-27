@@ -1,4 +1,4 @@
-from experimental.demo_ensemble_sampling import train_and_predict_decision_tree, train_and_predict_random_forest
+from experimental.old_demo_ensemble_sampling import train_and_predict_decision_tree, train_and_predict_random_forest
 from utils.datasets.mnist import get_mnist_dataset
 from scipy.stats.stats import mode
 import numpy as np

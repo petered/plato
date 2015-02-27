@@ -1,63 +1,18 @@
-from experimental.demo_binary_regression import SamplingPredictor
-from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
+from experimental.rf_ensembles import get_rf_ensemble_dataset
+from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor, SamplingPredictor
 from plotting.live_plotting import LiveStream
 from scipy.stats.stats import mode
-from sklearn.ensemble.forest import RandomForestClassifier
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
-from utils.datasets.datasets import DataSet
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
 from utils.predictors.mock_predictor import MockPredictor
 from utils.tools.mymath import sqrtspace
 from utils.tools.processors import OneHotEncoding
 
-
-def train_and_predict_random_forest(x_tr, y_tr, x_ts, n_trees, rng=None):
-    if rng is None:
-        rng = np.random.RandomState()
-    rf_classifier = RandomForestClassifier(n_estimators=n_trees, random_state = rng, max_depth = None)
-    rf_classifier.fit(x_tr, y_tr)
-    rf_predictions = rf_classifier.predict(x_ts)
-    return rf_predictions
-
-
-def train_tree(x_tr, y_tr, rng=None):
-    tree = RandomForestClassifier(n_estimators=1, random_state = rng, max_depth = None)
-    tree.fit(x_tr, y_tr)
-    return tree
-
-
-def train_and_predict_decision_tree(x_tr, y_tr, x_ts, rng=None):
-    tree = train_tree(x_tr, y_tr, rng)
-    tree_predictions = tree.predict(x_ts)
-    return tree_predictions
-
-
-def get_rf_ensemble_dataset(source_dataset, n_trees, n_classes = None, seed=None):
-
-    if n_classes is None:
-        n_classes = np.max(source_dataset.training_set.target)
-
-    x_tr, y_tr, x_ts, y_ts = source_dataset.xyxy
-
-    tree_rng = np.random.RandomState(seed)
-    trees = [train_tree(x_tr, y_tr, rng = tree_rng) for _ in xrange(n_trees)]
-    p_each_tree_training = [t.predict(x_tr) for t in trees]
-    p_each_tree_test = [t.predict(x_ts) for t in trees]
-
-    label_encoder = OneHotEncoding(n_classes = n_classes)
-
-    merge_and_encode_labels = lambda labels: np.concatenate([label_encoder(lab)[:, None, :] for lab in labels], axis = 1)
-
-    ensemble_dataset = DataSet.from_xyxy(
-        training_inputs = merge_and_encode_labels(p_each_tree_training),
-        training_targets = label_encoder(source_dataset.training_set.target),
-        test_inputs = merge_and_encode_labels(p_each_tree_test),
-        test_targets = label_encoder(source_dataset.test_set.target)
-        )
-
-    return ensemble_dataset
+"""
+Deprecated: A more general form now exists in demo_binary_regression
+"""
 
 
 def demo_rf_ensemble():
@@ -130,7 +85,7 @@ def demo_rf_ensemble():
                 n_alpha = 5
                 )),
             },
-        test_points = sqrtspace(0, n_steps, n_test_points),
+        test_points = np.arange(n_steps).astype(float), # sqrtspace(0, n_steps, n_test_points),
         evaluation_function = 'percent_argmax_correct',
         report_test_scores=False,
         on_construction_callback=setup_visualization if plot else None

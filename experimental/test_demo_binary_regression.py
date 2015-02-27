@@ -1,13 +1,14 @@
-from experimental.demo_binary_regression import demo_binary_regression
+from experimental.demo_binary_regression import demo_create_figure
 
 __author__ = 'peter'
 
 
-def test_all_plots_working():
+def test_all_create_all_figures():
 
-    for figure in ['1', '2A', '2B', '2C', '2D', '3A', '3B', '4A', '4B', '4C', '4D', '5A', '5B', '5C', '5D']:
-        demo_binary_regression(figure, test_mode = True)
+    for figure in ['1', '2A', '2B', '2C', '2D', '3A', '3B', '4A', '4B', '4C', '4D', '5A', '5B',
+            '5C', '5D', '6A', '6B']:
+        demo_create_figure(figure, test_mode = True)
 
 
 if __name__ == '__main__':
-    test_all_plots_working()
+    test_all_create_all_figures()

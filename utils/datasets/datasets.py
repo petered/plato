@@ -6,15 +6,15 @@ __author__ = 'peter'
 
 class DataSet(object):
 
-    def __init__(self, training_set, test_set, validation_set = None):
+    def __init__(self, training_set, test_set, validation_set = None, name = None):
 
         sets = [training_set, test_set] + [validation_set] if validation_set is not None else []
         assert all_equal(*[[x.shape[1:] for x in s.inputs] for s in sets])
         assert all_equal(*[[x.shape[1:] for x in s.targets] for s in sets])
-
         self.training_set = training_set
         self.test_set = test_set
         self._validation_set = validation_set
+        self._name = name
 
     @property
     def validation_set(self):
@@ -22,6 +22,22 @@ class DataSet(object):
             raise Exception('Validation set does not exist')
         else:
             return self._validation_set
+
+    @property
+    def input_shapes(self):
+        return [x.shape[1:] for x in self.training_set.inputs]
+
+    @property
+    def input_shape(self):
+        return self.training_set.input.shape[1:]
+
+    @property
+    def target_shapes(self):
+        return [x.shape[1:] for x in self.training_set.targets]
+
+    @property
+    def target_shape(self):
+        return self.training_set.target.shape[1:]
 
     @property
     def xyxy(self):
