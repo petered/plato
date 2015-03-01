@@ -189,6 +189,59 @@ class SignalGraph(set):
             return sum([list(level) for level in parallel_order], [])
 
 
+class FactorGraph(object):
+
+    def __init__(self, variables, factors):
+        """
+        :param variables: A dict<int: function>, where function takes N arguments (one for each
+            factor feeding into it, and procuces one output.
+        :param factors: A dict<(int, int): reversable_function), Where function take one argument,
+            produces one output, and has a "reverse" method, which implements the function in
+            the other direction.
+
+        * Note - we don't currently deal with the fact that we can't specify the order in which factors
+        feed variables - we will have to do this at some point.  Maybe.
+        :return:
+        """
+        assert all(src in variables and dest in variables for src, dest in factors.viewkeys()), \
+            'All factors must link variables'
+        self._variables = variables
+        self._factors = factors
+
+    def get_inference_path(self, varible_path):
+        """
+        Get a path from the input variables to the output variables.  The path will consist of alternating
+
+        :param varible_path: A list of 2-tuples, identifying the source, destination layers for the update.
+        :return: path: An OrderedDict<(tuple<*int>, int): function> indicating the path to take.
+        """
+
+        variable_path = _clean_path(varible_path)
+        path = OrderedDict()
+        for src_vars, dest_var in variable_path:
+            for src_var in src_vars:
+                path[(src_var, ), factor_name(src_var, dest_var)] = self._factors[src_var, dest_var]
+            path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var]
+        return path
+
+
+def _clean_path(specified_path):
+
+    assert all(len(p)==2 for p in specified_path)
+    assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str)) for src, dest in specified_path)
+    path = []
+    for srcs, dests in specified_path:
+        srcs = (tuple(srcs) if isinstance(srcs, (tuple, list)) else (srcs, ))
+        dests = (tuple(dests) if isinstance(dests, (tuple, list)) else (dests, ))
+        for dest in dests:
+            path.append((srcs, dest))
+    return path
+
+
+def factor_name(src_node, dest_node):
+    return 'f[%s,%s]' % (src_node, dest_node)
+
+
 def clean_graph(graph_specifier):
     return {_tuplefy_node(n) for n in graph_specifier}
 
