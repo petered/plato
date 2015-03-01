@@ -66,7 +66,6 @@ def get_rf_ensemble_dataset(source_dataset, n_trees, n_classes = None, seed=None
     return ensemble_dataset
 
 
-
 class MockModePredictor(IPredictor):
 
     def __init__(self, n_classes):
