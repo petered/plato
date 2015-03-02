@@ -12,7 +12,6 @@ class BaseStream(object):
 
     def __init__(self, update_every = 1):
         self._plots = None
-        eplt.ion()  # Bad?
         self._counter = -1
         self._update_every = update_every
 
@@ -26,7 +25,7 @@ class BaseStream(object):
         if self._plots is None:
 
             self._plots = self._get_plots_from_first_data(name_data_pairs)
-            plot_data_dict(name_data_pairs, plots = self._plots)
+            plot_data_dict(name_data_pairs, plots = self._plots, hang = False)
         else:
             for k, v in name_data_pairs:
                 self._plots[k].update(v)
