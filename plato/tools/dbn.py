@@ -32,7 +32,7 @@ class DeepBeliefNet(object):
 
         return inference_fcn
 
-    def constrastive_divergence(self, visible_layers, hidden_layers, up_path = [], n_gibbs = 1, persistent = False,
+    def get_constrastive_divergence_function(self, visible_layers, hidden_layers, up_path = [], n_gibbs = 1, persistent = False,
             optimizer = SimpleGradientDescent(eta = 0.1)):
 
         if len(up_path)==0:
@@ -41,8 +41,8 @@ class DeepBeliefNet(object):
             input_layers = up_path[0]
             assert up_path[-1] == visible_layers
 
-
         propup = self.get_inference_function(visible_layers, hidden_layers)
+        free_energy = self.get_free_energy_function(visible_layers, hidden_layers)
 
         @symbolic_updater
         def cd_function(input_signals):
@@ -57,18 +57,33 @@ class DeepBeliefNet(object):
             sleep_visible = self.get_inference_function(hidden_layers, visible_layers, gibbs_path)(initial_hidden)
             sleep_hidden = propup(sleep_visible)
 
-            wake_energy = sum()
+            wake_energy = free_energy(wake_visible, wake_hidden).mean()
+            sleep_energy = free_energy(sleep_visible, sleep_hidden).mean()
 
+            all_params = sum([x.parameters for x in ([self._layers[i] for i in visible_layers]
+                +[self._layers[i] for i in hidden_layers]+[self._bridges[i, j] for i in visible_layers for j in hidden_layers])], [])
 
-
+            updates = optimizer(cost = wake_energy-sleep_energy, params = all_params, constants = wake_visible+sleep_visible)
 
             if persistent:
                 updates += [(p, s) for p, s in zip(initial_hidden, sleep_hidden)]
 
+            return updates
+
+    def get_free_energy_function(self, visible_layers, hidden_layers):
+
+        # TODO: Verify that computation is correct for all choices of vis/hidden layers
+        # http://www.iro.umontreal.ca/~lisa/twiki/bin/view.cgi/Public/DBNEquations
+        #
+        #
+
+        @symbolic_stateless
+        def free_energy(visible_signals):
+            pass
 
 
-        pass
 
+        return free_energy
 
 
 

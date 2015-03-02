@@ -18,11 +18,34 @@ def test_free_energy_vs_energy():
     # Bernoilli-bernoulli
     v = np.random.rand(n_samples, n_visible) > 0.5
     hp = sigm(v.dot(w)+b_hid)
+    h = hp < np.random.rand(*hp.shape)
 
-    energy = -np.einsum('ij,jk,ik->i', v, w, hp) - v.dot(b_vis) - hp.dot(b_hid)
-    free_energy = -np.sum(np.log(1+np.exp(v.dot(w)+b_hid)), axis = 1) - v.dot(b_vis)
+    assert np.allclose(np.einsum('ij,jk,ik->i', v, w, hp), (v[:, :, None]*w[None, :, :]*hp[:, None, :]).sum(axis=1).sum(axis=1))
 
-    assert np.allclose(energy, free_energy)
+    get_energy = lambda v, h: -np.einsum('ij,jk,ik', v, w, hp) - v.dot(b_vis).sum() - hp.dot(b_hid).sum()
+
+    get_free_energy = lambda v: -np.sum(np.log(1+np.exp(v.dot(w)+b_hid))) - v.dot(b_vis).sum()
+
+    energy = get_energy(v, h)
+    free_energy = get_free_energy(v)
+
+
+    # So - what to use to compute the gradient?
+    # Free Energy.
+    # It gives a "lower variance" estimate, because it marginalizes out something something ...
+
+
+    pass
+    # free_energy = -np.sum(np.log(1+np.exp(v.dot(w)+b_hid)), axis = 1) - v.dot(b_vis)
+
+    # free energy = -log(sum_over_possible_h(exp(-Energy(x, h)))
+    # In an RBM, energy factors over hidden units, so :
+    # sum_over_possible_h(exp(-Energy(x, h))) = sum(
+
+
+
+
+    # assert np.allclose(energy, free_energy)
 
 
 
