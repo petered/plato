@@ -4,10 +4,12 @@ import numpy as np
 from plotting.live_plotting import LiveStream
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
+from utils.datasets.crohns_disease import get_crohns_dataset
 from utils.datasets.synthetic_logistic import get_logistic_regression_dataset
-from utils.predictors.mock_predictor import MockPredictor
+from utils.predictors.bad_predictors import MockPredictor, MostFrequentPredictor, DistributionPredictor
 from utils.tools.mymath import sigm
 from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor, SamplingPredictor
+from utils.tools.processors import OneHotEncoding
 
 
 Figure = namedtuple('Figure', ['id', 'number', 'letter', 'alias'])
@@ -220,6 +222,12 @@ def demo_create_figure_from_commands(dataset_name, max_training_samples = None, 
             )
         title = 'MNIST Ensemble using %s training samples' % (max_training_samples, )
         offline_predictors = {'Mode Combination': lambda: MockModePredictor(n_classes = 10)}
+    elif dataset_name == 'crohns':
+        dataset = get_crohns_dataset(frac_training=0.7).process_with(targets_processor = lambda (x, ): (OneHotEncoding()(x), ))
+        title = 'Crohns Disease.'
+        offline_predictors = {
+            'MostFrequent': lambda: DistributionPredictor(),
+            }
     else:
         bad_value(dataset_name)
 
@@ -264,7 +272,7 @@ def demo_plot_binary_regression_learning(dataset, offline_predictors, incrementa
 if __name__ == '__main__':
 
     # -- Params -- #
-    SPECITY_AS = 'DIRECT'
+    SPECITY_AS = 'COMMANDS'
     TEST_MODE = False
     LIVE_PLOT = False
     # ------------ #
@@ -276,13 +284,13 @@ if __name__ == '__main__':
         demo_create_figure(WHICH_FIGURE, live_plot=LIVE_PLOT, test_mode=TEST_MODE)
     elif SPECITY_AS == 'COMMANDS':
         demo_create_figure_from_commands(
-            dataset_name = 'mnist_ensemble',
+            dataset_name = 'crohns',
             max_training_samples = None,
             max_test_samples = None,
-            predictors = ('gibbs', 'herded'),
-            w_range = (0, 1),
-            n_steps = 1000,
-            evaluation_fcn = 'mse',
+            predictors = ('gibbs-5choice', 'herded-5choice'),
+            w_range = (-1, 1),
+            n_steps = 30000,
+            evaluation_fcn = 'percent_argmax_correct',
             live_plot = LIVE_PLOT,
             test_mode = TEST_MODE,
             )

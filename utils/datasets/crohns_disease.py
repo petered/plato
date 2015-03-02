@@ -7,15 +7,18 @@ import numpy as np
 __author__ = 'peter'
 
 
-def get_crohns_dataset(frac_training = 0.7):
+def get_crohns_dataset(frac_training = 0.7, binary_task = False):
 
     filename = get_file('data/is-pro.csv')
 
     with open(filename) as f:
         raw_data = [row for row in csv.reader(f)]
 
-    feature_names = raw_data[2:]
+    # feature_names = raw_data[2:]
     labels = [row[1] for row in raw_data[1:]]
+
+    if binary_task:
+        labels = ['Healthy' if l == 'Healthy' else 'Unhealty' for l in labels]
 
     _, labels = np.unique(labels, return_inverse = True)
 
@@ -31,7 +34,7 @@ if __name__ == '__main__':
     from plotting.easy_plotting import plot_data_dict
     from plotting.matplotlib_backend import ImagePlot
 
-    ds = get_crohns_dataset()
+    ds = get_crohns_dataset(binary_task=False)
 
     x_tr, y_tr, x_ts, y_ts = ds.xyxy
 

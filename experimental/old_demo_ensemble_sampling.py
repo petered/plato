@@ -6,7 +6,7 @@ from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
-from utils.predictors.mock_predictor import MockPredictor
+from utils.predictors.bad_predictors import MockPredictor
 from utils.tools.mymath import sqrtspace
 from utils.tools.processors import OneHotEncoding
 
