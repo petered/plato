@@ -1,5 +1,5 @@
 from plato.tools.rbm import simple_rbm
-from plato.tools.networks import StochasticLayer, FullyConnectedBridge, ConvolutionalBridge
+from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent
 from plotting.live_plotting import LiveStream
 import theano
@@ -9,7 +9,7 @@ import numpy as np
 __author__ = 'peter'
 
 
-def demo_rbm(architecture = 'conv'):
+def demo_rbm():
     """
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
@@ -28,42 +28,29 @@ def demo_rbm(architecture = 'conv'):
     """
     minibatch_size = 9
 
-    dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x[:, None, :, :], ))
+    dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1), ))
 
     rbm = simple_rbm(
         visible_layer = StochasticLayer('bernoulli'),
-        # bridge=FullyConnectedBridge(w = 0.001*np.random.randn(28*28, 500), b = 0, b_rev = 0),
-        bridge=ConvolutionalBridge(w = 0.01*np.random.randn(12, 1, 7, 7), b = 0, b_rev = 0),
+        bridge=FullyConnectedBridge(w = 0.001*np.random.randn(28*28, 500).astype(theano.config.floatX), b=0, b_rev = 0),
         hidden_layer = StochasticLayer('bernoulli')
         )
 
-    train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile(debug_getter = 'locals')
-    sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(* ((minibatch_size, )+(dataset.training_set.input.shape[1:]))), return_smooth_visible = True).compile()
+    train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile()
+    sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
 
-    # Setup Plotting
-    def get_plot_vars():
-        lv = train_function.get_debug_values()
+    def debug_variable_setter():
+        lv = train_function.symbolic.locals()
         return {
-            'full': lambda: {
-                'hidden-neg-chain': lv.sleep_hidden.reshape((-1, 25, 20)),
-                'visible-neg-chain': lv.hidden_layer.smooth(lv.bridge.reverse(lv.sleep_hidden)).reshape((-1, 28, 28)),
-                'w': lv.bridge.parameters[0].get_value().T[:25].reshape((-1, 28, 28)),
-                'b': lv.bridge.parameters[1].get_value().reshape((25, 20)),
-                'b_rev': lv.bridge.parameters[2].get_value().reshape((28, 28)),
-                'visible-sample': visible_samples.reshape((-1, 28, 28))
-                },
-            'conv': lambda: {
-                'hidden-neg-chain': lv.sleep_hidden,
-                'visible-neg-chain': lv.hidden_layer.smooth(lv.bridge.reverse(lv.sleep_hidden)),
-                'w': lv.bridge.parameters[0].get_value(),
-                'b': lv.bridge.parameters[1].get_value(),
-                'b_rev': lv.bridge.parameters[2].get_value(),
-                'visible-sample': visible_samples
-                }
-            }[architecture]()
+            'hidden-neg-chain': lv.sleep_hidden.reshape((-1, 25, 20)),
+            'visible-neg-chain': lv.hidden_layer.smooth(lv.bridge.reverse(lv.sleep_hidden)).reshape((-1, 28, 28)),
+            'w': lv.bridge.parameters[0].T[:25].reshape((-1, 28, 28)),
+            'b': lv.bridge.parameters[1].reshape((25, 20)),
+            'b_rev': lv.bridge.parameters[2].reshape((28, 28)),
+            }
+    train_function.set_debug_variables(debug_variable_setter)
 
-    stream = LiveStream(get_plot_vars, update_every=10)
-
+    stream = LiveStream(lambda: dict(train_function.get_debug_values().items()+[('visible-sample', visible_samples.reshape((-1, 28, 28)))]), update_every=10)
     for _, visible_data, _ in dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = 10, single_channel = True):
         visible_samples, _ = sampling_function()
         train_function(visible_data)
