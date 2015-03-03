@@ -28,6 +28,7 @@ def random_symmetric_mat(mag, power, n_dims, rng):
 
 # <codecell>
 
+# Settings
 mag = 0.4        # a.k.a. la
 w_power = 1.     # a.k.a. a
 n_steps = 500000 # a.k.a. T
@@ -36,6 +37,7 @@ seed = None
 
 # <codecell>
 
+# Initialize Weights
 rng = np.random.RandomState(seed)
 biases = mag*np.random.randn(n_dims)
 weights = random_symmetric_mat(mag = mag, power = w_power, n_dims = n_dims, rng = rng)
@@ -44,6 +46,7 @@ assert np.array_equal(weights, weights.T)
 
 # <codecell>
 
+# Compute exact marginal probabilities
 def exact_marginals_func(weights, biases):
     """
     weights is a (n_nodes, n_nodes) symmetric matrix
