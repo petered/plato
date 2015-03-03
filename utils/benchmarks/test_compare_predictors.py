@@ -2,7 +2,7 @@ from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.datasets.datasets import DataSet, DataCollection
 from utils.datasets.synthetic_logistic import get_logistic_regression_data
-from utils.predictors.mock_predictor import MockPredictor
+from utils.predictors.bad_predictors import MockPredictor
 from utils.predictors.perceptron import Perceptron
 import numpy as np
 from utils.tools.mymath import sqrtspace, sigm

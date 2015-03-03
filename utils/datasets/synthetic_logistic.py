@@ -7,7 +7,19 @@ __author__ = 'peter'
 
 def get_logistic_regression_dataset(**kwargs):
     x_tr, y_tr, x_ts, y_ts, _ = get_logistic_regression_data(**kwargs)
-    return DataSet(DataCollection(x_tr, y_tr), DataCollection(x_ts, y_ts))
+    return LogisticRegressionDataset(**kwargs)
+
+
+class LogisticRegressionDataset(DataSet):
+
+    def __init__(self, **kwargs):
+        x_tr, y_tr, x_ts, y_ts, w_true = get_logistic_regression_data(**kwargs)
+        DataSet.__init__(self, DataCollection(x_tr, y_tr), DataCollection(x_ts, y_ts))
+        self._w_true = w_true
+
+    @property
+    def w_true(self):
+        return self._w_true
 
 
 def get_logistic_regression_data(
