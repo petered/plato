@@ -243,7 +243,7 @@ def demo_create_figure(which_figure, live_plot = False, test_mode = False, **ove
 
     kd = KwargDealer(overriding_kwargs)  # Allows you to override defaults from the top
     passed_down_kwargs = kd.deal(params.__dict__)
-    kd.assert_empty()
+    kd.assert_empty()  # Note, we could not do this and actually allow you to override parameters all the way to the bottom.
 
     demo_create_figure_from_commands(live_plot = live_plot, test_mode = test_mode, **passed_down_kwargs)
 
