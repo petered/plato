@@ -20,6 +20,11 @@ c.NotebookApp.open_browser = False
 # It is a good idea to put it on a known, fixed port
 c.NotebookApp.port = 9999
 c.NotebookApp.password = u'%s'
+
+# Other Setting
+c.IPKernelApp.matplotlib = 'inline'
+c.FileNotebookManager.save_script = True
+c.TerminalInteractiveShell.automagic = False
 """ % (hashed_password, )
 
 config_file_loc = os.path.join(os.getenv('HOME'), '.ipython/profile_%s/ipython_notebook_config.py' % (profile_name, ))
