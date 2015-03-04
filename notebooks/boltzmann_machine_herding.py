@@ -3,6 +3,31 @@
 
 # <codecell>
 
+# Boltzmann Machine Demo
+#
+# Here we compare the time it takes Gibbs sampling and Herded-Gibbs to converge to the 
+# stationary distribution in a Boltzmann Machine.  Results show that
+# - Gibbs converges at a rate of 1/sqrt(t), while Herded-Gibbs initially converges at 
+#   a rate of 1/t, but then stops due to its biased sampling.
+# - Running Herding updates as a single block rather than per-unit causes the Herding 
+#   algorithm to stop converging further from the stationary distribution than it 
+#   otherwise would.
+# 
+# This demo takes about 5 minutes to run for 1 million iterations.  To run the whole 
+# thing, click Cell>Run All.  The [*] on the left indicates that a cell is still executing.
+
+# <codecell>
+
+# Settings
+weight_mag = 0.4        # a.k.a. la
+weight_extremism = 1.   # a.k.a. a
+n_steps = 1000000       # a.k.a. T
+n_dims = 12             # a.k.a. N
+seed = None
+test_mode = False
+
+# <codecell>
+
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -22,25 +47,19 @@ def cummean(x, axis):
 
 def random_symmetric_mat(mag, power, n_dims, rng):
     w = mag*np.random.randn(n_dims, n_dims)
-    w = 0.5*(w+w.T)*(1-np.diag(np.ones(n_dims)))
+    w = 0.5*(w+w.T)
+    w[np.arange(n_dims), np.arange(n_dims)] = 0
     w = np.sign(w)*np.abs(w)**power
     return w
 
 # <codecell>
 
-# Settings
-mag = 0.4        # a.k.a. la
-w_power = 1.     # a.k.a. a
-n_steps = 500000 # a.k.a. T
-n_dims = 12      # a.k.a. N
-seed = None
-
-# <codecell>
-
 # Initialize Weights
+if test_mode:
+    n_steps = 5
 rng = np.random.RandomState(seed)
-biases = mag*np.random.randn(n_dims)
-weights = random_symmetric_mat(mag = mag, power = w_power, n_dims = n_dims, rng = rng)
+biases = weight_mag*np.random.randn(n_dims)
+weights = random_symmetric_mat(mag = weight_mag, power = weight_extremism, n_dims = n_dims, rng = rng)
 assert np.all(weights[np.arange(n_dims), np.arange(n_dims)]==0)
 assert np.array_equal(weights, weights.T)
 
@@ -145,14 +164,8 @@ plt.loglog(single_gibbs_error)
 plt.loglog(block_gibbs_error)
 plt.loglog(single_herded_error)
 plt.loglog(block_herded_error)
-plt.loglog([1, n_steps], [.5, n_steps**-1])
-plt.loglog([1, n_steps], [.5, n_steps**-.5])
+plt.loglog([1, n_steps], [1, n_steps**-1])
+plt.loglog([1, n_steps], [1, n_steps**-.5])
 plt.legend(['Gibbs', 'Block-Gibbs', 'Herding', 'Block-Herding', '1/x', '1/sqrt(x)'], loc='best')
 plt.show()
-
-# <codecell>
-
-
-# <codecell>
-
 
