@@ -1,22 +1,19 @@
+from general.math import binary_permutations, sigm
 import numpy as np
 from scipy import weave
 
 __author__ = 'peter'
 
 
-def random_symmetric_matrix(n_dims, mag=1, power=1, rng=None):
-
-    if rng is None:
-        rng = np.random.RandomState(None)
-
-    w = mag*rng.randn(n_dims, n_dims)
+def random_symmetric_matrix(n_dims, rng, mag=1, power=1):
+    w = mag*np.random.randn(n_dims, n_dims)
     w = 0.5*(w+w.T)
     w[np.arange(n_dims), np.arange(n_dims)] = 0
     w = np.sign(w)*np.abs(w)**power
     return w
 
 
-def compute_exact_marginals(weights, biases):
+def compute_exact_boltzmann_marginals(weights, biases):
     """
     weights is a (n_nodes, n_nodes) symmetric matrix
     biases is a (n_nodes, ) vector
@@ -25,7 +22,7 @@ def compute_exact_marginals(weights, biases):
     n_nodes = weights.shape[0]
     assert n_nodes == len(biases) == weights.shape[1]
     assert np.allclose(weights, weights.T)
-    bmat = binary_count_matrix(n_nodes).astype(float)  # (2**n_dims, n_dims)
+    bmat = binary_permutations(n_nodes).astype(float)  # (2**n_dims, n_dims)
     energy = 0.5*np.einsum('ij,jk,ik->i', bmat, weights, bmat) + (bmat*biases).sum(axis=1)  # (2**n_dims, )
 
     exp_log_prob = np.exp(energy)  # (2**n_dims, )  # Negative sign?
@@ -35,20 +32,7 @@ def compute_exact_marginals(weights, biases):
     return marginals
 
 
-binary_count_matrix = lambda n_bits: np.right_shift(np.arange(2**n_bits)[:, None], np.arange(n_bits-1, -1, -1)[None, :]) & 1
-
-sigm = lambda x: 1/(1+np.exp(-x))
-
-L1_error = lambda x, tar: np.mean(np.abs(x-tar), axis = 1)
-
-
-def cummean(x, axis):
-    x=np.array(x)
-    normalized = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
-    return np.cumsum(x, axis)/normalized
-
-
-def gibbs_sample_py_naive(weights, biases, n_steps, rng, block = False):
+def gibbs_sample_boltzmann_py_naive(weights, biases, n_steps, rng, block = False):
     """
     weights is a (n_nodes, n_nodes) symmetric matrix
     biases is a (n_nodes, ) vector
@@ -71,7 +55,7 @@ def gibbs_sample_py_naive(weights, biases, n_steps, rng, block = False):
     return records
 
 
-def gibbs_sample_py_smart(weights, biases, n_steps, rng, block = False):
+def gibbs_sample_boltzmann_py_smart(weights, biases, n_steps, rng, block = False):
     """
     weights is a (n_nodes, n_nodes) symmetric matrix
     biases is a (n_nodes, ) vector
@@ -80,6 +64,8 @@ def gibbs_sample_py_smart(weights, biases, n_steps, rng, block = False):
 
     returns records: A (n_steps, n_nodes) array indicating the state of the MCMC at each step.
     """
+    if block:
+        return gibbs_sample_boltzmann_py_naive(weights, biases, n_steps, rng, block)
     n_dims = weights.shape[0]
     assert n_dims == len(biases) == weights.shape[1]
     records = np.empty((n_steps, n_dims))
@@ -101,7 +87,48 @@ def gibbs_sample_py_smart(weights, biases, n_steps, rng, block = False):
     return records
 
 
-def gibbs_sample_weave_smart(weights, biases, n_steps, rng, block = False):
+def gibbs_sample_boltzmann_weave_naive(weights, biases, n_steps, rng, block = False):
+    n_dims = weights.shape[0]
+    assert weights.shape[0] == len(biases) == weights.shape[1]
+    # assert not block, 'Not implemented for block-sampling'
+    records = np.zeros((n_steps, n_dims), dtype = bool)
+    x = 0.5 > rng.rand(n_dims)
+    random_vals = rng.rand(*records.shape)
+    currents = x.dot(weights)+biases
+    code = """
+    int n_dims = Nweights[0];
+    for (int t = 0; t<Nrecords[0]; t++)
+        for (int i = 0; i<Nrecords[1]; i++){
+            int index = n_dims*t+i;
+            float current = biases[i];
+            int w_ptr = n_dims*i;
+            for (int j=0; j<n_dims; j++)
+                current += weights[w_ptr+j]*x[j];
+            x[i] = 1/(1+exp(-current)) > random_vals[index];
+            records[index] = x[i];
+        }
+    """ if not block else """
+    int n_dims = Nweights[0];
+    for (int t = 0; t<Nrecords[0]; t++){
+        for (int i = 0; i<Nrecords[1]; i++){
+            int index = n_dims*t+i;
+            float current = biases[i];
+            int w_ptr = n_dims*i;
+            for (int j=0; j<n_dims; j++)
+                current += weights[w_ptr+j]*x[j];
+            records[index] = 1/(1+exp(-current)) > random_vals[index];
+        }
+        for (int i=0; i<n_dims; i++)  // Inefficient, but oh well
+            x[i] = records[n_dims*t+i];
+    }
+    """
+    weave.inline(code, ['records', 'x', 'currents', 'weights', 'biases', 'random_vals'], compiler = 'gcc')
+    return records
+
+
+def gibbs_sample_boltzmann_weave_smart(weights, biases, n_steps, rng, block = False):
+    if block:  # TODO: Implement smart version of block Gibbs, see if it's faster.  Importance: Extremely low.
+        return gibbs_sample_boltzmann_weave_naive(weights, biases, n_steps, rng, block)
     n_dims = weights.shape[0]
     assert weights.shape[0] == len(biases) == weights.shape[1]
     records = np.zeros((n_steps, n_dims), dtype = bool)
@@ -131,25 +158,4 @@ def gibbs_sample_weave_smart(weights, biases, n_steps, rng, block = False):
     return records
 
 
-def gibbs_sample_weave_naive(weights, biases, n_steps, rng, block = False):
-    n_dims = weights.shape[0]
-    assert weights.shape[0] == len(biases) == weights.shape[1]
-    records = np.zeros((n_steps, n_dims), dtype = bool)
-    x = 0.5 > rng.rand(n_dims)
-    random_vals = rng.rand(*records.shape)
-    currents = x.dot(weights)+biases
-    code = """
-    int n_dims = Nweights[0];
-    for (int t = 0; t<Nrecords[0]; t++)
-        for (int i = 0; i<Nrecords[1]; i++){
-            int index = n_dims*t+i;
-            float current = biases[i];
-            int w_ptr = n_dims*i;
-            for (int j=0; j<n_dims; j++)
-                current += weights[w_ptr+j]*x[j];
-            x[i] = 1/(1+exp(-current)) > random_vals[index];
-        records[index] = x[i];
-        }
-    """
-    weave.inline(code, ['records', 'x', 'currents', 'weights', 'biases', 'random_vals'], compiler = 'gcc')
-    return records
+gibbs_sample_boltzmann = gibbs_sample_boltzmann_weave_smart

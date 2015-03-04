@@ -3,6 +3,17 @@ import numpy as np
 
 __author__ = 'peter'
 
+"""
+All evaluation functions in here are of the form
+
+score = evaluation_fcn(actual, target)
+
+Where:
+    score is a scalar
+    actual is an (n_samples, ...) array
+    target is an (n_samples, ....) array
+"""
+
 
 def train_online_predictor(predictor, training_set, iterator):
     logging.info('Training Predictor %s...' % (predictor, ))
