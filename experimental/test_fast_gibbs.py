@@ -2,22 +2,25 @@ import time
 from experimental.boltzmann_sampling import random_symmetric_matrix, gibbs_sample_py_naive, gibbs_sample_py_smart, \
     gibbs_sample_weave_naive, gibbs_sample_weave_smart
 import numpy as np
-from plotting.easy_plotting import ezplot
 
 __author__ = 'peter'
 
 
-"""
-Gibbs sampling can be really slow in python because it can't just be turned in a bit numpy vector operation,
-since each update of each unit depends on the last.  So here we experiment with different thing to make it
-faster.
-1) Plain old python
-2) Scipy weave
-3) Theano scan op
-"""
+def profile_sampling_speed():
+    """
+    Gibbs sampling can be really slow in python because it can't just be turned in a bit numpy vector operation,
+    since each update of each unit depends on the last.  So here we experiment with different thing to make it
+    faster.
+    1) Plain old python
+    2) Scipy weave
+    3) Theano scan op (Not done yet!)
 
-
-def test_fast_gibbs():
+    So far, typical results look like this:
+    Time for weave-smart: 0.0132269859314
+    Time for python-smart: 2.03104710579
+    Time for weave-naive: 0.0212740898132
+    Time for python-naive: 1.1994099617
+    """
 
     n_dims = 20
     n_steps = 10000
@@ -50,4 +53,4 @@ def test_fast_gibbs():
 
 if __name__ == '__main__':
 
-    test_fast_gibbs()
+    profile_sampling_speed()
