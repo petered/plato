@@ -8,12 +8,16 @@ __author__ = 'peter'
 
 def profile_sampling_speed():
     """
-    Gibbs sampling can be really slow in python because it can't just be turned in a bit numpy vector operation,
-    since each update of each unit depends on the last.  So here we experiment with different thing to make it
+    Gibbs sampling can be really slow in python because it can't just be turned into a big numpy vector operation,
+    since each update of each unit depends on the last.  So here we experiment with different things to make it
     faster.
     1) Plain old python
     2) Scipy weave
     3) Theano scan op (Not done yet!)
+
+    There are also two versions of each:
+    naive computes the weights.dot(state) on every input
+    smart just updates the dot product's result when states change
 
     So far, typical results look like this:
     Time for weave-smart: 0.0132269859314
