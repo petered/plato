@@ -91,10 +91,6 @@ def gibbs_sample_boltzmann_py_smart(weights, biases, n_steps, rng, block = False
         else:
             for i in xrange(n_dims):
                 xi = sigm(input_currents[i]) > rng.rand()
-                # if xi != x[i]:
-                #     input_currents+=(xi*2-1)*weights[i, :]
-                #     x[i]=xi
-
                 input_currents+=(int(xi)-x[i])*weights[i, :]
                 x[i]=xi
         records[t, :] = x
