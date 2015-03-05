@@ -53,8 +53,7 @@ def profile_sampling_speed(test_mode = False):
     # We get a mysterious numerical error sometimes.  It does not appear to be due
     # to drift, because we still get it when we recomute the current on every iteration.
     # Set weight seed to 1235 to get the error
-    rng=np.random.RandomState(weight_seed)
-    w, b = generate_boltzmann_parameters(n_dims=n_dims, mag = 0.4, rng = np.random.RandomState(weight_seed))
+    w, b = generate_boltzmann_parameters(n_dims=n_dims, mag = mag, rng = np.random.RandomState(weight_seed))
 
     def compare_times_and_assert_correct(sampling_functions, trusted_sampler, block, kwarg_constructor=None):
 
