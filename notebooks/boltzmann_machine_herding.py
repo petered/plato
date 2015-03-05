@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[37]:
+# In[1]:
 
 # Boltzmann Machine Demo
 #
@@ -17,7 +17,7 @@
 # thing, click Cell>Run All.  The [*] on the left indicates that a cell is still executing.
 
 
-# In[38]:
+# In[2]:
 
 # Settings
 mag = 0.4          # Standard Deviation of weights
@@ -31,7 +31,7 @@ random_seed = None
 # - [experimental.boltzmann_sampling](http://localhost:8888/edit/experimental/boltzmann_sampling.py) 
 # - [general.math](http://localhost:8888/edit/general/math.py) 
 
-# In[39]:
+# In[3]:
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -40,7 +40,7 @@ from general.math import cummean
 get_ipython().magic(u'matplotlib inline')
 
 
-# In[40]:
+# In[4]:
 
 # Initialize Weights
 rng = np.random.RandomState(random_seed)
@@ -48,27 +48,27 @@ weights = random_symmetric_matrix(mag = mag, power = w_power, n_dims = n_dims, r
 biases = mag*np.random.randn(n_dims)
 
 
-# In[41]:
+# In[5]:
 
 # Compute exact marginal probabilities
 exact_marginals = compute_exact_boltzmann_marginals(weights, biases)
 
 
-# In[42]:
+# In[6]:
 
 # Get the Gibbs Stats
 single_gibbs_records = gibbs_sample_boltzmann(weights, biases, n_steps, rng=rng, block = False)
 block_gibbs_records = gibbs_sample_boltzmann(weights, biases, n_steps, rng=rng, block = True)
 
 
-# In[43]:
+# In[7]:
 
 # Get the Herding Stats
-single_herded_records = herded_sample_boltzmann(weights, biases, n_steps, rng=rng, block = False)
-block_herded_records = herded_sample_boltzmann(weights, biases, n_steps, rng=rng, block = True)
+single_herded_records = herded_sample_boltzmann(weights, biases, n_steps, block = False)
+block_herded_records = herded_sample_boltzmann(weights, biases, n_steps, block = True)
 
 
-# In[44]:
+# In[8]:
 
 # Compute Error curves
 L1_error = lambda x, tar: np.mean(np.abs(x-tar), axis = 1)
@@ -78,7 +78,7 @@ single_herded_error = L1_error(cummean(single_herded_records, axis = 0), exact_m
 block_herded_error = L1_error(cummean(block_herded_records, axis = 0), exact_marginals)
 
 
-# In[45]:
+# In[9]:
 
 # Plot (Warning - can be slow due to huge number of points)
 from plotting.fast import fastloglog

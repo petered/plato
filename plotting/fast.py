@@ -8,7 +8,7 @@ Functions to speed up pylab plotting, which can sometimes be unnecessairily slow
 """
 
 
-def fastplot(line_data, xscale = 'linear', yscale = 'linear', resolution = 2000, min_points = 50000):
+def fastplot(line_data, xscale = 'linear', yscale = 'linear', resolution = 2000, min_points = 20000):
     """
     Fast plot for those times when you have a lot of data points and it becomes too slow for pylab to handle.
     The plot produced here should look the same (unless you zoom) but display much faster.
@@ -18,7 +18,7 @@ def fastplot(line_data, xscale = 'linear', yscale = 'linear', resolution = 2000,
     :param yscale: {'linear', 'log'}
     :param resolution: The number intervals to bin points into
     :param min_points: The minimum number of points required to bother with this approach.
-    :return:
+    :return: A plot handle
     """
 
     assert line_data.ndim == 1
@@ -47,6 +47,12 @@ def fastloglog(line_data, **kwargs):
 
 
 def find_interval_extremes(array, edges):
+    """
+    Find the indeces of extreme points within each interval.  Intervals are taken to END at the edges (so the first
+    :param array:
+    :param edges:
+    :return:
+    """
 
     indices = np.zeros(len(array), dtype = int)-1
     how_many = np.array([0])
@@ -59,8 +65,12 @@ def find_interval_extremes(array, edges):
     int in_counter = 0;
     int out_counter = 0;
     int edge_counter = 0;
-    while(edge_counter<Nedges[0]){
-        float next_edge = edges[edge_counter];
+    while(in_counter<Narray[0]){
+        float next_edge;
+        if (edge_counter == Nedges[0])
+            next_edge = INFINITY;
+        else
+            next_edge = edges[edge_counter];
 
         if (array[in_counter] < min){
             min = array[in_counter];
@@ -95,8 +105,6 @@ def find_interval_extremes(array, edges):
             }
             edge_counter++;
         }
-        if (in_counter==Narray[0])
-            break;
     }
     how_many[0] = out_counter;
     """

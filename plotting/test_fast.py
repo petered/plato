@@ -8,9 +8,9 @@ import numpy as np
 def test_fastplot():
 
     plt.ion()
-    fastplot(np.random.randn(100000))
+    fastplot(np.random.randn(25000))
     plt.show()
-    fastloglog(np.random.rand(100000))
+    fastloglog(np.random.rand(25000))
     plt.show()
     fastplot(np.random.randn(1000))
     plt.show()
