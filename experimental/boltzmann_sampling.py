@@ -5,21 +5,32 @@ from scipy import weave
 __author__ = 'peter'
 
 
-def random_symmetric_matrix(n_dims, mag=1, power=1, rng = None):
+def generate_boltzmann_parameters(n_dims, mag=1, power=1, rng = None):
+    """
+    Create a random symmetric matrix with zero-valued autoweights, e.g. for a Boltzmann Machine.
+    :param n_dims: Number of dimensions
+    :param mag: Magnitude
+    :param power: Power to raise weights to (maintaining sign).  Higher means more extreme values.
+    :param rng: A random number generator
+    :returns w - a shape (n_dims, n_dims) array where w[i, i]==0 and w[i, j] == w[j, i] for all i, j
+    """
     if rng is None:
         rng = np.random.RandomState()
     w = mag*rng.randn(n_dims, n_dims)
     w = 0.5*(w+w.T)
     w[np.arange(n_dims), np.arange(n_dims)] = 0
     w = np.sign(w)*np.abs(w)**power
+    b = mag*rng.randn(n_dims)
+    b = np.sign(b)*np.abs(b)**power
     assert np.array_equal(w, w.T)
-    return w
+    return w, b
 
 
 def compute_exact_boltzmann_marginals(weights, biases):
     """
-    weights is a (n_nodes, n_nodes) symmetric matrix
-    biases is a (n_nodes, ) vector
+    Compute the exact marginal distribution for a Bolzmann machine.
+    :param weights is a (n_nodes, n_nodes) symmetric matrix
+    :param biases is a (n_nodes, ) vector
     """
     # Lets do this memory-intensive but fast
     n_nodes = weights.shape[0]
@@ -91,6 +102,9 @@ def gibbs_sample_boltzmann_py_smart(weights, biases, n_steps, rng, block = False
 
 
 def gibbs_sample_boltzmann_weave_naive(weights, biases, n_steps, rng, block = False):
+    """
+    Gibbs sampling implemented in C code.  Functionally identical to gibbs_sample_boltzmann_py_naive
+    """
     n_dims = weights.shape[0]
     assert weights.shape[0] == len(biases) == weights.shape[1]
     # assert not block, 'Not implemented for block-sampling'
@@ -128,6 +142,11 @@ def gibbs_sample_boltzmann_weave_naive(weights, biases, n_steps, rng, block = Fa
 
 
 def gibbs_sample_boltzmann_weave_smart(weights, biases, n_steps, rng, block = False):
+    """
+    Gibbs sampling on a Boltzmann Machine.  Uses a "smart" trick - that is, only update input currents when a unit
+    changes.  Functionally identical to gibbs_sample_boltzmann_py_naive but 100x faster, and to
+    gibbs_sample_boltzmann_weave_naive, but 2x faster.
+    """
     if block:  # TODO: Implement smart version of block Gibbs, see if it's faster.  Importance: Extremely low.
         return gibbs_sample_boltzmann_weave_naive(weights, biases, n_steps, rng, block)
     n_dims = weights.shape[0]
@@ -168,10 +187,9 @@ def gibbs_sample_boltzmann_weave_smart(weights, biases, n_steps, rng, block = Fa
 
 def herded_sample_boltzmann_py_naive(weights, biases, n_steps, block = False):
     """
-    weights is a (n_nodes, n_nodes) symmetric matrix
-    biases is a (n_nodes, ) vector
-    n_steps is the number of steps to run Gibbs sampling for
-    rng is a random number generator
+    :param weights is a (n_nodes, n_nodes) symmetric matrix
+    :param biases is a (n_nodes, ) vector
+    :param n_steps is the number of steps to run Gibbs sampling for
 
     returns records: A (n_steps, n_nodes) array indicating the state of the MCMC at each step.
     """
@@ -197,6 +215,12 @@ def herded_sample_boltzmann_py_naive(weights, biases, n_steps, block = False):
 
 
 def herded_sample_boltzmann_weave_smart(weights, biases, n_steps, block = False):
+    """
+    Here we use the same trick as in gibbs-smart to speed things up.
+    Functionally identical* to herded_sample_boltzmann_py_naive
+
+     * well, almost.  See test.
+    """
 
     n_dims = weights.shape[0]
     assert weights.shape[0] == len(biases) == weights.shape[1]

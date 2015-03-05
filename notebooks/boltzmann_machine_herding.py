@@ -35,7 +35,7 @@ random_seed = None
 
 import numpy as np
 from matplotlib import pyplot as plt
-from experimental.boltzmann_sampling import gibbs_sample_boltzmann, herded_sample_boltzmann,     compute_exact_boltzmann_marginals, random_symmetric_matrix
+from experimental.boltzmann_sampling import gibbs_sample_boltzmann, herded_sample_boltzmann,     compute_exact_boltzmann_marginals, generate_boltzmann_parameters
 from general.math import cummean
 get_ipython().magic(u'matplotlib inline')
 
@@ -44,8 +44,7 @@ get_ipython().magic(u'matplotlib inline')
 
 # Initialize Weights
 rng = np.random.RandomState(random_seed)
-weights = random_symmetric_matrix(mag = mag, power = w_power, n_dims = n_dims, rng=rng)
-biases = mag*np.random.randn(n_dims)
+weights, biases = generate_boltzmann_parameters(mag = mag, power = w_power, n_dims = n_dims, rng=rng)
 
 
 # In[5]:

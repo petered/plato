@@ -48,10 +48,11 @@ def fastloglog(line_data, **kwargs):
 
 def find_interval_extremes(array, edges):
     """
-    Find the indeces of extreme points within each interval.  Intervals are taken to END at the edges (so the first
-    :param array:
-    :param edges:
-    :return:
+    Find the indeces of extreme points within each interval, and on the outsides of the two end edges.
+    :param array: A vector
+    :param edges: A vector of edges defining the intervals.  It's assumed that -Inf, Inf form the true outer edges.
+    :return: A vector of ints indicating the indeces of extreme points.  If a distinct min and max extreme are found
+        within every interval, this vector will have length 2*(len(edges)+1).  Otherwise, it will be shorter.
     """
 
     indices = np.zeros(len(array), dtype = int)-1
