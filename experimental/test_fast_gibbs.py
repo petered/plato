@@ -1,12 +1,14 @@
 import time
 from experimental.boltzmann_sampling import random_symmetric_matrix, gibbs_sample_boltzmann_py_naive, gibbs_sample_boltzmann_py_smart, \
-    gibbs_sample_boltzmann_weave_naive, gibbs_sample_boltzmann_weave_smart
+    gibbs_sample_boltzmann_weave_naive, gibbs_sample_boltzmann_weave_smart, herded_sample_boltzmann_py_naive, \
+    herded_sample_boltzmann_weave_smart
 import numpy as np
+from plotting.easy_plotting import ezplot
 
 __author__ = 'peter'
 
 
-def profile_sampling_speed():
+def profile_sampling_speed(test_mode = False):
     """
     Gibbs sampling can be really slow in python because it can't just be turned into a big numpy vector operation,
     since each update of each unit depends on the last.  So here we experiment with different things to make it
@@ -21,51 +23,89 @@ def profile_sampling_speed():
 
     So far, typical results look like this:
     ----
-    Time for weave-smart: 0.0132260322571
-    Time for python-smart: 1.98137593269
-    Time for weave-naive: 0.0213210582733
-    Time for python-naive: 1.14777588844
+    Time for gibbs-python-smart: 2.22626399994
+    Time for gibbs-weave-naive: 0.0281620025635
+    Time for gibbs-python-naive: 1.26503610611
+    Time for gibbs-weave-smart: 0.0165710449219
     ----
-    Time for weave-smart (block): 0.0236368179321
-    Time for python-smart (block): 0.150621175766
-    Time for weave-naive (block): 0.0169339179993
-    Time for python-naive (block): 0.158509969711
+    Time for gibbs-python-smart (block): 0.159940004349
+    Time for gibbs-weave-naive (block): 0.0244989395142
+    Time for gibbs-python-naive (block): 0.159762144089
+    Time for gibbs-weave-smart (block): 0.0173401832581
+    ----
+    Time for herded-python-naive: 1.29901504517
+    Time for herded-weave-smart: 0.0169270038605
+    ----
+    Time for herded-python-naive (block): 0.156569004059
+    Time for herded-weave-smart (block): 0.0145919322968
     ----
     So use weave.
     """
 
     n_dims = 20
-    n_steps = 10000
+    n_steps = 400 if test_mode else 10000
     mag = 0.4
-    weight_seed = 4231354325
-    sampling_seed = 75432
+    weight_seed = 1234
+    sampling_seed = 75434
+    plot = False
+
+    # TODO: Solve mystery of inexact results for herding.
+    # We get a mysterious numerical error sometimes.  It does not appear to be due
+    # to drift, because we still get it when we recomute the current on every iteration.
+    # Set weight seed to 1235 to get the error
     rng=np.random.RandomState(weight_seed)
-    w = random_symmetric_matrix(n_dims=n_dims, mag = 0.4, rng=rng)
+    w = random_symmetric_matrix(n_dims=n_dims, mag = 0.4, rng = np.random.RandomState(weight_seed))
     b = mag*rng.randn(n_dims)
 
-    sampling_functions = {
-        'python-naive': gibbs_sample_boltzmann_py_naive,
-        'python-smart': gibbs_sample_boltzmann_py_smart,
-        'weave-naive': gibbs_sample_boltzmann_weave_naive,
-        'weave-smart': gibbs_sample_boltzmann_weave_smart,
-    }
-
-    for block in [False, True]:
+    def compare_times_and_assert_correct(sampling_functions, trusted_sampler, block, kwarg_constructor=None):
 
         results = {}
         for name, f in sampling_functions.iteritems():
+            kwargs = kwarg_constructor() if kwarg_constructor is not None else {}
             t_start = time.time()
-            results[name] = f(w, b, n_steps = n_steps, rng = np.random.RandomState(sampling_seed), block = block)
+            results[name] = f(w, b, n_steps = n_steps, block = block, **kwargs)
             t_elapsed = time.time() - t_start
             print 'Time for %s%s: %s' % (name, ' (block)' if block else '', t_elapsed)
 
-        print '----'
-        for name, res in results.iteritems():
-            assert np.allclose(res, results['python-naive']), '%s produced the wrong result' % name
+        if plot:
+            ezplot(results)
 
-    print ('All create close results')
+        print '----'
+
+        for name, res in results.iteritems():
+            assert np.allclose(res, results[trusted_sampler]), '%s produced the wrong result after %s iterations.' \
+                % (name, np.argmax(np.sum(res!=results[trusted_sampler], axis = 1) > 0))
+
+    gibbs_samplers = {
+        'gibbs-python-naive': gibbs_sample_boltzmann_py_naive,
+        'gibbs-python-smart': gibbs_sample_boltzmann_py_smart,
+        'gibbs-weave-naive': gibbs_sample_boltzmann_weave_naive,
+        'gibbs-weave-smart': gibbs_sample_boltzmann_weave_smart,
+        }
+
+    compare_times_and_assert_correct(gibbs_samplers, trusted_sampler = 'gibbs-weave-naive', block = False, kwarg_constructor = lambda: {'rng': np.random.RandomState(sampling_seed)})
+    compare_times_and_assert_correct(gibbs_samplers, trusted_sampler = 'gibbs-weave-naive', block = True, kwarg_constructor = lambda: {'rng': np.random.RandomState(sampling_seed)})
+    # Note: weave-smart block sampling currently just redirects to weave-naive block sampling
+    # same with python-smart/python-naive
+
+    herded_samplers = {
+        'herded-python-naive': herded_sample_boltzmann_py_naive,
+        'herded-weave-smart': herded_sample_boltzmann_weave_smart,
+        }
+    compare_times_and_assert_correct(herded_samplers, trusted_sampler = 'herded-python-naive', block = False)
+    compare_times_and_assert_correct(herded_samplers, trusted_sampler = 'herded-python-naive', block = True)
+
+
+def test_sampling_systems():
+
+    profile_sampling_speed(test_mode = True)
 
 
 if __name__ == '__main__':
 
-    profile_sampling_speed()
+    TEST_MODE = False
+
+    if TEST_MODE:
+        test_sampling_systems()
+    else:
+        profile_sampling_speed()

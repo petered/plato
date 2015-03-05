@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-# <nbformat>3.0</nbformat>
 
-# <codecell>
+# coding: utf-8
+
+# In[37]:
 
 # Boltzmann Machine Demo
 #
@@ -13,157 +13,80 @@
 #   algorithm to stop converging further from the stationary distribution than it 
 #   otherwise would.
 # 
-# This demo takes about 5 minutes to run for 1 million iterations.  To run the whole 
+# This demo takes about 10 seconds to run for 1 million iterations.  To run the whole 
 # thing, click Cell>Run All.  The [*] on the left indicates that a cell is still executing.
 
-# <codecell>
+
+# In[38]:
 
 # Settings
-weight_mag = 0.4        # a.k.a. la
-weight_extremism = 1.   # a.k.a. a
-n_steps = 1000000       # a.k.a. T
-n_dims = 12             # a.k.a. N
-seed = None
-test_mode = False
+mag = 0.4          # Standard Deviation of weights
+w_power = 1.       # Weights are raised to this power (sign is preserved)
+n_steps = 1000000  # Number of iterations.  Note: Sequential (non-block) Gibbs does a complete round robin in EACH iteration.
+n_dims = 18        # Number of nodes in the Boltzmann Machine
+random_seed = None       
 
-# <codecell>
+
+# ##### Source Code 
+# - [experimental.boltzmann_sampling](http://localhost:8888/edit/experimental/boltzmann_sampling.py) 
+# - [general.math](http://localhost:8888/edit/general/math.py) 
+
+# In[39]:
 
 import numpy as np
 from matplotlib import pyplot as plt
+from experimental.boltzmann_sampling import gibbs_sample_boltzmann, herded_sample_boltzmann,     compute_exact_boltzmann_marginals, random_symmetric_matrix
+from general.math import cummean
+get_ipython().magic(u'matplotlib inline')
 
-# <codecell>
 
-# Setup functions
-binary_count_matrix = lambda n_bits: np.right_shift(np.arange(2**n_bits)[:, None], np.arange(n_bits-1, -1, -1)[None, :]) & 1
-
-sigm = lambda x: 1/(1+np.exp(-x))
-
-L1_error = lambda x, tar: np.mean(np.abs(x-tar), axis = 1)
-
-def cummean(x, axis):
-    x=np.array(x)
-    normalized = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
-    return np.cumsum(x, axis)/normalized
-
-def random_symmetric_mat(mag, power, n_dims, rng):
-    w = mag*np.random.randn(n_dims, n_dims)
-    w = 0.5*(w+w.T)
-    w[np.arange(n_dims), np.arange(n_dims)] = 0
-    w = np.sign(w)*np.abs(w)**power
-    return w
-
-# <codecell>
+# In[40]:
 
 # Initialize Weights
-if test_mode:
-    n_steps = 5
-rng = np.random.RandomState(seed)
-biases = weight_mag*np.random.randn(n_dims)
-weights = random_symmetric_mat(mag = weight_mag, power = weight_extremism, n_dims = n_dims, rng = rng)
-assert np.all(weights[np.arange(n_dims), np.arange(n_dims)]==0)
-assert np.array_equal(weights, weights.T)
+rng = np.random.RandomState(random_seed)
+weights = random_symmetric_matrix(mag = mag, power = w_power, n_dims = n_dims, rng=rng)
+biases = mag*np.random.randn(n_dims)
 
-# <codecell>
+
+# In[41]:
 
 # Compute exact marginal probabilities
-def exact_marginals_func(weights, biases):
-    """
-    weights is a (n_nodes, n_nodes) symmetric matrix
-    biases is a (n_nodes, ) vector
-    """
-    # Lets do this memory-intensive but fast
-    n_nodes = weights.shape[0]
-    assert n_nodes == len(biases) == weights.shape[1]
-    assert np.allclose(weights, weights.T)
-    bmat = binary_count_matrix(n_nodes).astype(float)  # (2**n_dims, n_dims)
-    energy = 0.5*np.einsum('ij,jk,ik->i', bmat, weights, bmat) + (bmat*biases).sum(axis=1)  # (2**n_dims, )
-    
-    exp_log_prob = np.exp(energy)  # (2**n_dims, )  # Negative sign?
-    q = np.sum(exp_log_prob[:, None]*bmat, axis = 0)  # (n_dims, )
-    normalizer = np.sum(exp_log_prob)  # Scalar
-    marginals = q/normalizer
-    return marginals
-exact_marginals = exact_marginals_func(weights, biases)
+exact_marginals = compute_exact_boltzmann_marginals(weights, biases)
 
-# <codecell>
+
+# In[42]:
 
 # Get the Gibbs Stats
-def gibbs_sample(weights, biases, n_steps, rng, block = False):
-    """
-    weights is a (n_nodes, n_nodes) symmetric matrix
-    biases is a (n_nodes, ) vector
-    n_steps is the number of steps to run Gibbs sampling for 
-    rng is a random number generator
-    
-    returns records: A (n_steps, n_nodes) array indicating the state of the MCMC at each step. 
-    """
-    n_dims = weights.shape[0]
-    n_samples = len(biases)
-    assert n_dims == len(biases) == weights.shape[1]
-    records = np.empty((n_steps, n_dims))
-    x = 0.5 > rng.rand(n_dims)
-    for t in xrange(n_steps):
-        if block:
-            x = sigm(x.dot(weights)+biases) > rng.rand(n_dims)
-        else:
-            for i in xrange(n_dims):
-                x[i] = sigm(x.dot(weights[i, :])+biases[i]) > rng.rand()
-        records[t, :] = x
-    return records  
-single_gibbs_records = gibbs_sample(weights, biases, n_steps, rng=rng, block = False)
-block_gibbs_records = gibbs_sample(weights, biases, n_steps, rng=rng, block = True)
+single_gibbs_records = gibbs_sample_boltzmann(weights, biases, n_steps, rng=rng, block = False)
+block_gibbs_records = gibbs_sample_boltzmann(weights, biases, n_steps, rng=rng, block = True)
 
-# <codecell>
+
+# In[43]:
 
 # Get the Herding Stats
-def herded_sample(weights, biases, n_steps, rng, block = False):
-    """
-    weights is a (n_nodes, n_nodes) symmetric matrix
-    biases is a (n_nodes, ) vector
-    n_steps is the number of steps to run Gibbs sampling for 
-    rng is a random number generator
-    
-    returns records: A (n_steps, n_nodes) array indicating the state of the MCMC at each step. 
-    """
-    n_dims = weights.shape[0]
-    n_samples = len(biases)
-    assert n_dims == len(biases) == weights.shape[1]
-    records = np.empty((n_steps, n_dims))
-    x = 0.5 > rng.rand(n_dims)
-    h = np.zeros(x.shape)
-    for t in xrange(n_steps):
-        if block:
-            p = sigm(x.dot(weights)+biases)
-            h += p
-            x = h > 0.5
-            h -= x
-        else:
-            for i in xrange(n_dims):
-                p = sigm(x.dot(weights[i, :])+biases[i])
-                h[i] += p
-                x[i] = h[i] > 0.5
-                h[i] -= x[i]
-        records[t, :] = x
-    return records  
-single_herded_records = herded_sample(weights, biases, n_steps, rng=rng, block = False)
-block_herded_records = herded_sample(weights, biases, n_steps, rng=rng, block = True)
+single_herded_records = herded_sample_boltzmann(weights, biases, n_steps, rng=rng, block = False)
+block_herded_records = herded_sample_boltzmann(weights, biases, n_steps, rng=rng, block = True)
 
-# <codecell>
+
+# In[44]:
 
 # Compute Error curves
+L1_error = lambda x, tar: np.mean(np.abs(x-tar), axis = 1)
 single_gibbs_error = L1_error(cummean(single_gibbs_records, axis = 0), exact_marginals)
 block_gibbs_error = L1_error(cummean(block_gibbs_records, axis = 0), exact_marginals)
 single_herded_error = L1_error(cummean(single_herded_records, axis = 0), exact_marginals)
 block_herded_error = L1_error(cummean(block_herded_records, axis = 0), exact_marginals)
 
-# <codecell>
 
-# Plot
+# In[45]:
+
+# Plot (Warning - can be slow due to huge number of points)
+from plotting.fast import fastloglog
 plt.figure()
-plt.loglog(single_gibbs_error)
-plt.loglog(block_gibbs_error)
-plt.loglog(single_herded_error)
-plt.loglog(block_herded_error)
+fastloglog(single_gibbs_error)
+fastloglog(block_gibbs_error)
+fastloglog(single_herded_error)
+fastloglog(block_herded_error)
 plt.loglog([1, n_steps], [1, n_steps**-1])
 plt.loglog([1, n_steps], [1, n_steps**-.5])
 plt.legend(['Gibbs', 'Block-Gibbs', 'Herding', 'Block-Herding', '1/x', '1/sqrt(x)'], loc='best')
