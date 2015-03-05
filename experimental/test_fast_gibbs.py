@@ -1,5 +1,5 @@
 import time
-from experimental.boltzmann_sampling import random_symmetric_matrix, gibbs_sample_boltzmann_py_naive, gibbs_sample_boltzmann_py_smart, \
+from experimental.boltzmann_sampling import generate_boltzmann_parameters, gibbs_sample_boltzmann_py_naive, gibbs_sample_boltzmann_py_smart, \
     gibbs_sample_boltzmann_weave_naive, gibbs_sample_boltzmann_weave_smart, herded_sample_boltzmann_py_naive, \
     herded_sample_boltzmann_weave_smart
 import numpy as np
@@ -54,8 +54,7 @@ def profile_sampling_speed(test_mode = False):
     # to drift, because we still get it when we recomute the current on every iteration.
     # Set weight seed to 1235 to get the error
     rng=np.random.RandomState(weight_seed)
-    w = random_symmetric_matrix(n_dims=n_dims, mag = 0.4, rng = np.random.RandomState(weight_seed))
-    b = mag*rng.randn(n_dims)
+    w, b = generate_boltzmann_parameters(n_dims=n_dims, mag = 0.4, rng = np.random.RandomState(weight_seed))
 
     def compare_times_and_assert_correct(sampling_functions, trusted_sampler, block, kwarg_constructor=None):
 
