@@ -28,7 +28,7 @@ def strip_output(nb):
 if __name__ == '__main__':
     filename = sys.argv[1]
     with io.open(filename, 'r', encoding='utf8') as f:
-        nb = nbformat.read(f)
+        nb = nbformat.read(f, as_version=4)
         #nb = current.read(f, 'json')
     nb = strip_output(nb)
     with io.open(filename, 'w', encoding='utf8') as f:
