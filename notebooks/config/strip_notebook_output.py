@@ -24,6 +24,7 @@ def strip_output(nb):
             cell['prompt_number'] = None
     return nb
 
+
 if __name__ == '__main__':
     filename = sys.argv[1]
     with io.open(filename, 'r', encoding='utf8') as f:
