@@ -33,5 +33,5 @@ if __name__ == '__main__':
             nb = current.read(f, 'json')
         nb = strip_output(nb)
         with io.open(filename, 'w', encoding='utf8') as f:
-            nbformat.write(nb, f)
+            nbformat.write(nb, f, version=4)
             #current.write(nb, f, 'json')
