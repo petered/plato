@@ -13,6 +13,7 @@ import sys
 
 from IPython.nbformat import current
 
+
 def strip_output(nb):
     """strip the outputs from a notebook object"""
     nb.metadata.pop('signature', None)
