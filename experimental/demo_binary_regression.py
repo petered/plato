@@ -76,15 +76,8 @@ def bad_value(value):
 
 def get_predictor_factory(n_dim_in, n_dim_out, sample_y, sampling_type, n_alpha, alpha_update_policy = 'sequential', possible_ws = (0, 1)):
     klass = {'gibbs': GibbsRegressor, 'herded': HerdedGibbsRegressor}[sampling_type]
-    return lambda: SamplingPredictor(klass(
-            n_dim_in=n_dim_in,
-            n_dim_out=n_dim_out,
-            sample_y = sample_y,
-            n_alpha = n_alpha,
-            seed = None,
-            alpha_update_policy = alpha_update_policy,
-            possible_ws = possible_ws
-            ), mode = 'tr')
+    return lambda: SamplingPredictor(klass(n_dim_in=n_dim_in, n_dim_out=n_dim_out, sample_y = sample_y, n_alpha = n_alpha, seed = None,
+            alpha_update_policy = alpha_update_policy, possible_ws = possible_ws), mode = 'tr')
 
 
 def get_named_predictors(names, n_dim_in, n_dim_out, sample_y = False, w_range = (0, 1)):
@@ -120,136 +113,93 @@ def get_named_predictors(names, n_dim_in, n_dim_out, sample_y = False, w_range =
 
     return predictors_to_compare
 
-figure_numbers = {
-    '1': 'synlog-simple',
-    '2A': 'synlog-comp-baseline_1',
-    '2B': 'synlog-comp-baseline_2',
-    '2C': 'synlog-comp-noiseless',
-    '2D': 'synlog-comp-noisy',
-    '2E': 'synlog-comp-10D',
-    '2F': 'synlog-comp-5D',
-    '2G': 'synlog-comp-40D',
-    '2H': 'synlog-comp-10ksamples',
-    '2I': 'synlog-comp-sample_y_1',
-    '2J': 'synlog-comp-sample_y_2',
-    '3A': 'synlog-n_alpha-gibbs',
-    '3B': 'synlog-n_alpha-herded',
-    '4A': 'synlog-n_alpha-seq',
-    '4B': 'synlog-n_alpha-1/4',
-    '4C': 'synlog-n_alpha-1/2',
-    '4D': 'synlog-n_alpha-full',
-    '5A': 'synlog-wvals-gibbs-50samples',
-    '5B': 'synlog-wvals-herded-50samples',
-    '5C': 'synlog-wvals-gibbs-1ksamples',
-    '5D': 'synlog-wvals-herded-1ksamples',
-    '6A': 'synlog-nd-lowN-lowD',
-    '6B': 'synlog-nd-lowN-highD',
-    '6C': 'synlog-nd-highN-lowD',
-    '6D': 'synlog-nd-highN-highD',
-    '7A': 'mnist_ensemble-binary-100sample',
-    '7B': 'mnist_ensemble-5choice-100sample',
-    '7C': 'mnist_ensemble-binary-1000sample',
-    '7D': 'mnist_ensemble-5choice-1000sample',
-    '8A': 'crohns'
-    }
+# After trying a few ways of storing figures, we converged on the following.
+#
+# There was a more clever, rule-based version, but this, while less redundant, made it harder to copy/modify/add experiments.
+# It will always live here:
+# https://github.com/petered/plato/blob/890649fe97223d09e01a69dc42e96ac3fa19ce3d/experimental/demo_binary_regression.py
+# Another option is CSV files.
+#
+# Defaults are defined in demo_create_figure_from_commands
+fig = OrderedDict()
+fig['1', 'synlog-simple']                       = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs'])
+fig['2A', 'synlog-comp-baseline_1']             = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2B', 'synlog-comp-baseline_2']             = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2C', 'synlog-comp-noiseless']              = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'herded'])
+fig['2D', 'synlog-comp-noisy']                  = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 1.0, predictors = ['gibbs', 'herded'])
+fig['2E', 'synlog-comp-10D']                    = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2F', 'synlog-comp-5D']                     = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 5,  noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2G', 'synlog-comp-40D']                    = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 40, noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2H', 'synlog-comp-10ksamples']             = dict(dataset_name = 'syn_log_reg',    max_training_samples=10000, max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'])
+fig['2I', 'synlog-comp-sample_y_1']             = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'], sample_y = True)
+fig['2J', 'synlog-comp-sample_y_2']             = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.1, predictors = ['gibbs', 'herded'], sample_y = True)
+fig['3A', 'synlog-n_alpha-gibbs']               = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'gibbs-1/4', 'gibbs-1/2', 'gibbs-full'])
+fig['3B', 'synlog-n_alpha-herded']              = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['herded', 'herded-1/4', 'herded-1/2', 'herded-full'])
+fig['4A', 'synlog-n_alpha-seq']                 = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'gibbs-rand', 'herded', 'herded-rand'])
+fig['4B', 'synlog-n_alpha-1/4']                 = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs-1/4', 'gibbs-1/4-rand', 'herded-1/4', 'herded-1/4-rand'])
+fig['4C', 'synlog-n_alpha-1/2']                 = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs-1/2', 'gibbs-1/2-rand', 'herded-1/2', 'herded-1/2-rand'])
+fig['4D', 'synlog-n_alpha-full']                = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs-full', 'gibbs-full-rand', 'herded-full', 'herded-full-rand'])
+fig['5A', 'synlog-wvals-gibbs-50samples']       = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'gibbs-5choice', 'gibbs-20choice'])
+fig['5B', 'synlog-wvals-herded-50samples']      = dict(dataset_name = 'syn_log_reg',    max_training_samples=50,    max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['herded', 'herded-5choice', 'herded-20choice'])
+fig['5C', 'synlog-wvals-gibbs-1ksamples']       = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'gibbs-5choice', 'gibbs-20choice'])
+fig['5D', 'synlog-wvals-herded-1ksamples']      = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['herded', 'herded-5choice', 'herded-20choice'])
+fig['6A', 'synlog-nd-lowN-lowD']                = dict(dataset_name = 'syn_log_reg',    max_training_samples=100,   max_test_samples=100, n_dims = 20, noise_factor = 0.0, predictors = ['gibbs', 'herded'])
+fig['6B', 'synlog-nd-lowN-highD']               = dict(dataset_name = 'syn_log_reg',    max_training_samples=100,   max_test_samples=100, n_dims = 500, noise_factor = 0.0, predictors = ['gibbs', 'herded'])
+fig['6C', 'synlog-nd-highN-lowD']               = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 20,  noise_factor = 0.0, predictors = ['gibbs', 'herded'])
+fig['6D', 'synlog-nd-highN-highD']              = dict(dataset_name = 'syn_log_reg',    max_training_samples=1000,  max_test_samples=100, n_dims = 500, noise_factor = 0.0, predictors = ['gibbs', 'herded'])
+fig['7A', 'mnist_ensemble-binary-100sample']    = dict(dataset_name = 'mnist_ensemble', max_training_samples=100,   max_test_samples=100, n_steps=2000, evaluation_fcn = 'percent_argmax_correct', predictors = ['gibbs', 'herded'])
+fig['7B', 'mnist_ensemble-5choice-100sample']   = dict(dataset_name = 'mnist_ensemble', max_training_samples=1000,  max_test_samples=100, n_steps=2000, evaluation_fcn = 'percent_argmax_correct', predictors = ['gibbs-5choice', 'herded-5choice'])
+fig['7C', 'mnist_ensemble-binary-1000sample']   = dict(dataset_name = 'mnist_ensemble', max_training_samples=100,   max_test_samples=100, n_steps=2000, evaluation_fcn = 'percent_argmax_correct', predictors = ['gibbs', 'herded'])
+fig['7D', 'mnist_ensemble-5choice-1000sample']  = dict(dataset_name = 'mnist_ensemble', max_training_samples=1000,  max_test_samples=100, n_steps=2000, evaluation_fcn = 'percent_argmax_correct', predictors = ['gibbs-5choice', 'herded-5choice'])
+fig['8A', 'crohns']                             = dict(dataset_name = 'crohns',         max_training_samples=1000,  max_test_samples=100, n_steps=30000, w_range = (0, 1), predictors = ['gibbs-5choice', 'herded-5choice'])
 
-figure_names = {fig_num: fig_name for fig_name, fig_num in figure_numbers.iteritems()}
 
-assert set(figure_names.viewkeys()).isdisjoint(figure_numbers.viewkeys()), \
-    'There should be no overlab between figure numbers and figure names.'
+num_to_name = {num: name for num, name in fig}
+name_to_num = {name: num for num, name in fig}
 
 
-def get_figure_name(figure_name_or_number):
+def get_figure_numbers():
+    return [num for num, _ in fig]
+
+
+def get_figure_names():
+    return [name for _, name in fig]
+
+
+def get_figure_params(identifier):
     """
-    Return the name
+    This is how we store parameters for each figure.  Really.
+
+    Note: we also created a more clever, rule-based lookup of parameters based on names, but sometimes the nicest solution is
+    not the nicest solution.  If you want to go back to it, it will always live here:
+    https://github.com/petered/plato/blob/890649fe97223d09e01a69dc42e96ac3fa19ce3d/experimental/demo_binary_regression.py
+
+    Maybe we should move to csv files?
     """
-    if figure_name_or_number in figure_numbers:
-        return figure_numbers[figure_name_or_number]
+
+    nums = get_figure_numbers()
+    names = get_figure_names()
+    assert set(nums).isdisjoint(set(names))
+    if identifier in nums:
+        return fig[identifier, num_to_name[identifier]].copy()
     else:
-        assert figure_name_or_number in figure_names, 'There is not figure "%s"' % (figure_name_or_number, )
-        return figure_name_or_number
+        assert identifier in names, 'Identifier "%s" did not correspond to a figure name or number' % (identifier, )
+        return fig[name_to_num[identifier], identifier].copy()
 
 
 def demo_create_figure(which_figure, live_plot = False, test_mode = False, **overriding_kwargs):
-
-    fig_name = get_figure_name(which_figure)
-
-    params = lambda: None  # Cheap container, like a plastic bag.
-
-    if fig_name.startswith('synlog'):
-
-        params.dataset_name = 'syn_log_reg'
-
-        params.noise_factor = ReDict({
-            'synlog-gibbs': 0.1,
-            'synlog-comp-noiseless': 0.,
-            'synlog-comp-noisy': 1.,
-            None: 0.0
-            })[fig_name]
-
-        params.max_training_samples = ReCurseDict({
-            'synlog-(simple|comp-.*)': 1000,
-            'synlog-n_alpha-.*': 50,
-            'synlog-wvals-.*': {'.*-50samples': 50, '.*-1ksamples': 1000},
-            'synlog-nd-.*': {'.*-lowN-.*': 100, '.*-highN-.*': 1000}
-            })[fig_name]
-
-        params.n_dims = ReCurseDict({
-            'synlog-comp-.*': {'.*-10D': 10, '.*-5D': 5, '.*-40D': 40, None: 20},
-            'synlog-nd-.*': {'.*-lowD': 20, '.*-highD': 500},
-            None: 20
-            })[fig_name]
-
-        params.max_test_samples = 100
-
-        params.predictors = ReDict({
-            'synlog-simple':                                ['gibbs'],
-            'synlog-comp-*':                                ['gibbs', 'herded'],
-            'synlog-n_alpha-gibbs':                         ['gibbs', 'gibbs-1/4', 'gibbs-1/2', 'gibbs-full'],
-            'synlog-n_alpha-herded':                        ['herded', 'herded-1/4', 'herded-1/2', 'herded-full'],
-            'synlog-n_alpha-seq':                           ['gibbs', 'gibbs-rand', 'herded', 'herded-rand'],
-            'synlog-n_alpha-1/4':                           ['gibbs-1/4', 'gibbs-1/4-rand', 'herded-1/4', 'herded-1/4-rand'],
-            'synlog-n_alpha-1/2':                           ['gibbs-1/2', 'gibbs-1/2-rand', 'herded-1/2', 'herded-1/2-rand'],
-            'synlog-n_alpha-full':                          ['gibbs-full', 'gibbs-full-rand', 'herded-full', 'herded-full-rand'],
-            'synlog-wvals-gibbs-(50samples|1ksamples)':     ['gibbs', 'gibbs-5choice', 'gibbs-20choice'],
-            'synlog-wvals-herded-(50samples|1ksamples)':    ['herded', 'herded-5choice', 'herded-20choice'],
-            'synlog-nd-.*':                                 ['gibbs', 'herded'],
-            })[fig_name]
-
-    elif fig_name.startswith('crohns'):
-        params.dataset_name = 'crohns'
-        params.predictors = ('gibbs-5choice', 'herded-5choice')
-        params.w_range = (-1, 1)
-        params.n_steps = 30000
-        params.evaluation_fcn = 'percent_argmax_correct'
-
-    elif fig_name.startswith('mnist_ensemble'):
-
-        params.dataset_name = 'mnist_ensemble'
-        params.predictors = ReCurseDict({
-            '.*-binary-.*': ('gibbs', 'herded'),
-            '.*-5choice-.*': ('gibbs-5choice', 'herded-5choice'),
-            })[fig_name]
-        params.max_training_samples = ReCurseDict({
-            '.*-100sample': 100,
-            '.*-1000sample': 1000,
-            })[fig_name]
-        params.w_range = (0, 1)
-        params.n_steps = 2000
-        params.evaluation_fcn = 'percent_argmax_correct'
-
-    else:
-        bad_value(fig_name)
-
+    """
+    Function storing parameters for figures.
+    """
+    params = get_figure_params(which_figure)
     kd = KwargDealer(overriding_kwargs)  # Allows you to override defaults from the top
-    passed_down_kwargs = kd.deal(params.__dict__)
+    passed_down_kwargs = kd.deal(params)
     kd.assert_empty()  # Note, we could not do this and actually allow you to override parameters all the way to the bottom.
-
     demo_create_figure_from_commands(live_plot = live_plot, test_mode = test_mode, **passed_down_kwargs)
 
 
 def demo_create_figure_from_commands(dataset_name, max_training_samples = None, max_test_samples = None, predictors = ('gibbs', 'herded'),
-        w_range = (0, 1), n_steps = 1000, evaluation_fcn = 'mse', live_plot = False, test_mode = False, **kwargs):
+        w_range = (0, 1), n_steps = 1000, evaluation_fcn = 'mse', sample_y = False, live_plot = False, test_mode = False, **kwargs):
 
     kd = KwargDealer(kwargs)
 
@@ -287,7 +237,7 @@ def demo_create_figure_from_commands(dataset_name, max_training_samples = None, 
     n_dim_in=dataset.input_shape[0]
     n_dim_out=dataset.target_shape[0]
 
-    incremental_predictors = get_named_predictors(predictors, n_dim_in, n_dim_out, sample_y = False, w_range = w_range)
+    incremental_predictors = get_named_predictors(predictors, n_dim_in, n_dim_out, sample_y = sample_y, w_range = w_range)
 
     kd.assert_empty()
 

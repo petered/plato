@@ -15,7 +15,7 @@ http://stackoverflow.com/questions/18734739/using-ipython-notebooks-under-versio
 Call this script with argument "-ov" to overwrite existing .ipynb files.
 """
 import sys
-import IPython.nbformat.current as nbf
+import IPython.nbformat.v3 as nbf
 import os
 THIS_FILE = os.path.abspath(__file__)
 
@@ -32,10 +32,10 @@ def py_to_pynb(filename, skip_if_exists = True):
         return
 
     with open(filename, 'r') as f:
-        nb = nbf.read(f, 'py')
+        nb = nbf.read_py(f.read())
 
     with open(pynb_filename, 'w') as f:
-        nbf.write(nb, f, 'ipynb')
+        nbf.to_notebook_py(nb, )
     print 'Created Notebook file: %s' % (pynb_filename, )
 
 
@@ -55,6 +55,7 @@ if __name__ == '__main__':
 
     args = sys.argv
     overwrite = len(args)==2 and args[1]=='-ov'
+    overwrite = True
     assert len(args)==1 or overwrite
     this_dir, _ = os.path.split(THIS_FILE)
     all_py_to_pynb(this_dir, skip_if_exists = not overwrite)
