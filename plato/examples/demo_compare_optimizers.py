@@ -17,7 +17,7 @@ comparisons = lambda: None
 Here we run a comparison between SGD and Durk's new pet: AdaMax.  We run them both on MNIST for 50 epochs.
 """
 comparisons.adamax_showdown = lambda test_mode = False: CompareOnlinePredictors(
-    dataset = get_mnist_dataset(),
+    dataset = get_mnist_dataset(n_training_samples = 30 if test_mode else None),
     classifier_constructors = {
         'sgd': lambda: GradientBasedPredictor(
             function = MultiLayerPerceptron(layer_sizes=[500, 10], input_size = 784, hidden_activation='sig', output_activation='lin', w_init_mag=0.01, rng = np.random.RandomState(5)),

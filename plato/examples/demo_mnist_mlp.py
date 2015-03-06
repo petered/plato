@@ -17,12 +17,12 @@ def demo_mnist_mlp(test_mode = False):
         test_period = 200
         minibatch_size = 5
         n_epochs = 0.01
+        dataset = get_mnist_dataset(n_training_samples=30, n_test_samples=30)
     else:
         test_period = 1000
         minibatch_size = 20
         n_epochs = 10
-
-    dataset = get_mnist_dataset()
+        dataset = get_mnist_dataset()
 
     # Setup the training and test functions
     classifier = MultiLayerPerceptron(layer_sizes=[500, 10], input_size = 784, hidden_activation='sig', output_activation='lin', w_init_mag=0.01)
