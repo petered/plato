@@ -8,7 +8,7 @@ from utils.tools.progress_indicator import ProgressIndicator
 __author__ = 'peter'
 
 
-def test_binary_logistic_regression(plot = True):
+def test_binary_logistic_regression(plot = False):
 
     n_steps = 100
     n_dims = 10
