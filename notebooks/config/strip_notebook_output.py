@@ -25,6 +25,7 @@ def strip_output(nb):
     return nb
 
 
+
 if __name__ == '__main__':
     filename = sys.argv[1]
     if filename.endswith('.ipynb'):
