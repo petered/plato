@@ -12,7 +12,7 @@ import io
 import sys
 
 from IPython.nbformat import current
-
+from IPython import nbformat
 
 def strip_output(nb):
     """strip the outputs from a notebook object"""
@@ -28,7 +28,9 @@ def strip_output(nb):
 if __name__ == '__main__':
     filename = sys.argv[1]
     with io.open(filename, 'r', encoding='utf8') as f:
-        nb = current.read(f, 'json')
+        nb = nbformat.read(f)
+        #nb = current.read(f, 'json')
     nb = strip_output(nb)
     with io.open(filename, 'w', encoding='utf8') as f:
-        current.write(nb, f, 'json')
+        nbformat.write(nb, f)
+        #current.write(nb, f, 'json')
