@@ -23,7 +23,7 @@ c.NotebookApp.password = u'%s'
 
 # Other Setting
 c.IPKernelApp.matplotlib = 'inline'
-c.FileNotebookManager.save_script = True
+c.FileNotebookManager.save_script = False  # Now that we strip output on commit, we no longer use this
 c.TerminalInteractiveShell.automagic = False
 """ % (hashed_password, )
 
