@@ -30,8 +30,16 @@ class FigureLink(FileLink):
         return "See <a href='%s' target='_blank'>this figure</a>.  See <a href='%s' target='_blank'>all figures</a>" % (self.path, '/tree/figures')
 
 
-def link_and_show(name = 'unnamed_figure.pdf', default_extension = 'pdf', preprend_datetime = True):
+def link_and_show(name = 'unnamed_figure', default_extension = 'pdf', preprend_datetime = True):
+    """
+    Use this function to show a plot in IPython Notebook, and provide a link to download the figure.
 
+    :param name: The figure name.  The extension, if included, specifies the file type.
+    :param default_extension: The default extension to use.
+    :param preprend_datetime: Prepend the datetime to the filename.  This makes it so new plots don't overwrite old ones
+        with the same name.
+    :return: A FigureLink.  In IPython notebook, this will display as a link to the figure (and to the figures folder)
+    """
     base, ext = os.path.splitext(name)
     if ext == '':
         ext = default_extension
