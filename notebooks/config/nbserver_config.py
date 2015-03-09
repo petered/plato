@@ -6,7 +6,17 @@ profile_name = 'nbserver'
 
 os.system('ipython profile create %s' % profile_name)
 
-config_file_contents = """
+ipython_config_file_contents = """
+c = get_config()
+c.IPKernelApp.matplotlib = 'inline'
+"""
+ipython_config_file_loc = os.path.join(os.getenv('HOME'), '.ipython/profile_%s/ipython_config.py' % (profile_name, ))
+
+with open(ipython_config_file_loc, 'w') as f:
+    f.write(ipython_config_file_contents)
+
+
+notebook_config_file_contents = """
 # Following directions in: http://ipython.org/ipython-doc/1/interactive/public_server.html
 c = get_config()
 
@@ -27,9 +37,9 @@ c.FileNotebookManager.save_script = False  # Now that we strip output on commit,
 c.TerminalInteractiveShell.automagic = False
 """ % (hashed_password, )
 
-config_file_loc = os.path.join(os.getenv('HOME'), '.ipython/profile_%s/ipython_notebook_config.py' % (profile_name, ))
+notebook_config_file_loc = os.path.join(os.getenv('HOME'), '.ipython/profile_%s/ipython_notebook_config.py' % (profile_name, ))
 
-with open(config_file_loc, 'w') as f:
-    f.write(config_file_contents)
+with open(notebook_config_file_loc, 'w') as f:
+    f.write(notebook_config_file_contents)
 
 print 'Created Profile %s' % profile_name
