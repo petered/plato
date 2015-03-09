@@ -68,5 +68,5 @@ def strip_output(nb):
 
 if __name__ == '__main__':
     nb = v4.reads(sys.stdin.read())
-    # nb = strip_output(nb)
+    nb = strip_output(nb)
     sys.stdout.write(v4.writes(nb))
