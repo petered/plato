@@ -15,7 +15,12 @@ import sys
 #You may need to do this for your script to work with GitX or Tower:
 #sys.path.append("/Users/chris/anaconda/envs/conda/lib/python2.7/site-packages")
 
-from IPython.nbformat import v4
+try:
+    from IPython.nbformat import v4
+except ImportError:
+    raise Exception("Failed to import the latest IPython while trying to strip output "
+        "from your notebooks.  Either run venv/bin/activate to enter your virtual env, or update "
+        "the IPython version on your machine (sudo pip install -U ipython)")
 
 def strip_output(nb):
     """strip the outputs from a notebook object"""
