@@ -31,7 +31,7 @@ venv/
 *.spec
 
 # IPython Notebooks (we instead run with —script to auto generate py files)
-# *.ipynb  # Experimenting with stripping output instead
+# *.ipynb  # Not any more - we’re going to try versioning these
 
 # Installer logs
 pip-log.txt
