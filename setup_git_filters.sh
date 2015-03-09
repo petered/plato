@@ -1,4 +1,3 @@
-
 # Link this filter to the file that does the filtering
 git config filter.stripoutput.clean "$(git rev-parse --show-toplevel)/notebooks/config/strip_notebook_output" 
 git config filter.stripoutput.smudge cat
