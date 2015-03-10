@@ -18,11 +18,13 @@ class IPlot(object):
 
 class ImagePlot(object):
 
-    def __init__(self, interpolation = 'nearest', show_axes = False, scale = None):
+    def __init__(self, interpolation = 'nearest', show_axes = False, scale = None, aspect = 'auto', cmap = 'gray'):
         self._plot = None
         self._interpolation = interpolation
         self._show_axes = show_axes
         self._scale = scale
+        self._aspect = aspect
+        self._cmap = cmap
 
     def update(self, data):
 
@@ -31,7 +33,7 @@ class ImagePlot(object):
             data_to_image(data, scale = self._scale)
 
         if self._plot is None:
-            self._plot = imshow(plottable_data, interpolation = self._interpolation)
+            self._plot = imshow(plottable_data, interpolation = self._interpolation, aspect = self._aspect, cmap = self._cmap)
             if not self._show_axes:
                 # self._plot.axes.get_xaxis().set_visible(False)
                 self._plot.axes.tick_params(labelbottom = 'off')

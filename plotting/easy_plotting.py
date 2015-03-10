@@ -6,17 +6,17 @@ import plotting.matplotlib_backend as eplt
 __author__ = 'peter'
 
 
-def ezplot(anything, plots = None):
+def ezplot(anything, plots = None, hang = True):
     """
     Make a plot of anything.  Anything at all.
     :param anything: Anything.
     """
     data_dict = flatten_struct(anything)
-    plots = plot_data_dict(data_dict, plots, mode = 'static')
+    plots = plot_data_dict(data_dict, plots, mode = 'static', hang = hang)
     return plots
 
 
-def plot_data_dict(data_dict, plots = None, mode = 'static'):
+def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True):
     """
     Make a plot of data in the format defined in data_dict
     :param data_dict: dict<str: plottable_data>
@@ -39,6 +39,10 @@ def plot_data_dict(data_dict, plots = None, mode = 'static'):
         eplt.subplot(n_rows, n_cols, i+1)
         plots[k].update(v)
         eplt.title(k, fontdict = {'fontsize': 8})
+    if hang:
+        eplt.ioff()
+    else:
+        eplt.ion()
     eplt.show()
 
     return plots

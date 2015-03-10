@@ -89,6 +89,8 @@ def scale_data_to_8_bit(data, scale = None):
     if scale_computed:
         scale = np.nanmin(data), np.nanmax(data)
     smin, smax = scale
+    if smin==smax:
+        smax = 255
     scale = 255./(smax-smin)
     if np.isnan(scale):  # Data is all nans, or min==max
         return np.zeros_like(data)

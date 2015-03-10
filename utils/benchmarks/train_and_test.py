@@ -3,6 +3,17 @@ import numpy as np
 
 __author__ = 'peter'
 
+"""
+All evaluation functions in here are of the form
+
+score = evaluation_fcn(actual, target)
+
+Where:
+    score is a scalar
+    actual is an (n_samples, ...) array
+    target is an (n_samples, ....) array
+"""
+
 
 def train_online_predictor(predictor, training_set, iterator):
     logging.info('Training Predictor %s...' % (predictor, ))
@@ -30,8 +41,23 @@ def mean_squared_error(actual, target):
 
 
 def fraction_correct(actual, target):
-    return np.mean(np.eq(actual, target))
+    return np.mean(actual == target)
+
+
+def percent_correct(actual, target):
+    return 100*fraction_correct(actual, target)
 
 
 def percent_argmax_correct(actual, target):
-    return 100*fraction_correct(actual, target)
+    """
+    :param actual: An (n_samples, n_dims) array
+    :param target: An (n_samples, ) array of indices OR an (n_samples, n_dims) array
+    :return:
+    """
+    assert actual.ndim==2
+    if target.ndim == 2:
+        target = np.argmax(target, axis = 1)
+    else:
+        assert target.ndim==1
+
+    return 100*fraction_correct(np.argmax(actual, axis = 1), target)

@@ -3,6 +3,7 @@ import numpy as np
 import theano.tensor as tt
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
 from theano.tensor.shared_randomstreams import RandomStreams
+from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
@@ -32,15 +33,16 @@ class GibbsRegressor(object):
     @staticmethod
     def compute_p_wa(w, x, y, alpha, possible_ws = np.array([0, 1])):
         """
-        Compute the probability the weights at index alpha taking on
-        value 1.
-
+        Compute the probability the weights at index alpha taking on each of the values in possible_ws
         """
+        assert x.tag.test_value.ndim == y.tag.test_value.ndim == 2
+        assert x.tag.test_value.shape[0] == y.tag.test_value.shape[0]
+        assert w.get_value().shape[1] == y.tag.test_value.shape[1]
         v_current = x.dot(w)  # (n_samples, n_dim_out)
         v_0 = v_current[None, :, :] - w[alpha, None, :]*x.T[alpha, :, None]  # (n_alpha, n_samples, n_dim_out)
         possible_vs = v_0[:, :, :, None] + possible_ws[None, None, None, :]*x.T[alpha, :, None, None]  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
         all_zs = tt.nnet.sigmoid(possible_vs)  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
-        log_likelihoods = tt.sum(tt.log(bernoulli(y[None, :, :, None], all_zs)), axis = 1)  # (n_alpha, n_dim_out, n_possible_ws)
+        log_likelihoods = tt.sum(tt.log(bernoulli(y[None, :, :, None], all_zs[:, :, :, :])), axis = 1)  # (n_alpha, n_dim_out, n_possible_ws)
         # Question: Need to shift for stability here or will Theano take care of that?
         # Stupid theano didn't implement softmax very nicely so we have to do some reshaping.
         return tt.nnet.softmax(log_likelihoods.reshape([alpha.shape[0]*w.shape[1], possible_ws.shape[0]]))\
@@ -75,9 +77,6 @@ class HerdedGibbsRegressor(GibbsRegressor):
         selected_phi_indices = (tt.arange(self._alpha.shape[0])[:, None], tt.arange(y.shape[1])[None, :], k_chosen)
         new_phi_alpha = tt.set_subtensor(phi_alpha[selected_phi_indices], phi_alpha[selected_phi_indices]-1)  # (n_alpha, n_dim_out, n_possible_ws)
         w_sample = self._possible_ws[k_chosen]  # (n_alpha, n_dim_out)
-
-        # w_sample = phi_alpha > 0.5  # TODOOOOOO: Updata this.
-        # new_phi_alpha = phi_alpha - w_sample
         new_phi = tt.set_subtensor(self._phi[self._alpha], new_phi_alpha)  # (n_dim_in, n_dim_out, n_possible_ws)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), (self._phi, new_phi), self._get_alpha_update()]
@@ -93,3 +92,16 @@ def sample_categorical(rng, p):
     samples = rng.multinomial(n=1, pvals = p)
     indices = tt.argmax(samples, axis = -1)
     return indices
+
+
+class SamplingPredictor(IPredictor):
+
+    def __init__(self, sampler, mode = 'test_and_run'):
+        self.train_function = sampler.update.compile(mode=mode)
+        self.predict_function = sampler.sample_posterior.compile(mode=mode)
+
+    def train(self, input_data, target_data):
+        self.train_function(input_data, target_data)
+
+    def predict(self, input_data):
+        return self.predict_function(input_data)
