@@ -65,6 +65,7 @@ def setup_visualization(predictor):
                 }
             if 'self._phi' in lv:
                 plot_dict['phi'] = lv['self._phi'].squeeze()
+            return plot_dict
 
         plotter = LiveStream(get_plotting_vals)
         predictor.train_function.add_callback(plotter.update)
@@ -256,7 +257,7 @@ def demo_create_figure_from_commands(dataset_name, max_training_samples = None, 
 if __name__ == '__main__':
 
     # -- Params -- #
-    SPECITY_AS = 'direct'
+    SPECITY_AS = 'commands'
     # ------------ #
 
     if SPECITY_AS=='figure':
@@ -269,15 +270,15 @@ if __name__ == '__main__':
         # ------------ #
 
     elif SPECITY_AS == 'commands':
+
         demo_create_figure_from_commands(
-            dataset_name = 'crohns',
-            max_training_samples = None,
-            max_test_samples = None,
-            predictors = ('gibbs-5choice', 'herded-5choice'),
-            w_range = (-1, 1),
-            n_steps = 10000,
-            evaluation_fcn = 'percent_argmax_correct',
-            live_plot = False,
+            dataset_name = 'syn_log_reg',
+            max_training_samples=100,
+            max_test_samples=1000,
+            n_dims = 500,
+            noise_factor = 0.0,
+            predictors = ['gibbs', 'herded'],
+            live_plot = True,
             test_mode = False,
             )
     elif SPECITY_AS == 'direct':

@@ -1,5 +1,6 @@
 from abc import ABCMeta
 from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, symbolic_updater
+from utils.predictors.i_predictor import IPredictor
 
 __author__ = 'peter'
 
@@ -28,6 +29,14 @@ class IOnlinePredictor(object):
         :return: updates: A list of 2-tuples representing parameter updates.
         """
 
+    def compile(self):
+        """
+        Possible TODO, allow compilation of any class containing symbolic methods, which
+        will result in a new class where all symbolic methods are compiled.
+        :return:
+        """
+        return CompiledSymbolicPredictor(self)
+
 
 class GradientBasedPredictor(IOnlinePredictor):
 
@@ -50,3 +59,25 @@ class GradientBasedPredictor(IOnlinePredictor):
         cost = self._cost_function(self._function(inputs), labels)
         updates = self._optimizer(cost = cost, parameters = self._function.parameters)
         return updates
+
+
+class ISamplingPredictor(IOnlinePredictor):
+
+    def update(self, x, y):
+        pass
+
+    def sample_posterior(self, x, y):
+        pass
+
+
+class CompiledSymbolicPredictor(IPredictor):
+
+    def __init__(self, symbolic_predictor, mode = 'test_and_run'):
+        self.train_function = symbolic_predictor.train.compile(mode=mode)
+        self.predict_function = symbolic_predictor.predict.compile(mode=mode)
+
+    def train(self, input_data, target_data):
+        self.train_function(input_data, target_data)
+
+    def predict(self, input_data):
+        return self.predict_function(input_data)

@@ -95,6 +95,11 @@ def sample_categorical(rng, p):
 
 
 class SamplingPredictor(IPredictor):
+    """
+    Deprecated.
+
+    TODO: Replace with plato.tools.online_prediction.CompiledSymbolicPredictor
+    """
 
     def __init__(self, sampler, mode = 'test_and_run'):
         self.train_function = sampler.update.compile(mode=mode)

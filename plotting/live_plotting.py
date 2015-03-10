@@ -58,6 +58,8 @@ class LiveStream(BaseStream):
 
     def _get_data_structure(self):
         struct = self._callback()
+        assert struct is not None, 'Your plotting-data callback returned None.  Probably you forgot to include a return statememnt.'
+
         flat_struct = flatten_struct(struct)  # list<*tuple<str, data>>
         return flat_struct
 
