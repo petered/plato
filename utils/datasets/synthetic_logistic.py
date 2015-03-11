@@ -32,7 +32,7 @@ def get_logistic_regression_data(
     rng = np.random.RandomState(seed)
     n_samples = n_training+n_test
     # Since magnitude of x.dot(w) grows with square-root of len(x), we scale x depending on n_dims
-    x_scale = np.array(1.)/noise_factor  #/(noise_factor*np.sqrt(n_dims))
+    x_scale = np.array(1.)/noise_factor if noise_factor!=0 else float('inf')
     x = ((rng.rand(n_samples, n_dims) > 0.5)*2-1)
     w = rng.rand(n_dims, 1)
     z = sigm(x.dot(w)*x_scale)

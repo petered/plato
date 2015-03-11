@@ -1,5 +1,5 @@
 import numpy as np
-from utils.datasets.synthethic_clusters import get_synthetic_clusters_dataset
+from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 from utils.datasets.synthetic_linear import get_synthethic_linear_dataset
 from scipy.stats import norm
 
