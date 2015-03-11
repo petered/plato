@@ -1,4 +1,4 @@
-from general.math import binary_permutations, sigm
+from general.mymath import binary_permutations, sigm
 import numpy as np
 from scipy import weave
 
