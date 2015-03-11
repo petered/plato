@@ -40,6 +40,10 @@ class DataSet(object):
         return self.training_set.target.shape[1:]
 
     @property
+    def name(self):
+        return self.__class__.__name__ if self._name is None else self._name
+
+    @property
     def xyxy(self):
         """
         Shorthand to return (input_of_training_set, targets_of_training_set, input_of_test_set, targets_of_test_set)
@@ -60,7 +64,7 @@ class DataSet(object):
 
     def __repr__(self):
         return '<%s with %s training samples, %s test samples, input_shapes = %s, target_shapes = %s at %s>' \
-            % (self.__class__.__name__, self.training_set.n_samples, self.test_set.n_samples,
+            % (self.name, self.training_set.n_samples, self.test_set.n_samples,
                [x.shape[1:] for x in self.training_set.inputs], [x.shape[1:] for x in self.training_set.targets],
                 hex(id(self))
             )
