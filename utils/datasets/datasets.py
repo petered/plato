@@ -1,4 +1,4 @@
-from general.should_be_builtins import all_equal
+from general.should_be_builtins import all_equal, bad_value
 import numpy as np
 
 __author__ = 'peter'
@@ -15,6 +15,7 @@ class DataSet(object):
         self.test_set = test_set
         self._validation_set = validation_set
         self._name = name
+        self._n_categories = None
 
     @property
     def validation_set(self):
@@ -42,6 +43,14 @@ class DataSet(object):
     @property
     def name(self):
         return self.__class__.__name__ if self._name is None else self._name
+
+    @property
+    def n_categories(self):
+        if self._n_categories is None:
+            assert isinstance(self.training_set.target, (int, str)), \
+                'n_categories is only a valid attribute when target data is int or str.'
+            
+            self._n_categories = len(np.unique(self._tr))
 
     @property
     def xyxy(self):
@@ -135,7 +144,9 @@ def minibatch_iterator(minibatch_size = 1, epochs = 1, final_treatment = 'stop',
         n_samples = data_collection.n_samples
         total_samples = epochs * n_samples
 
-        true_minibatch_size = n_samples if minibatch_size == 'all' else minibatch_size
+        true_minibatch_size = n_samples if minibatch_size == 'full' else \
+            minibatch_size if isinstance(minibatch_size, int) else \
+            bad_value(minibatch_size)
 
         if single_channel:
             input_data = data_collection.input

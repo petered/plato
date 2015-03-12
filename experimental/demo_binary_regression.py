@@ -2,6 +2,7 @@ from collections import OrderedDict
 from experimental.rf_ensembles import MockModePredictor, get_mnist_rf_ensemble_dataset
 from general.kwarg_dealer import KwargDealer
 from general.redict import ReDict, ReCurseDict
+from general.should_be_builtins import bad_value
 import numpy as np
 from plotting.live_plotting import LiveStream
 from utils.benchmarks.compare_predictors import compare_predictors
@@ -69,10 +70,6 @@ def setup_visualization(predictor):
 
         plotter = LiveStream(get_plotting_vals)
         predictor.train_function.add_callback(plotter.update)
-
-
-def bad_value(value):
-    raise ValueError('Bad Value: %s' % value)
 
 
 def get_predictor_factory(n_dim_in, n_dim_out, sample_y, sampling_type, n_alpha, alpha_update_policy = 'sequential', possible_ws = (0, 1)):

@@ -16,3 +16,7 @@ class Perceptron(IPredictor):
 
     def predict(self, x):
         return (x.dot(self._w)+self._b > 0).astype(int)
+
+    def to_categorical(self):
+        from utils.predictors.i_predictor import CategoricalPredictor
+        return CategoricalPredictor(self)
