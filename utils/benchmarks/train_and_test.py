@@ -32,7 +32,8 @@ def get_evaluation_function(name):
     return {
         'mse': mean_squared_error,
         'mean_squared_error': mean_squared_error,
-        'percent_argmax_correct': percent_argmax_correct
+        'percent_argmax_correct': percent_argmax_correct,
+        'percent_correct': percent_correct,
         }[name]
 
 
@@ -54,7 +55,7 @@ def percent_argmax_correct(actual, target):
     :param target: An (n_samples, ) array of indices OR an (n_samples, n_dims) array
     :return:
     """
-    assert actual.ndim==2
+    assert actual.ndim==2, 'percent_argmax_correct expects shape (n_samples, n_categories) labels.  Shape was %s' % (actual.shape, )
     if target.ndim == 2:
         target = np.argmax(target, axis = 1)
     else:

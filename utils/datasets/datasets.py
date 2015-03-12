@@ -47,10 +47,11 @@ class DataSet(object):
     @property
     def n_categories(self):
         if self._n_categories is None:
-            assert isinstance(self.training_set.target, (int, str)), \
-                'n_categories is only a valid attribute when target data is int or str.'
-            
-            self._n_categories = len(np.unique(self._tr))
+            assert self.training_set.target.dtype in (int, str), \
+                'n_categories is only a valid attribute when target data is int or str.  It is %s' \
+                % (self.training_set.target.dtype, )
+            self._n_categories = len(np.unique(self.training_set.target))
+        return self._n_categories  # TODO: Do this properly (assert that train/test have same categories, etc
 
     @property
     def xyxy(self):

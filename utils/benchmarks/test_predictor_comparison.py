@@ -1,28 +1,19 @@
 from sklearn.svm import SVC
 from utils.benchmarks.predictor_comparison import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
-from utils.bureaucracy import multichannel
-from utils.datasets.datasets import DataSet, DataCollection
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
-from utils.datasets.synthetic_logistic import get_logistic_regression_data
-from utils.predictors.bad_predictors import MockPredictor
 from utils.predictors.perceptron import Perceptron
 import numpy as np
-from utils.tools.mymath import sqrtspace, sigm
-from utils.tools.processors import OneHotEncoding
+from utils.tools.mymath import sqrtspace
 
 __author__ = 'peter'
 
 
-def test_compare_predictors():
+def test_compare_predictors(plot = True):
 
-    # x_tr, y_tr, x_ts, y_ts = get_synthetic_clusters_dataset().xyxy
-    # dataset = DataSet(DataCollection(x_tr, y_tr), DataCollection(x_ts, y_ts)).process_with(targets_processor=lambda (x, ): (OneHotEncoding()(x[:, 0]), ))
+    dataset = get_synthetic_clusters_dataset()
 
-
-    dataset = get_synthetic_clusters_dataset() #.process_with(targets_processor=multichannel(OneHotEncoding()))
-
-    w_constructor = lambda: 0.1*np.random.randn(dataset.training_set.input.shape[1], dataset.training_set.target.shape[1])
+    w_constructor = lambda rng = np.random.RandomState(45): .1*rng.randn(dataset.input_shape[0], dataset.n_categories)
     records = compare_predictors(
         dataset = dataset,
         offline_predictors={
@@ -34,9 +25,15 @@ def test_compare_predictors():
             },
         minibatch_size = 10,
         test_epochs = sqrtspace(0, 10, 20),
-        evaluation_function='percent_argmax_correct'
+        evaluation_function='percent_correct'
         )
-    plot_learning_curves(records)
+
+    assert 99 < records['SVM'].get_scores('Test') <= 100
+    assert 20 < records['slow-perceptron'].get_scores('Test')[0] < 40 and 95 < records['slow-perceptron'].get_scores('Test')[-1] <= 100
+    assert 20 < records['fast-perceptron'].get_scores('Test')[0] < 40 and 99 < records['fast-perceptron'].get_scores('Test')[-1] <= 100
+
+    if plot:
+        plot_learning_curves(records)
 
 
 if __name__ == '__main__':

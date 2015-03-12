@@ -36,7 +36,7 @@ class CategoricalPredictor(object):
         if self._encoder is None:
             raise Exception('If you call train before predict, you must provide the number of categories.')
         new_target_data = self._encoder(target_data)
-        return self._predictor.train(new_target_data)
+        return self._predictor.train(input_data, new_target_data)
 
     def predict(self, input_data):
         out = self._predictor.predict(input_data)
