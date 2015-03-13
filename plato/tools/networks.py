@@ -15,23 +15,21 @@ class MultiLayerPerceptron(IParameterized):
     A Multi-Layer Perceptron
     """
 
-    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_init_mag = 0.1, rng = None):
+    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
+            w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
         :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
             {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
         :param output_activation: A string (see above) identifying the activation function for the output layer
-        :param w_init_mag: Standard-Deviation of the gaussian-distributed initial weights
-        :param rng: The Random number generator to use for initial weight values.
+        :param w_init: A function which, given input dims, output dims, return
         """
-        if rng is None:
-            rng = np.random.RandomState()
 
         all_layer_sizes = [input_size]+layer_sizes
         all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
         processors = sum([[
-             FullyConnectedBridge(w = w_init_mag*rng.randn(pre_size, post_size)),
+             FullyConnectedBridge(w = w_init(pre_size, post_size)),
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])

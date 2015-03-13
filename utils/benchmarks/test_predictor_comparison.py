@@ -9,7 +9,7 @@ from utils.tools.mymath import sqrtspace
 __author__ = 'peter'
 
 
-def test_compare_predictors(plot = True):
+def test_compare_predictors(hang_plot = False):
 
     dataset = get_synthetic_clusters_dataset()
 
@@ -32,9 +32,8 @@ def test_compare_predictors(plot = True):
     assert 20 < records['slow-perceptron'].get_scores('Test')[0] < 40 and 95 < records['slow-perceptron'].get_scores('Test')[-1] <= 100
     assert 20 < records['fast-perceptron'].get_scores('Test')[0] < 40 and 99 < records['fast-perceptron'].get_scores('Test')[-1] <= 100
 
-    if plot:
-        plot_learning_curves(records)
+    plot_learning_curves(records, hang = hang_plot)
 
 
 if __name__ == '__main__':
-    test_compare_predictors()
+    test_compare_predictors(hang_plot=True)

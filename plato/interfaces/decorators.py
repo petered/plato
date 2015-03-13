@@ -537,10 +537,12 @@ def _is_symbol_or_value(var):
 
 
 def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
+    # TODO:
     ndim = 0 if np.isscalar(data) else data.ndim
     dtype = theano.config.floatX if (cast_floats_to_floatx and (isinstance(data, float) or isinstance(data, np.ndarray) and data.dtype == 'float')) \
-        else 'int64' if isinstance(data, int) \
+        else 'int64' if isinstance(data, (bool, int)) \
         else 'float64' if isinstance(data, float) \
+        else 'int8' if data.dtype==bool \
         else data.dtype
     tensor = TensorType(dtype, (None, )*ndim)(name)
     if test:

@@ -29,13 +29,13 @@ class IOnlinePredictor(object):
         :return: updates: A list of 2-tuples representing parameter updates.
         """
 
-    def compile(self):
+    def compile(self, **kwargs):
         """
         Possible TODO, allow compilation of any class containing symbolic methods, which
         will result in a new class where all symbolic methods are compiled.
         :return:
         """
-        return CompiledSymbolicPredictor(self)
+        return CompiledSymbolicPredictor(self, **kwargs)
 
 
 class GradientBasedPredictor(IOnlinePredictor):
@@ -72,9 +72,9 @@ class ISamplingPredictor(IOnlinePredictor):
 
 class CompiledSymbolicPredictor(IPredictor):
 
-    def __init__(self, symbolic_predictor, mode = 'test_and_run'):
-        self.train_function = symbolic_predictor.train.compile(mode=mode)
-        self.predict_function = symbolic_predictor.predict.compile(mode=mode)
+    def __init__(self, symbolic_predictor, **kwargs):
+        self.train_function = symbolic_predictor.train.compile(**kwargs)
+        self.predict_function = symbolic_predictor.predict.compile(**kwargs)
 
     def train(self, input_data, target_data):
         self.train_function(input_data, target_data)

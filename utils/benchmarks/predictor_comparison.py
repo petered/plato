@@ -9,7 +9,8 @@ from utils.tools.progress_indicator import ProgressIndicator
 
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
-        evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True):
+        evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True,
+        test_on = 'training+test'):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -63,7 +64,8 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 predictor=predictor,
                 dataset = dataset,
                 evaluation_function = evaluation_function,
-                report_test_scores = report_test_scores
+                report_test_scores = report_test_scores,
+                test_on = test_on
                 ) if predictor_type == 'offline' else \
             assess_online_predictor(
                 predictor=predictor,
@@ -71,7 +73,8 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 evaluation_function = evaluation_function,
                 test_epochs = test_epochs,
                 minibatch_size = minibatch_size[predictor_name],
-                report_test_scores = report_test_scores
+                report_test_scores = report_test_scores,
+                test_on = test_on
                 ) if predictor_type == 'online' else \
             bad_value(predictor_type)
 
@@ -97,7 +100,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
     :param report_test_scores: Print out the test scores as they're computed (T/F)
-    :return: A  LearningCurveData containing the score on the test set
+    :return: LearningCurveData containing the score on the test sets
     """
     record = LearningCurveData()
     predictor.fit(dataset.training_set.input, dataset.training_set.target)
@@ -120,7 +123,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param test_epochs:
     :param minibatch_size:
     :param report_test_scores: Print out the test scores as they're computed (T/F)
-    :return: A  LearningCurveData containing the score on the test set
+    :return: LearningCurveData containing the score on the test sets
     """
 
     record = LearningCurveData()
@@ -267,10 +270,9 @@ class LearningCurveData(object):
 
     def get_scores(self, which_test_set = None):
         """
-        Return scores for the given predictor.
-        For an offline predictor, you'll get float
-        For an online predictor, you'll get a 1-D array representing the score at each test point.
-        :return:
+        :return: scores for the given test set.
+            For an offline predictor, scores'll be float
+            For an online predictor, scores'll by a 1-D array representing the score at each test point.
         """
         _, results = self.get_results()
 

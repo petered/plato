@@ -82,15 +82,16 @@ class HerdedGibbsRegressor(GibbsRegressor):
         return [(self._w, w_new), (self._phi, new_phi), self._get_alpha_update()]
 
 
-def sample_categorical(rng, p):
+def sample_categorical(rng, p, axis = -1):
     """
     p is a n-d array, where the final dimension is a discrete distibution (does not need to be normalized).
     Sample from that distribution.
     This will return an array of shape p.shape[:-1] with values in range [0, p.shape[-1])
     """
-    p = p/tt.sum(p, axis = -1)[(slice(None), )*(p.ndim-1)+(None, )]
+    assert axis==-1, 'Currenly you can only sample along the last axis.'
+    p = p/tt.sum(p, axis = -1, keepdims=True)
     samples = rng.multinomial(n=1, pvals = p)
-    indices = tt.argmax(samples, axis = -1)
+    indices = tt.argmax(samples, axis = -1)  # Argmax is just a way to find the location of the only element that is 1.
     return indices
 
 
