@@ -176,6 +176,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         return self._params
 
     def reverse(self, y):
+        assert self._b_rev is not None, 'You are calling reverse on this bridge, but you failed to specify b_rev.'
         return y.flatten(2).dot(self._w.T)+self._b_rev
 
     def free_energy(self, visible):

@@ -139,8 +139,8 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise SymbolicFormatError('%s of function %s should have been a tensor, but was %s' % (name, self._fcn, arg))
 
     def _assert_all_tensors(self, args, name):
-        if not (isinstance(args, tuple) and all(isinstance(arg, Variable) for arg in args)):
-            raise SymbolicFormatError('%s of %s must a tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
+        if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
+            raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
 
     def _assert_all_updates(self, updates):
         if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
@@ -606,12 +606,12 @@ def find_shared_ancestors(variable):
 class SymbolicReturn(object):
 
     def __init__(self, outputs = (), updates = []):
-        if not (isinstance(outputs, tuple) and all(isinstance(out, Variable) for out in outputs)):
-            raise SymbolicFormatError('%s must a tuple of tensors.  They were %s instead' % (self._fcn, outputs, ))
+        if not (isinstance(outputs, (list, tuple)) and all(isinstance(out, Variable) for out in outputs)):
+            raise SymbolicFormatError('Outputs must a tuple of tensors.  They were %s instead' % (outputs, ))
         if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
-            raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead' % (self._fcn, updates, ))
-        self.outputs = outputs
+            raise SymbolicFormatError('Updates must be a list of 2-tuples of (shared_variable, update_tensor).  We got %s instead' % (updates, ))
+        self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else updates
         self.updates = updates
 
     def __iter__(self):

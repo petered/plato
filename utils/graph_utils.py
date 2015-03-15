@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from general.should_be_builtins import bad_value
 
 __author__ = 'peter'
 
@@ -130,8 +131,8 @@ class SignalGraph(set):
 
     def get_subgraph(self, input_signals = None, output_signals = None):
 
-        input_signals = self.get_input_signals() if input_signals is None else set(input_signals)
-        output_signals = self.get_output_signals() if output_signals is None else set(output_signals)
+        input_signals = self.get_input_signals() if input_signals is None else set(_tuplefy_singles(input_signals))
+        output_signals = self.get_output_signals() if output_signals is None else set(_tuplefy_singles(output_signals))
 
         # Find all nodes required to compute outputs
         subgraph_nodes = set().union(*tuple(self.get_predecessor_graph(sig, given_signals = input_signals) for sig in output_signals))
@@ -208,26 +209,43 @@ class FactorGraph(object):
         self._variables = variables
         self._factors = factors
 
-    def get_inference_path(self, varible_path):
+    def get_inference_path(self, variable_path):
         """
-        Get a path from the input variables to the output variables.  The path will consist of alternating
+        Given a path defined in terms of variables int the factor graph, return a full inference that defines the order
+        in which to compute factors and sample variables.
 
         :param varible_path: A list of 2-tuples, identifying the source, destination layers for the update.
         :return: path: An OrderedDict<(tuple<*int>, int): function> indicating the path to take.
         """
 
-        variable_path = _clean_path(varible_path)
         path = OrderedDict()
-        for src_vars, dest_var in variable_path:
+        for src_vars, dest_vars in variable_path:
             for src_var in src_vars:
-                path[(src_var, ), factor_name(src_var, dest_var)] = self._factors[src_var, dest_var]
+                for dest_var in dest_vars:
+                    path[(src_var, ), factor_name(src_var, dest_var)] = \
+                        self._factors[src_var, dest_var] if (src_var, dest_var) in self._factors else \
+                        self._factors[dest_var, src_var].reverse if (dest_var, src_var) in self._factors else \
+                        bad_value((src_var, dest_var), 'Factor %s-%s does not exist in the graph: %s' % (src_var, dest_var, self._factors.keys()))
             path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var]
+        return InferencePath(path)
+
+    def get_inference_path_from_io(self, input_signals, output_signals):
+        # input_signals = (input_signals, ) if not isinstance(input_signals, (list, tuple)) else input_signals
+        # output_signals = (output_signals, ) if not isinstance(output_signals, (list, tuple)) else output_signals
+        variable_path = SignalGraph(self._factors).get_subgraph(input_signals=input_signals, output_signals=output_signals).get_serial_order()
+        # assert all([len(dest)==1 for src, dest in path])
+        path = InferencePath(variable_path)
         return path
 
 
 def _clean_path(specified_path):
+    """
+    :param specified_path: Defines the flow of information along a graph.  Generally, it should be of the form:
+        [..., ((in_sig_0, in_sig_1, ...): out_sig), ...] where in_sig, out_sig are int/strings identifying signals.
+    :return:
+    """
 
-    assert all(len(p)==2 for p in specified_path)
+    assert isinstance(specified_path, list) and all(len(p)==2 for p in specified_path), 'Path must be a list of 2-tuples.  We got "%s".' % (specified_path, )
     assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str)) for src, dest in specified_path)
     path = []
     for srcs, dests in specified_path:
@@ -252,3 +270,35 @@ def _tuplefy_node((src_signals, dest_signals)):
 
 def _tuplefy_singles(edge_specifier):
     return edge_specifier if isinstance(edge_specifier, tuple) else (edge_specifier, )
+
+
+def _singlefy_tuples(edge_specifier):
+    if isinstance(edge_specifier, (list, tuple)):
+        assert len(edge_specifier)==1, 'You tried to singlefy an edge specifier, did not have 1 signal: %s' % (edge_specifier, )
+        singlified, = edge_specifier
+    else:
+        singlified = edge_specifier
+    return singlified
+
+
+class InferencePath(object):
+
+    def __init__(self, specified_path, single_outputs = True):
+
+        assert single_outputs, "Don't yet support multiple outputs.  We will if theres a reason to."
+
+        assert isinstance(specified_path, OrderedDict) and all(len(p)==2 for p in specified_path), 'Path must be a list of 2-tuples.  We got "%s".' % (specified_path, )
+        assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str, list, tuple)) for src, dest in specified_path)
+        self._path = OrderedDict(((_tuplefy_singles(src), _singlefy_tuples(dest)), f) for (src, dest), f in specified_path.iteritems())
+        self._required_inputs = SignalGraph(self._path).get_input_signals()
+
+    def execute(self, input_signal_dict):
+
+        assert set(input_signal_dict.keys()) == self._required_inputs, 'The inputs you provided: %s, did not match the set of required inputs: %s' \
+            % (input_signal_dict.keys(), set(self._required_inputs))
+
+        signals = input_signal_dict.copy()
+        for (srcs, dest), func in self._path.iteritems():
+            out = func(*[signals[src] for src in srcs])
+            signals[dest] = out
+        return signals
