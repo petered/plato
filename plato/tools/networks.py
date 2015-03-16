@@ -211,7 +211,7 @@ class ConvolutionalBridge(IParameterized, IFreeEnergy):
         return -tt.sum(visible*self._b_rev.dimshuffle('x', 0, 'x', 'x'), axis = (2, 3))
 
 
-def _initialize_param(initial_value, shape = None, name = None):
+def _initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True):
     """
     Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
     instantiate a parameter:
@@ -236,14 +236,17 @@ def _initialize_param(initial_value, shape = None, name = None):
     if isinstance(shape, int):
         shape = (shape, )
 
+    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype=='float' else x
+
     if np.isscalar(initial_value):
         if shape is None:
             initial_value = np.array(initial_value)
         else:
             initial_value = np.zeros(shape)+initial_value
+        initial_value = typecast(initial_value)
     if isinstance(initial_value, np.ndarray):
         assert_compatible_shape(initial_value.shape, shape, name = name)
-        variable = theano.shared(initial_value.astype(theano.config.floatX), name = name, borrow = True, allow_downcast=True)
+        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True)
         params = [variable]
         variable_shape = initial_value.shape
     elif initial_value is Variable:

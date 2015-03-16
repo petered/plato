@@ -1,6 +1,7 @@
 import inspect
+import logging
 from abc import abstractproperty, abstractmethod
-from general.local_capture import execute_and_capture_locals
+from general.local_capture import execute_and_capture_locals, CaptureLocals, LocalsNotCapturedError
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as ts
@@ -145,7 +146,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
     def _assert_all_updates(self, updates):
         if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
-            raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead' % (self._fcn, updates, ))
+            raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
 
     def _assert_standard_return(self, return_val):
         if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
@@ -179,20 +180,58 @@ class BaseSymbolicFunction(ISymbolicFunction):
     def compile(self, **kwargs):
         return AutoCompilingFunction(self, **kwargs)
 
-    def _call_fcn(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
+        """
+        This function wraps a symbolic function.  Its job is to check that the format of the inputs/outputs are what we
+        expect them to be, and also to capture the values of internal variables for inspection purposes, if we've
+        enabled "omniscence".  If you're here because you're inspecting a stack-trace, you can probably just ignore this
+        function.
+        """
+
+        self._check_inputs(*args, **kwargs)
+
+        if self._instance is not None:  # Method calls - you need to pass the function
+            args = (self._instance, )+args
 
         if ENABLE_OMNISCENCE:
-            # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
-            # inherently evil, but useful for debugging purposes.  Use the trick from
-            # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
-            if self._instance is None:
-                return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
-            else:
-                return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
-            assert self._locals is not None
+            captor = CaptureLocals()
+            with captor:
+                return_val = self._fcn(*args, **kwargs)
+            try:
+                self._locals = captor.get_captured_locals()
+            except LocalsNotCapturedError:
+                logging.critical('Failed to capture locals for function %s.  This can happen when you call from debugger.' % (self._fcn, ))
         else:
-            return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
+            return_val = self._fcn(*args, **kwargs)
+
+        self._check_outputs(return_val)
         return return_val
+
+    @abstractmethod
+    def _check_inputs(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def _check_outputs(self, *args, **kwargs):
+        pass
+
+
+    # def _call_fcn(self, *args, **kwargs):
+    #
+    #     if ENABLE_OMNISCENCE:
+    #         # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
+    #         # inherently evil, but useful for debugging purposes.  Use the trick from
+    #         # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
+    #         if self._instance is None:
+    #             return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
+    #         else:
+    #             return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
+    #
+    #         if self._locals is None:
+    #             logging.critical('Failed to get locals of symbolic function %s.' % (self._fcn, ))
+    #     else:
+    #         return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
+    #     return return_val
 
     def locals(self):
         if self._type in ('function', 'method'):
@@ -206,9 +245,9 @@ class BaseSymbolicFunction(ISymbolicFunction):
         assert local_vars is not None, 'You tried to retrieve locals, but they are not available.  Have you called the function yet?'
         return LocalsContainer(local_vars)
 
-    @abstractmethod
-    def __call__(self, *args, **kwargs):
-        raise NotImplementedError()
+    # @abstractmethod
+    # def __call__(self, *args, **kwargs):
+    #     raise NotImplementedError()
 
     @abstractproperty
     def original(self):
@@ -251,11 +290,18 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
     (out_0, out_1, ...) = fcn(in_0, in_1, ...)
     """
 
-    def __call__(self, *args):
+    def _check_inputs(self, *args, **kwargs):
         self._assert_all_tensors(args, 'Arguments')
-        out = self._call_fcn(*args)
+        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+
+    def _check_outputs(self, out):
         self._assert_is_tensor(out, 'Output')
-        return out
+
+    # def __call__(self, *args):
+    #     self._assert_all_tensors(args, 'Arguments')
+    #     out = self._call_fcn(*args)
+    #     self._assert_is_tensor(out, 'Output')
+    #     return out
 
     @property
     def symbolic_stateless(self):
@@ -266,17 +312,28 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
         return SymbolicStandardFunction(self._standard_function)
 
     def _standard_function(self, *args, **kwargs):
-        out = self._call_fcn(*args, **kwargs)
+        out = self(*args, **kwargs)
         return (out, ), []
 
 
 class SymbolicUpdateFunction(BaseSymbolicFunction):
 
-    def __call__(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        updates = self._call_fcn(*args, **kwargs)
-        self._assert_all_updates(updates)
-        return updates
+    # def __call__(self, *args, **kwargs):
+    #     self._assert_all_tensors(args, 'Arguments')
+    #     updates = self._call_fcn(*args, **kwargs)
+    #     self._assert_all_updates(updates)
+    #     return updates
+
+    def _check_inputs(self, *args, **kwargs):
+        """
+        Currently no requirements on the inputs, since we often feed parameters/variables
+        """
+        pass
+        # self._assert_all_tensors(args, 'Arguments')
+        # self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+
+    def _check_outputs(self, out):
+        self._assert_all_updates(out)
 
     @property
     def symbolic_stateless(self):
@@ -288,17 +345,24 @@ class SymbolicUpdateFunction(BaseSymbolicFunction):
         return SymbolicStandardFunction(self._standard_function)
 
     def _standard_function(self, *args, **kwargs):
-        updates = self._call_fcn(*args, **kwargs)
+        updates = self(*args, **kwargs)
         return (), updates
 
 
 class SymbolicStandardFunction(BaseSymbolicFunction):
 
-    def __call__(self, *args):
+    # def __call__(self, *args):
+    #     self._assert_all_tensors(args, 'Arguments')
+    #     return_val = self._call_fcn(*args)
+    #     self._assert_standard_return(return_val)
+    #     return return_val
+
+    def _check_inputs(self, *args, **kwargs):
         self._assert_all_tensors(args, 'Arguments')
-        return_val = self._call_fcn(*args)
-        self._assert_standard_return(return_val)
-        return return_val
+        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+
+    def _check_outputs(self, out):
+        self._assert_standard_return(out)
 
     @property
     def symbolic_standard(self):
@@ -454,7 +518,7 @@ class AutoCompilingFunction(object):
                 debug_variables = filtered_debug_variables
                 self._debug_variable_keys = debug_variables.keys()
                 outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
-                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates)
+                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
                     try:
@@ -465,7 +529,7 @@ class AutoCompilingFunction(object):
                         raise
                 return [o.tag.test_value for o in outputs] if isinstance(outputs, (list, tuple)) else outputs.tag.test_value
             else:
-                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates)
+                self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
@@ -507,7 +571,6 @@ class AutoCompilingFunction(object):
             assert inspect.isfunction(callback), 'You can either provide a callback returning locals, or a string in ' \
                 '{"locals", "class", "locals+class"}.  "%s" is not a valid argument.' % (callback, )
 
-
         self._debug_variable_getter = callback
 
     def get_debug_values(self):
@@ -526,6 +589,9 @@ class AutoCompilingFunction(object):
     def add_callback(self, fcn):
         self._callbacks.append(fcn)
 
+    def locals(self):
+        return self._fcn.locals()
+
     @property
     def symbolic(self):
         """ Return the symbolic function """
@@ -539,14 +605,23 @@ def _is_symbol_or_value(var):
 def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
     # TODO:
     ndim = 0 if np.isscalar(data) else data.ndim
-    dtype = theano.config.floatX if (cast_floats_to_floatx and (isinstance(data, float) or isinstance(data, np.ndarray) and data.dtype == 'float')) \
-        else 'int64' if isinstance(data, (bool, int)) \
-        else 'float64' if isinstance(data, float) \
-        else 'int8' if data.dtype==bool \
-        else data.dtype
+
+    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, np.ndarray) and x.dtype == dtype
+
+    # Need to also downcast ints to int32 if floatX is float32, otherwise things like int_array.mean() return float64
+    # objects, which (a) slows things down and (b) causes an error when you try to update 32-bit shared variabkles
+    # with 64 bit values.
+
+    dtype = \
+        theano.config.floatX if (cast_floats_to_floatx and is_dtype(data, float)) else \
+        'int32' if (cast_floats_to_floatx and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
+        'int64' if isinstance(data, (bool, int)) else \
+        'float64' if isinstance(data, float) else \
+        'int8' if data.dtype==bool else \
+        data.dtype
     tensor = TensorType(dtype, (None, )*ndim)(name)
     if test:
-        tensor.tag.test_value = data
+        tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
 

@@ -217,7 +217,7 @@ class FactorGraph(object):
         self._variables = variables
         self._factors = factors
 
-    def get_inference_path(self, variable_path):
+    def get_execution_path(self, inference_path):
         """
         Given a path defined in terms of variables int the factor graph, return a full inference that defines the order
         in which to compute factors and sample variables.
@@ -226,31 +226,36 @@ class FactorGraph(object):
         :return: path: An OrderedDict<(tuple<*int>, int): function> indicating the path to take.
         """
 
-        variable_path = [(_tuplefy_singles(src), _tuplefy_singles(dest)) for src, dest in variable_path]
+        if not isinstance(inference_path, InferencePath):
+            inference_path = InferencePath(inference_path)
 
         path = OrderedDict()
-        for src_vars, dest_vars in variable_path:
+        for src_vars, dest_var, is_smooth in inference_path:
+            # Add the factor nodes pointing to the given variable.
             for src_var in src_vars:
-                for dest_var in dest_vars:
-                    path[(src_var, ), factor_name(src_var, dest_var)] = \
-                        self._factors[src_var, dest_var] if (src_var, dest_var) in self._factors else \
-                        self._factors[dest_var, src_var].reverse if (dest_var, src_var) in self._factors else \
-                        bad_value((src_var, dest_var), 'Factor %s does not exist in the graph: %s' % ((src_var, dest_var), self._factors.keys()))
-            for dest_var in dest_vars:
-                path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var]
-        return InferencePath(path)
+                path[(src_var, ), factor_name(src_var, dest_var)] = \
+                    self._factors[src_var, dest_var] if (src_var, dest_var) in self._factors else \
+                    self._factors[dest_var, src_var].reverse if (dest_var, src_var) in self._factors else \
+                    bad_value((src_var, dest_var), 'Factor %s does not exist in the graph: %s' % ((src_var, dest_var), self._factors.keys()))
+            # Add the variable node
+            path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var].smooth if is_smooth else self._variables[dest_var]
 
-    def get_variable_path_from_io(self, input_signals, output_signals):
+        return ExecutionPath(path)
+
+    def get_execution_path_from_io(self, input_signals, output_signals, default_smooth = False):
 
         input_signals = _tuplefy_singles(input_signals)
         output_signals = _tuplefy_singles(output_signals)
         outputs_needing_calculation = tuple(os for os in output_signals if os not in input_signals)
-        direct_linking_factors = [(src, dest) for src, dest in self._factors if src in input_signals and dest in outputs_needing_calculation]
+        direct_linking_factors = \
+            [(src, dest) for src, dest in self._factors if src in input_signals and dest in outputs_needing_calculation] + \
+            [(dest, src) for src, dest in self._factors if dest in input_signals and src in outputs_needing_calculation]
+
         outputs_of_direct_links = [dest for _, dest in direct_linking_factors]
 
         if set(outputs_needing_calculation).issubset(set(outputs_of_direct_links)):
-            variable_path = [(tuple(src for src, dest in direct_linking_factors if dest==out), out) for out in outputs_needing_calculation]
-            return variable_path
+            inference_path = InferencePath([(tuple(src for src, dest in direct_linking_factors if dest==out), out) for out in outputs_needing_calculation], default_smooth=default_smooth)
+            return self.get_execution_path(inference_path)
         else:
             # Ugh, so we have to deal with loops and all this stuff - lets pospone.
             raise NotImplementedError('Have not yet implemented automatic path finding between src, dest nodes.  Do it yourself!')
@@ -304,6 +309,50 @@ def _singlefy_tuples(edge_specifier):
 
 
 class InferencePath(object):
+    """
+    An object that defines a path over which to do inference on a graph.
+    """
+
+    def __init__(self, specied_path, default_smooth = False):
+        """
+        :param specied_path: Can be defined in two ways:
+            (1) As a list of source/dest signals (with an optional third argument defining whether the pass should be "smooth".  e.g.
+                [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab', True)]
+                [('vis', 'hid'), (('hid', 'lab'), 'ass)), ('ass', ('hid', 'lab')), ('hid', 'vis', True)]
+            (2) As a list of signals to compute in order:
+                ['vis', 'hid', 'ass', 'lab']
+        :param default_smooth: For steps where smooth is not specified, define whether the pass should be smooth.
+        """
+        assert isinstance(specied_path, list)
+        assert isinstance(default_smooth, bool)
+
+        spec_type = \
+            1 if all(isinstance(el, tuple) and len(el) in (2, 3) for el in specied_path) else \
+            2 if all(isinstance(el, (int, str)) for el in specied_path) else \
+            bad_value(specied_path, 'Could not interpret the path %s - see docstring of InferencePath for required format.')
+
+        if spec_type == 1:
+            path = []
+            for el in specied_path:
+                srcs = _tuplefy_singles(el[0])
+                for dest in _tuplefy_singles(el[1]):
+                    is_smooth = el[2] if len(el)==3 else default_smooth
+                    assert isinstance(is_smooth, bool), 'The third element of the tuple in your specified path must be ' \
+                        'a boolean indicating whether to do a smooth pass.  It was %s' % (is_smooth, )
+                    path.append((srcs, dest, is_smooth))
+        else:
+            path = [((src, ), dest, default_smooth) for src, dest in zip(specied_path[:-1], specied_path[1:])]
+        self._path = path
+
+    def __iter__(self):
+        """
+        Returns an iterator that yields
+        :return:
+        """
+        return iter(self._path)
+
+
+class ExecutionPath(object):
 
     def __init__(self, specified_path):
         """

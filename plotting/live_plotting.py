@@ -53,6 +53,7 @@ class LiveStream(BaseStream):
         """
         :param callback: Some function that takes no arguments and returns some object.
         """
+        assert hasattr(callback, '__call__'), 'Your callback must be callable.'
         self._callback = callback
         BaseStream.__init__(self, **kwargs)
 
