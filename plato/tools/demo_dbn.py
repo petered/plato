@@ -10,7 +10,7 @@ from utils.tools.processors import OneHotEncoding
 __author__ = 'peter'
 
 
-def demo_dbn_mnist(plot = True, test_mode = False):
+def demo_dbn_mnist(plot = True, test_mode = True):
     """
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
@@ -93,7 +93,7 @@ def demo_dbn_mnist(plot = True, test_mode = False):
             out, = predict_label(dataset.test_set.input)
             score = percent_argmax_correct(actual = out, target = dataset.test_set.target)
             print 'Classification Score: %s' % score
-
+            if plot: plotter.update()
 
 
 if __name__ == '__main__':
