@@ -1,7 +1,9 @@
 from plato.tools.dbn import DeepBeliefNet
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 import numpy as np
+from utils.benchmarks.train_and_test import percent_argmax_correct
 from utils.datasets.mnist import get_mnist_dataset
+from utils.tools.processors import OneHotEncoding
 
 __author__ = 'peter'
 
@@ -44,15 +46,22 @@ def demo_dbn_mnist():
         )
 
     # Compile the functions you're gonna use.
+
     train_first_layer = dbn.get_constrastive_divergence_function(visible_layers = 'vis', hidden_layers='hid', n_gibbs = 1, persistent=True).compile()
-    # train_second_layer = dbn.get_constrastive_divergence_function(visible_layers=('vis', 'lab'), hidden_layers='ass', n_gibbs=1, persistent=True).compile()
-    # predict_label = dbn.get_inference_function(input_layers = 'vis', output_layers='lab').compile()
+    train_second_layer = dbn.get_constrastive_divergence_function(visible_layers=('hid', 'lab'), hidden_layers='ass', input_layers=('vis', 'lab'), n_gibbs=1, persistent=True).compile()
+    predict_label = dbn.get_inference_function(input_layers = 'vis', output_layers='lab', variable_path = [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab')]).compile()
 
-    for _, visible_data, _ in dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = 10, single_channel = True):
+    encode_label = OneHotEncoding(n_classes=10)
+
+    for i, (n_samples, visible_data, label_data) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = 10, single_channel = True)):
         train_first_layer(visible_data)
-        print 'Ran'
-        # stream.update()
+        train_second_layer(visible_data, encode_label(label_data))
 
+        if i % 100 == 0:
+
+            out, = predict_label(dataset.test_set.input)
+            score = percent_argmax_correct(actual = out, target = dataset.test_set.target)
+            print score
 
 if __name__ == '__main__':
 

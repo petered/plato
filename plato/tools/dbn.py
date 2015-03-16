@@ -23,7 +23,7 @@ class DeepBeliefNet(object):
         output_layers = output_layers if isinstance(output_layers, (list, tuple)) else (output_layers, )
 
         inference_path = \
-            self._graph.get_inference_path_from_io(input_layers, output_layers) if variable_path is None else \
+            self._graph.get_inference_path(self._graph.get_variable_path_from_io(input_layers, output_layers)) if variable_path is None else \
             self._graph.get_inference_path(variable_path)
 
         @symbolic_standard
@@ -34,20 +34,30 @@ class DeepBeliefNet(object):
 
         return inference_fcn
 
-    def get_constrastive_divergence_function(self, visible_layers, hidden_layers, up_path = [], n_gibbs = 1, persistent = False,
+    def get_constrastive_divergence_function(self, visible_layers, hidden_layers, input_layers = None, up_path = None, n_gibbs = 1, persistent = False,
             optimizer = SimpleGradientDescent(eta = 0.1)):
 
         visible_layers = visible_layers if isinstance(visible_layers, (list, tuple)) else (visible_layers, )
         hidden_layers = hidden_layers if isinstance(hidden_layers, (list, tuple)) else (hidden_layers, )
+        if input_layers is None:
+            assert set(visible_layers).issubset(self._graph.get_input_variables()), "If you don't specify input layers, "\
+                "the visible layers must be inputs to the graph.  But they are not.  Visible layers: %s, Input layers: %s" \
+                % (visible_layers, self._graph.get_input_variables().keys())
+        elif up_path is None:
+            up_path = self._graph.get_variable_path_from_io(input_signals = input_layers, output_signals = visible_layers)
 
-        input_layers = visible_layers if len(up_path)==0 else up_path[0] if up_path[-1] == visible_layers else bad_value(up_path)
+        input_layers = visible_layers if input_layers is None else input_layers if isinstance(input_layers, (list, tuple)) else (input_layers, )
+
         propup = self.get_inference_function(visible_layers, hidden_layers)
         free_energy = self.get_free_energy_function(visible_layers, hidden_layers)
 
         @symbolic_updater
         def cd_function(*input_signals):
 
-            wake_visible = input_signals if len(up_path)==0 else self.get_inference_function(input_layers, visible_layers, up_path)
+            if input_layers is None:
+                wake_visible = input_signals
+            else:
+                wake_visible, _ = self.get_inference_function(input_layers, visible_layers, up_path)(*input_signals)
             wake_hidden, _ = propup(*wake_visible)
 
             initial_hidden =[theano.shared(np.zeros(wh.tag.test_value.shape, dtype = theano.config.floatX), name = 'persistent_hidden_state') for wh in wake_hidden] \

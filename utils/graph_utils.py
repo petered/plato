@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from general.should_be_builtins import bad_value
+from collections import Counter
 
 __author__ = 'peter'
 
@@ -29,6 +30,12 @@ class SignalGraph(set):
         else:
             graph_specifier = clean_graph(graph_specifier)
             graph_dict = None
+
+        all_dest_notes = sum([d for _, d in graph_specifier], ())
+        multiply_written_dest_nodes = [k for k, v in Counter(all_dest_notes).iteritems() if v > 1]
+        assert len(multiply_written_dest_nodes) == 0, 'Notes %s are written to more than once.\nGraph: %s' \
+            % (multiply_written_dest_nodes, graph_specifier)
+
         self._graph_dict = graph_dict
 
         for se, de in graph_specifier:
@@ -108,7 +115,8 @@ class SignalGraph(set):
         if len(functions_producing_signal) == 0:
             return None
         else:
-            assert len(functions_producing_signal) == 1, 'Invalid Graph: You cannot have 2 functions producing the same signal'
+            assert len(functions_producing_signal) == 1, 'Invalid Graph: You cannot have 2 functions producing the same signal. %s' \
+                % (self, )
             return functions_producing_signal[0]
 
     def get_functions_consuming_signal(self, signal):
@@ -218,6 +226,8 @@ class FactorGraph(object):
         :return: path: An OrderedDict<(tuple<*int>, int): function> indicating the path to take.
         """
 
+        variable_path = [(_tuplefy_singles(src), _tuplefy_singles(dest)) for src, dest in variable_path]
+
         path = OrderedDict()
         for src_vars, dest_vars in variable_path:
             for src_var in src_vars:
@@ -225,17 +235,29 @@ class FactorGraph(object):
                     path[(src_var, ), factor_name(src_var, dest_var)] = \
                         self._factors[src_var, dest_var] if (src_var, dest_var) in self._factors else \
                         self._factors[dest_var, src_var].reverse if (dest_var, src_var) in self._factors else \
-                        bad_value((src_var, dest_var), 'Factor %s-%s does not exist in the graph: %s' % (src_var, dest_var, self._factors.keys()))
-            path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var]
+                        bad_value((src_var, dest_var), 'Factor %s does not exist in the graph: %s' % ((src_var, dest_var), self._factors.keys()))
+            for dest_var in dest_vars:
+                path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var]
         return InferencePath(path)
 
-    def get_inference_path_from_io(self, input_signals, output_signals):
-        # input_signals = (input_signals, ) if not isinstance(input_signals, (list, tuple)) else input_signals
-        # output_signals = (output_signals, ) if not isinstance(output_signals, (list, tuple)) else output_signals
-        variable_path = SignalGraph(self._factors).get_subgraph(input_signals=input_signals, output_signals=output_signals).get_serial_order()
-        # assert all([len(dest)==1 for src, dest in path])
-        path = InferencePath(variable_path)
-        return path
+    def get_variable_path_from_io(self, input_signals, output_signals):
+
+        input_signals = _tuplefy_singles(input_signals)
+        output_signals = _tuplefy_singles(output_signals)
+        outputs_needing_calculation = tuple(os for os in output_signals if os not in input_signals)
+        direct_linking_factors = [(src, dest) for src, dest in self._factors if src in input_signals and dest in outputs_needing_calculation]
+        outputs_of_direct_links = [dest for _, dest in direct_linking_factors]
+
+        if set(outputs_needing_calculation).issubset(set(outputs_of_direct_links)):
+            variable_path = [(tuple(src for src, dest in direct_linking_factors if dest==out), out) for out in outputs_needing_calculation]
+            return variable_path
+        else:
+            # Ugh, so we have to deal with loops and all this stuff - lets pospone.
+            raise NotImplementedError('Have not yet implemented automatic path finding between src, dest nodes.  Do it yourself!')
+
+    def get_input_variables(self):
+        written_varibles = set(dest for _, dest in self._factors)
+        return {v_name: v for v_name, v in self._variables.iteritems() if not v_name in written_varibles}
 
 
 def _clean_path(specified_path):
@@ -283,18 +305,20 @@ def _singlefy_tuples(edge_specifier):
 
 class InferencePath(object):
 
-    def __init__(self, specified_path, single_outputs = True):
+    def __init__(self, specified_path):
+        """
+        :param specified_path: An OrderedDict<(*int/str,int/str): func>
+        """
 
-        assert single_outputs, "Don't yet support multiple outputs.  We will if theres a reason to."
-
-        assert isinstance(specified_path, OrderedDict) and all(len(p)==2 for p in specified_path), 'Path must be a list of 2-tuples.  We got "%s".' % (specified_path, )
+        assert isinstance(specified_path, OrderedDict) and all(len(p)==2 for p in specified_path), \
+            'Path must be an OrderedDict mapping of 2-tuples to functions.  We got "%s".' % (specified_path, )
         assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str, list, tuple)) for src, dest in specified_path)
         self._path = OrderedDict(((_tuplefy_singles(src), _singlefy_tuples(dest)), f) for (src, dest), f in specified_path.iteritems())
         self._required_inputs = SignalGraph(self._path).get_input_signals()
 
     def execute(self, input_signal_dict):
 
-        assert set(input_signal_dict.keys()) == self._required_inputs, 'The inputs you provided: %s, did not match the set of required inputs: %s' \
+        assert set(input_signal_dict.keys()).issuperset(self._required_inputs), 'The inputs you provided: %s, did not match the set of required inputs: %s' \
             % (input_signal_dict.keys(), set(self._required_inputs))
 
         signals = input_signal_dict.copy()
