@@ -296,7 +296,9 @@ def _tuplefy_node((src_signals, dest_signals)):
 
 
 def _tuplefy_singles(edge_specifier):
-    return edge_specifier if isinstance(edge_specifier, tuple) else (edge_specifier, )
+    return edge_specifier if isinstance(edge_specifier, tuple) else \
+        tuple(edge_specifier) if isinstance(edge_specifier, list) else \
+        (edge_specifier, )
 
 
 def _singlefy_tuples(edge_specifier):
