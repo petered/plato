@@ -39,9 +39,10 @@ class ImagePlot(object):
                 self._plot.axes.tick_params(labelbottom = 'off')
                 self._plot.axes.get_yaxis().set_visible(False)
             # colorbar()
+
         else:
             self._plot.set_array(plottable_data)
-            self._plot.axes.set_xlabel('%.2f - %.2f' % (np.nanmin(data), np.nanmax(data)))
+        self._plot.axes.set_xlabel('%.2f - %.2f' % (np.nanmin(data), np.nanmax(data)))
             # self._plot.axes.get_caxis
 
 

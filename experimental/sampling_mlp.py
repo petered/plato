@@ -3,6 +3,8 @@ from plato.tools.basic import softmax
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import IOnlinePredictor
 from plato.tools.sampling import sample_categorical
+from plato.tools.tdb_plotting import tdbplot
+from plotting.db_plotting import dbplot
 import theano
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
@@ -22,7 +24,7 @@ class GibbsSamplingMLP(IOnlinePredictor):
             self._w_prior = theano.shared(np.ones(len(possible_ws))/len(possible_ws))  # TODO: INCLUDE!
         self._forward_network = MultiLayerPerceptron(layer_sizes=layer_sizes, input_size=input_size, hidden_activation=hidden_activation,
                 output_activation=output_activation, w_init = lambda n_in, n_out: np.zeros((n_in, n_out)))
-        self._possible_ws = np.array(possible_ws).astype(theano.config.floatX)
+        self._possible_ws = theano.shared(np.array(possible_ws).astype(theano.config.floatX))
 
         self._rng = RandomStreams(random_seed)
         self._frac_to_update = frac_to_update
@@ -39,22 +41,46 @@ class GibbsSamplingMLP(IOnlinePredictor):
         :param target_data: (n_samples, n_output_dims) output data
         """
         network_output = self._forward_network(input_data)
+        # tdbplot({
+        #     'input': input_data,
+        #     'target': target_data,
+        #     'out': network_output,
+        #     'w': self._forward_network.parameters[0],
+        #     }, 'input', plot_mode = 'static')
         log_p_y_given_xw = tt.log(network_output[tt.arange(input_data.shape[0]), target_data]).sum(axis = 0)
-        updates = [(w, self._update_w(log_p_y_given_xw, w)) for w in self._forward_network.parameters]
 
+        assert np.allclose(network_output[tt.arange(input_data.shape[0]), target_data].tag.test_value,
+            network_output.tag.test_value[np.arange(input_data.tag.test_value.shape[0]), target_data.tag.test_value])
+        updates = [(w, self._update_w(log_p_y_given_xw, w)) for w in self._forward_network.parameters]
+        # print log_p_y_given_xw.tag.test_value
         return updates
 
     def _update_w(self, log_p_y_given_xw, param):
-        p_w = self._get_p_w(log_p_y_given_xw, param)
-        sampled_p_values = sample_categorical(self._rng, p_w).astype(theano.config.floatX)
+        p_w = self._get_p_w(log_p_y_given_xw, param)  # param.shape + (n_possible_ws, )
+        sampled_p_values = sample_categorical(self._rng, p_w, values = self._possible_ws)
         new_param = tt.switch(self._rng.uniform(param.get_value().shape)<self._frac_to_update, sampled_p_values, param)
+        # tdbplot({
+        #     # 'logp': log_p_y_given_xw.tag.test_value,
+        #     'p_w': p_w,
+        #     'sampled_p_values': sampled_p_values,
+        #     'new_param': new_param,
+        #     'param': param
+        #     },
+        #     name = param
+        #     )
         return new_param
 
     def _get_p_w(self, log_p_y_given_xw, param):
         # Return an array of shape param.shape+(n_possible_ws, ) defining the distribution over possible values of the parameter.
         expander = (slice(None), )*param.get_value().ndim + (None, )
 
-        log_likelihoods = tt.grad(log_p_y_given_xw, param)[expander] * (self._possible_ws-param[expander])
+        gradient = tt.grad(log_p_y_given_xw, param)
+        log_likelihoods = gradient[expander] * (self._possible_ws-param[expander])
         p_w = softmax(log_likelihoods, axis = -1) * self._w_prior
+
+        tdbplot({
+            'gradient': gradient,
+            'logl': log_likelihoods
+            }, name = 'p_w %s' % param, plot_mode = 'static')
 
         return p_w

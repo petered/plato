@@ -17,7 +17,7 @@ def demo_mnist_herding():
         dataset = get_synthetic_clusters_dataset(),
         online_predictors={
             # 'MLP': GradientBasedPredictor(
-            #     function = MultiLayerPerceptron(layer_sizes = [20, 10], input_size = 20, output_activation='lin', w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)),
+            #     function = MultiLayerPerceptron(layer_sizes = [10], input_size = 20, output_activation='lin', w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)),
             #     cost_function=negative_log_likelihood,
             #     optimizer=SimpleGradientDescent(eta = 0.1),
             #     ).compile(),

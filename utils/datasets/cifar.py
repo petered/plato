@@ -9,7 +9,9 @@ __author__ = 'peter'
 
 def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
     """
-    :return: A DataSet object containing the MNIST data
+    :return: The CIFAR-10 dataset, which consists of 50000 training and 10000 test images.
+        Images are 32x32 uint8 RGB images (n_samples, 3, 32, 32) of 10 categories of objects.
+        Targets are integer labels in the range [0, 9]
     """
 
     directory = 'data/cifar-10-batches-py'
