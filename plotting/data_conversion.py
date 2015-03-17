@@ -59,8 +59,6 @@ def _data_shape_and_boundary_width_to_grid_slices(shape, grid_shape, boundary_wi
                     break
             else:
                 pull_indices = (i, j)
-            # if not is_colour:
-            #     pull_indices+=(slice(None), slice(None), np.newaxis, )
             start_row, start_col = i*(size_y+1)+1, j*(size_x+1)+1
             push_indices = slice(start_row, start_row+size_y), slice(start_col, start_col+size_x)
             index_pairs.append((pull_indices, push_indices))
@@ -73,7 +71,6 @@ def put_data_in_grid(data, grid_shape = None, fill_colour = np.array((0, 0, 128)
     :param data: A 4-D array of any data type
     :return: A 3-D uint8 array of shape (n_rows, n_cols, 3)
     """
-    shp = data.shape
     output_shape, slice_pairs = _data_shape_and_boundary_width_to_grid_slices(data.shape, grid_shape, boundary_width)
     output_data = np.empty(output_shape+(3, ), dtype='uint8')
     output_data[..., :] = fill_colour  # Maybe more efficient just to set the spaces.
