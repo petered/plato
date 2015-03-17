@@ -35,6 +35,28 @@ def test_streaming(duration = 10):
         stream.update()
 
 
+def test_dynamic_rebuild():
+
+    def grab_data():
+        if i < 10:
+            data = {'bw_image': np.random.randn(20, 20)}
+        else:
+            data = {
+                'bw_image': np.random.randn(20, 20),
+                'lines': np.random.randn(2)
+                }
+        return data
+
+    duration = 20
+    stream = LiveStream(grab_data)
+    for i in xrange(duration):
+        if i==1:
+            start_time = time.time()
+        elif i>1:
+            print 'Average Frame Rate: %.2f FPS' % (i/(time.time()-start_time), )
+        stream.update()
+
+
 def test_canaling(duration = 10):
 
     n_dims = 4
@@ -52,6 +74,7 @@ def test_canaling(duration = 10):
         '1d-line': LivePlot(plot = LinePlot(), cb = cb_constructor_1d()),
         'image-autoscale': LivePlot(ImagePlot(), cb_image_data()),
         'image-overexposed': LivePlot(ImagePlot(scale = (0, 0.2)), cb_image_data()),
+        'image-jet': LivePlot(ImagePlot(cmap='jet'), cb_image_data()),
         'trace-default': cb_sinusoid_data(),
         'trace-prescaled': LivePlot(MovingPointPlot(yscale=(-1, 1)), cb_sinusoid_data()),
         })
@@ -62,5 +85,6 @@ def test_canaling(duration = 10):
 
 if __name__ == '__main__':
 
+    test_dynamic_rebuild()
     test_streaming(10)
     test_canaling(10)
