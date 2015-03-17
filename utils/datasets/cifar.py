@@ -30,6 +30,13 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
     x_ts = data[-1]['data'].reshape(-1, 3, 32, 32).swapaxes(2, 3)
     y_ts = np.array(data[-1]['labels'])
 
+    if n_training_samples is not None:
+        x_tr = x_tr[:n_training_samples]
+        y_tr = y_tr[:n_training_samples]
+    if n_test_samples is not None:
+        x_ts = x_ts[:n_test_samples]
+        y_ts = y_ts[:n_test_samples]
+
     return DataSet(training_set=DataCollection(x_tr, y_tr), test_set=DataCollection(x_ts, y_ts), name = 'CIFAR-10')
 
 
@@ -37,10 +44,10 @@ if __name__ == '__main__':
 
     from plotting.easy_plotting import ezplot
 
-    x_tr, y_tr, x_ts, y_ts = get_cifar_10_dataset().xyxy
+    dataset = get_cifar_10_dataset()
     n_samples = 100
 
     ezplot({
-        'sampled training images': np.swapaxes(x_tr[:n_samples], 1, 3).reshape(10, 10, 32, 32, 3),
-        'sampled training labels': y_tr[:n_samples].reshape(10, 10)
+        'sampled training images': np.swapaxes(dataset.training_set.input[:n_samples], 1, 3).reshape(10, 10, 32, 32, 3),
+        'sampled training labels': dataset.training_set.target[:n_samples].reshape(10, 10)
         }, cmap = 'Paired')
