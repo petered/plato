@@ -12,11 +12,11 @@ def ezplot(anything, plots = None, hang = True, **plot_preference_kwargs):
     :param anything: Anything.
     """
     data_dict = flatten_struct(anything)
-    plots = plot_data_dict(data_dict, plots, mode = 'static', hang = hang, **plot_preference_kwargs)
-    return plots
+    figure, plots = plot_data_dict(data_dict, plots, mode = 'static', hang = hang, **plot_preference_kwargs)
+    return figure, plots
 
 
-def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, **plot_preference_kwargs):
+def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, figure = None, **plot_preference_kwargs):
     """
     Make a plot of data in the format defined in data_dict
     :param data_dict: dict<str: plottable_data>
@@ -33,7 +33,8 @@ def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, **plot
     if plots is None:
         plots = {k: eplt.get_plot_from_data(v, mode = mode, **plot_preference_kwargs) for k, v in data_dict.iteritems()}
 
-    eplt.figure()
+    if figure is None:
+        figure = eplt.figure()
     n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
     for i, (k, v) in enumerate(data_dict.iteritems()):
         eplt.subplot(n_rows, n_cols, i+1)
@@ -45,4 +46,4 @@ def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, **plot
         eplt.ion()
     eplt.show()
 
-    return plots
+    return figure, plots

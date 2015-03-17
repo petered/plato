@@ -15,6 +15,7 @@ class BaseStream(object):
         self._counter = -1
         self._update_every = update_every
         self._plot_keys = None
+        self._fig = None
 
     def update(self):
         self._counter += 1
@@ -26,12 +27,17 @@ class BaseStream(object):
         if self._plots is None or set(data_dict.keys()) != self._plot_keys:
             # Note - this causes us to reset all plots (including ones with history
             # every time a new plot comes in, but that's ok for now).
+            if self._fig is not None:
+                self._fig.clf()
+            else:
+                self._fig = eplt.figure()
             self._plots = self._get_plots_from_first_data(data_dict)
             self._plot_keys = set(self._plots.keys())
-            plot_data_dict(data_dict, plots = self._plots, hang = False)
+            plot_data_dict(data_dict, plots = self._plots, hang = False, figure = self._fig)
         else:
             for k, v in data_dict.iteritems():
                 self._plots[k].update(v)
+        # self._fig.draw()
         eplt.draw()
 
     @abstractmethod

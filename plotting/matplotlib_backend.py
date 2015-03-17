@@ -28,9 +28,9 @@ class ImagePlot(object):
 
     def update(self, data):
 
-        plottable_data = put_data_in_grid(data, scale = self._scale, cmap = self._cmap) \
+        plottable_data = put_data_in_grid(data, clims = self._scale, cmap = self._cmap) \
             if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
-            data_to_image(data, scale = self._scale, cmap = self._cmap)
+            data_to_image(data, clims = self._scale, cmap = self._cmap)
 
         if self._plot is None:
             self._plot = imshow(plottable_data, interpolation = self._interpolation, aspect = self._aspect, cmap = self._cmap)
@@ -79,7 +79,8 @@ class LinePlot(object):
             self._plots = plot(np.arange(-data.shape[0]+1, 1), data)
             for p, d in zip(self._plots, data[None] if data.ndim==1 else data.T):
                 p.axes.set_xbound(-len(d), 0)
-                p.axes.set_ybound(lower, upper)
+                if lower != upper:  # This happens in moving point plots when there's only one point.
+                    p.axes.set_ybound(lower, upper)
         else:
             for p, d in zip(self._plots, data[None] if data.ndim==1 else data.T):
                 p.set_ydata(d)
