@@ -1,4 +1,5 @@
 from experimental.sampling_mlp import GibbsSamplingMLP
+from general.should_be_builtins import bad_value
 from plato.tools.cost import negative_log_likelihood
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
@@ -11,11 +12,12 @@ from utils.tools.mymath import sqrtspace
 import numpy as np
 
 
-def demo_mnist_herding():
+def demo_mnist_herding(which_dataset = 'mnist'):
 
-    # dataset = get_synthetic_clusters_dataset(n_dims=100)
-
-    dataset = get_mnist_dataset(flat = True)
+    dataset = \
+        get_synthetic_clusters_dataset(n_dims=100) if which_dataset == 'clusters' else \
+        get_mnist_dataset(flat = True) if which_dataset == 'mnist' else \
+        bad_value(which_dataset, 'No dataset named "%s"' % which_dataset)
 
     results = compare_predictors(
         dataset = dataset,
@@ -35,6 +37,10 @@ def demo_mnist_herding():
             },
         evaluation_function='percent_argmax_correct',
         minibatch_size=20,
+        accumulators={
+            'MLP': None,
+            'Gibbs-MLP': 'avg',
+            },
         test_epochs=sqrtspace(0, 10, 20),
         test_batch_size=10000
         )

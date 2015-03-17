@@ -51,3 +51,13 @@ def link_and_show(name = 'unnamed_figure', default_extension = 'pdf', preprend_d
     relative_path = os.path.join('/files', get_relative_figures_dir(), name)
     plt.savefig(full_figure_loc)
     return FigureLink(relative_path)
+
+
+LINK_AND_SHOW_MODE = False
+
+_ORIGINAL_SHOW_FCN = plt.show
+
+
+def set_link_and_show_mode(mode = True):
+    plt.show = link_and_show if mode else _ORIGINAL_SHOW_FCN
+    import pdb; pdb.set_trace()

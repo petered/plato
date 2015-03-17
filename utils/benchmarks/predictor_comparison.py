@@ -10,7 +10,7 @@ from utils.tools.progress_indicator import ProgressIndicator
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
         evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True,
-        test_on = 'training+test', test_batch_size = None):
+        test_on = 'training+test', test_batch_size = None, accumulators = None):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -46,7 +46,13 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
     if not isinstance(minibatch_size, dict):
         minibatch_size = {predictor_name: minibatch_size for predictor_name in online_predictors.keys()}
     else:
-        assert offline_predictors.viewkeys() == minibatch_size.viewkeys()
+        assert online_predictors.viewkeys() == minibatch_size.viewkeys()
+
+    if not isinstance(accumulators, dict):
+        accumulators = {predictor_name: accumulators for predictor_name in online_predictors.keys()}
+    else:
+        assert online_predictors.viewkeys() == accumulators.viewkeys()
+
     test_epochs = np.array(test_epochs)
     # test_epochs_float = test_epochs.dtype == float
     # if test_epochs_float:
@@ -73,6 +79,7 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 dataset = dataset,
                 evaluation_function = evaluation_function,
                 test_epochs = test_epochs,
+                accumulator = accumulators[predictor_name],
                 minibatch_size = minibatch_size[predictor_name],
                 report_test_scores = report_test_scores,
                 test_on = test_on,
@@ -137,7 +144,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     else:
         accum_constructor = {'avg': RunningAverage}[accumulator]
         accumulators = {k: accum_constructor() for k in testing_sets}
-        prediction_functions = {k: lambda inp: accumulators[k](predictor.predict(inp)) for k in testing_sets}
+
+        prediction_functions = {k: lambda inp, kp=k: accumulators[kp](predictor.predict(inp)) for k in testing_sets}
         # Bewate the in-loop lambda - but I think we're ok here.
 
     checker = CheckPointCounter(test_epochs)
