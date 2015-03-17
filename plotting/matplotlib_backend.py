@@ -28,9 +28,9 @@ class ImagePlot(object):
 
     def update(self, data):
 
-        plottable_data = put_data_in_grid(data, scale = self._scale) \
+        plottable_data = put_data_in_grid(data, scale = self._scale, cmap = self._cmap) \
             if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
-            data_to_image(data, scale = self._scale)
+            data_to_image(data, scale = self._scale, cmap = self._cmap)
 
         if self._plot is None:
             self._plot = imshow(plottable_data, interpolation = self._interpolation, aspect = self._aspect, cmap = self._cmap)
@@ -123,18 +123,18 @@ class TextPlot(IPlot):
             self._text_plot.set_text(full_text)
 
 
-def get_plot_from_data(data, mode):
+def get_plot_from_data(data, mode, **plot_preference_kwargs):
 
     assert mode in ('live', 'static')
 
     if mode == 'live':
-        plot = get_live_plot_from_data(data)
+        plot = get_live_plot_from_data(data, **plot_preference_kwargs)
     else:
-        plot = get_static_plot_from_data(data)
+        plot = get_static_plot_from_data(data, **plot_preference_kwargs)
     return plot
 
 
-def get_live_plot_from_data(data, line_to_image_threshold = 8):
+def get_live_plot_from_data(data, line_to_image_threshold = 8, cmap = 'gray'):
 
     if isinstance(data, basestring):
         return TextPlot()
@@ -153,12 +153,12 @@ def get_live_plot_from_data(data, line_to_image_threshold = 8):
     elif data.ndim == 2 and data.shape[1]<line_to_image_threshold:
         return LinePlot()
     elif data.ndim in (2, 3, 4, 5):
-        return ImagePlot()
+        return ImagePlot(cmap=cmap)
     else:
         raise NotImplementedError('We have no way to plot data of shape %s.  Make one!' % (data.shape, ))
 
 
-def get_static_plot_from_data(data, line_to_image_threshold=8):
+def get_static_plot_from_data(data, line_to_image_threshold=8, cmap = 'gray'):
 
     if isinstance(data, basestring):
         return TextPlot()
@@ -171,10 +171,10 @@ def get_static_plot_from_data(data, line_to_image_threshold=8):
     if is_1d:
         n_unique = len(np.unique(data))
         if n_unique == 2:
-            return ImagePlot()
+            return ImagePlot(cmap=cmap)
         else:
             return LinePlot()
     elif data.ndim == 2 and data.shape[1] < line_to_image_threshold:
         return LinePlot()
     else:
-        return ImagePlot()
+        return ImagePlot(cmap=cmap)

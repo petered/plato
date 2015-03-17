@@ -73,17 +73,18 @@ def demo_dbn_mnist(plot = True, test_mode = True):
         train_first_layer(visible_data)
         if i % check_period == 0:
             print 'Free Energy of Test Data: %s' % (free_energy_of_first_layer(dataset.test_set.input).mean())
-            if plot: plotter.update()
+            if plot:
+                plotter.update()
 
     # Step 2: Train the second layer and simultanously compute the classification error from forward passes.
     if plot:
         train_second_layer.set_debug_variables(lambda: {
-                'w_vis_hid': dbn._bridges['vis', 'hid']._w.T.reshape((-1, 28, 28)),
-                'w_hid_ass': dbn._bridges['hid', 'ass']._w,
-                'w_lab_ass': dbn._bridges['hid', 'ass']._w,
-                'associative_state': train_second_layer.locals()['sleep_hidden'][0].reshape((-1, 20, 25)),
-                'hidden_state': train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)),
-                'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(train_second_layer.locals()['sleep_visible'][0]).reshape((-1, 28, 28))
+            'w_vis_hid': dbn._bridges['vis', 'hid']._w.T.reshape((-1, 28, 28)),
+            'w_hid_ass': dbn._bridges['hid', 'ass']._w,
+            'w_lab_ass': dbn._bridges['hid', 'ass']._w,
+            'associative_state': train_second_layer.locals()['sleep_hidden'][0].reshape((-1, 20, 25)),
+            'hidden_state': train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)),
+            'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(train_second_layer.locals()['sleep_visible'][0]).reshape((-1, 28, 28))
             })
         plotter = LiveStream(train_first_layer.get_debug_values)
 
@@ -93,7 +94,8 @@ def demo_dbn_mnist(plot = True, test_mode = True):
             out, = predict_label(dataset.test_set.input)
             score = percent_argmax_correct(actual = out, target = dataset.test_set.target)
             print 'Classification Score: %s' % score
-            if plot: plotter.update()
+            if plot:
+                plotter.update()
 
 
 if __name__ == '__main__':

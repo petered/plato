@@ -20,6 +20,8 @@ def get_file(local_name, url = None, data_transformation = None):
     full_filename = os.path.join(local_folder, file_name)
 
     if not os.path.exists(full_filename):
+        assert url is not None, "No local copy of '%s' was found, and you didn't provide a URL to fetch it from" % (full_filename, )
+
         print 'Downloading file from url: "%s"...' % (url, )
         response = urllib2.urlopen(url)
         data = response.read()

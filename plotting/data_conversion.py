@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
 
 __author__ = 'peter'
 
@@ -57,15 +59,15 @@ def _data_shape_and_boundary_width_to_grid_slices(shape, grid_shape, boundary_wi
                     break
             else:
                 pull_indices = (i, j)
-            if not is_colour:
-                pull_indices+=(slice(None), slice(None), np.newaxis, )
+            # if not is_colour:
+            #     pull_indices+=(slice(None), slice(None), np.newaxis, )
             start_row, start_col = i*(size_y+1)+1, j*(size_x+1)+1
             push_indices = slice(start_row, start_row+size_y), slice(start_col, start_col+size_x)
             index_pairs.append((pull_indices, push_indices))
     return output_shape, index_pairs
 
 
-def put_data_in_grid(data, grid_shape = None, fill_colour = np.array((0, 0, 128), dtype = 'uint8'), boundary_width = 1, scale = None):
+def put_data_in_grid(data, grid_shape = None, fill_colour = np.array((0, 0, 128), dtype = 'uint8'), cmap = 'gray', boundary_width = 1, scale = None):
     """
     Given a 3-d or 4-D array, put it in a 2-d grid.
     :param data: A 4-D array of any data type
@@ -75,7 +77,7 @@ def put_data_in_grid(data, grid_shape = None, fill_colour = np.array((0, 0, 128)
     output_shape, slice_pairs = _data_shape_and_boundary_width_to_grid_slices(data.shape, grid_shape, boundary_width)
     output_data = np.empty(output_shape+(3, ), dtype='uint8')
     output_data[..., :] = fill_colour  # Maybe more efficient just to set the spaces.
-    scaled_data = scale_data_to_8_bit(data, scale = scale)
+    scaled_data = data_to_image(data, scale = scale, cmap = cmap)
     for pull_slice, push_slice in slice_pairs:
         output_data[push_slice] = scaled_data[pull_slice]
     return output_data
@@ -85,29 +87,89 @@ def scale_data_to_8_bit(data, scale = None):
     """
     Scale data to range [0, 255], leaving in float format for nans
     """
-    scale_computed = scale is None
-    if scale_computed:
+    return scale_data_to_range(data, scale, (0, 255))
+    #
+    # compute_scale = scale is None
+    # if compute_scale:
+    #     scale = np.nanmin(data), np.nanmax(data)
+    # smin, smax = scale
+    # if smin==smax:
+    #     smax = 255
+    # scale = 255./(smax-smin)
+    # if np.isnan(scale):  # Data is all nans, or min==max
+    #     return np.zeros_like(data)
+    # else:
+    #     out = (data-smin)*scale
+    #     if not compute_scale:
+    #         out[out<0] = 0
+    #         out[out>255] = 255
+    #     return out
+
+
+def scale_data_to_range(data, scale = None, out_range = (0, 1)):
+
+    out_scale = float(out_range[1]-out_range[0])
+    out_shift = out_range[0]
+
+    compute_scale = scale is None
+    if compute_scale:
         scale = np.nanmin(data), np.nanmax(data)
     smin, smax = scale
     if smin==smax:
-        smax = 255
-    scale = 255./(smax-smin)
+        smax += 1.
+    scale = out_scale/(smax-smin)
+
     if np.isnan(scale):  # Data is all nans, or min==max
         return np.zeros_like(data)
     else:
         out = (data-smin)*scale
-        if not scale_computed:
-            out[out<0] = 0
-            out[out>255] = 255
+        if out_shift != 0:
+            out += out_shift
+
+        if not compute_scale:
+            out[out<out_range[0]] = out_range[0]
+            out[out>out_range[1]] = out_range[1]
         return out
 
 
-def data_to_image(data, scale = None):
-    scaled_data = scale_data_to_8_bit(data, scale=scale).astype(np.uint8)
-    if data.ndim == 2:
-        scaled_data = np.concatenate([scaled_data[:, :, None]]*3, axis = 2)
+mappables = {}
+
+
+def data_to_image(data, is_color_data = None, scale = None, cmap = 'gray'):
+    """
+
+    :param data: An ndarray of data.
+    :param is_color_data: A boolean indicating whether this is colour data already.  If not specified we guess.
+    :param scale:
+    :param cmap:
+    :return: An ndarray of unt8 colour data.
+    """
+
+    if is_color_data is None:
+        is_color_data = data.shape[-1] == 3
     else:
-        assert scaled_data.ndim == 3 and scaled_data.shape[2] == 3
+        assert data.shape[-1] == 3, 'If data is specified as being colour data, the final axis must have length 3.'
+
+    if not is_color_data:
+        # Need to apply the cmap.
+        if cmap == 'gray':
+            # For speed, we handle this separately
+            scaled_data = scale_data_to_8_bit(data, scale=scale).astype(np.uint8)
+            scaled_data = np.concatenate([scaled_data[..., None]]*3, axis = scaled_data.ndim)
+        else:
+            if (scale, cmap) not in mappables:
+                mappables[scale, cmap] = cm.ScalarMappable(cmap = cmap, norm = None if scale is None else Normalize(vmin=scale[0], vmax=scale[1]))
+            cmap = mappables[scale, cmap]
+            old_dim = data.shape
+            if len(old_dim)>2:
+                data = data.reshape((data.shape[0], -1))
+            rgba = cmap.to_rgba(data)
+            if len(old_dim)>2:
+                rgba = rgba.reshape(old_dim+(4, ))
+            scaled_data = (rgba[..., :-1]*255).astype(np.uint8)
+    else:
+        scaled_data = scale_data_to_8_bit(data, scale=scale).astype(np.uint8)
+
     return scaled_data
 
 

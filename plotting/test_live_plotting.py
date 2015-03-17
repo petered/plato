@@ -52,6 +52,7 @@ def test_canaling(duration = 10):
         '1d-line': LivePlot(plot = LinePlot(), cb = cb_constructor_1d()),
         'image-autoscale': LivePlot(ImagePlot(), cb_image_data()),
         'image-overexposed': LivePlot(ImagePlot(scale = (0, 0.2)), cb_image_data()),
+        'image-jet': LivePlot(ImagePlot(cmap='jet'), cb_image_data()),
         'trace-default': cb_sinusoid_data(),
         'trace-prescaled': LivePlot(MovingPointPlot(yscale=(-1, 1)), cb_sinusoid_data()),
         })
@@ -62,5 +63,5 @@ def test_canaling(duration = 10):
 
 if __name__ == '__main__':
 
-    test_streaming(10)
-    test_canaling(10)
+    # test_streaming(10)
+    test_canaling(100)
