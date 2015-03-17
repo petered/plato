@@ -10,7 +10,7 @@ from utils.tools.progress_indicator import ProgressIndicator
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
         evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True,
-        test_on = 'training+test'):
+        test_on = 'training+test', test_batch_size = None):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -65,7 +65,8 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 dataset = dataset,
                 evaluation_function = evaluation_function,
                 report_test_scores = report_test_scores,
-                test_on = test_on
+                test_on = test_on,
+                test_batch_size = test_batch_size
                 ) if predictor_type == 'offline' else \
             assess_online_predictor(
                 predictor=predictor,
@@ -74,7 +75,8 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 test_epochs = test_epochs,
                 minibatch_size = minibatch_size[predictor_name],
                 report_test_scores = report_test_scores,
-                test_on = test_on
+                test_on = test_on,
+                test_batch_size = test_batch_size,
                 ) if predictor_type == 'online' else \
             bad_value(predictor_type)
 
@@ -91,7 +93,8 @@ def dataset_to_testing_sets(dataset, test_on = 'training+test'):
         bad_value(test_on)
 
 
-def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 'training+test', report_test_scores=True):
+def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 'training+test', report_test_scores=True,
+        test_batch_size = None):
     """
     Train an offline predictor and return the LearningCurveData (which will not really be a curve,
     but just a point representing the final score.
@@ -105,7 +108,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 
     record = LearningCurveData()
     predictor.fit(dataset.training_set.input, dataset.training_set.target)
     testing_sets = dataset_to_testing_sets(dataset, test_on)
-    scores = [(k, evaluation_function(predictor.predict(x), y)) for k, (x, y) in testing_sets.iteritems()]
+    scores = [(k, evaluation_function(process_in_batches(predictor.predict, x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
     record.add(None, scores)
     if report_test_scores:
         print 'Scores: %s' % (scores, )
@@ -113,7 +116,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 
 
 
 def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs, minibatch_size, test_on = 'training+test',
-        accumulator = None, report_test_scores=True):
+        accumulator = None, report_test_scores=True, test_batch_size = None):
     """
     Train an online predictor and return the LearningCurveData.
 
@@ -141,10 +144,11 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     for (n_samples_seen, input_minibatch, target_minibatch) in \
             dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
 
-        current_epoch = float(n_samples_seen)/dataset.training_set.n_samples
+        current_epoch = (float(n_samples_seen)-minibatch_size)/dataset.training_set.n_samples
         time_for_a_test, done = checker.check(current_epoch)
         if time_for_a_test:
-            scores = [(k, evaluation_function(prediction_functions[k](x), y)) for k, (x, y) in testing_sets.iteritems()]
+
+            scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
             if report_test_scores:
                 print 'Scores at Epoch %s: %s' % (current_epoch, scores)
             record.add(current_epoch, scores)
@@ -155,6 +159,25 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
 
     return record
 
+
+def process_in_batches(func, data, batch_size):
+    """
+    Sometimes a function requires too much internal memory, so you have to process things in batches.
+    """
+    if batch_size is None:
+        return func(data)
+
+    n_samples = len(data)
+    chunks = np.arange(int(np.ceil(float(n_samples)/batch_size))+1)*batch_size
+    assert len(chunks)>1
+    out = None
+    for ix_start, ix_end in zip(chunks[:-1], chunks[1:]):
+        x = data[ix_start:ix_end]
+        y = func(x)
+        if out is None:
+            out = np.empty((n_samples, )+y.shape[1:], dtype = y.dtype)
+            out[ix_start:ix_end] = y
+    return out
 
 # def calculate_scores(data_sets, prediction_fcn, evaluation_function):
 #     """

@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from general.should_be_builtins import bad_value
 from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit, data_to_image
 
 __author__ = 'peter'
@@ -27,6 +28,9 @@ class ImagePlot(object):
         self._cmap = cmap
 
     def update(self, data):
+
+        if data.ndim==1:
+            data = data[None]
 
         plottable_data = put_data_in_grid(data, clims = self._scale, cmap = self._cmap) \
             if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
@@ -127,13 +131,11 @@ class TextPlot(IPlot):
 
 def get_plot_from_data(data, mode, **plot_preference_kwargs):
 
-    assert mode in ('live', 'static')
-
-    if mode == 'live':
-        plot = get_live_plot_from_data(data, **plot_preference_kwargs)
-    else:
-        plot = get_static_plot_from_data(data, **plot_preference_kwargs)
-    return plot
+    return \
+        get_live_plot_from_data(data, **plot_preference_kwargs) if mode == 'live' else \
+        get_static_plot_from_data(data, **plot_preference_kwargs) if mode == 'static' else \
+        ImagePlot(**plot_preference_kwargs) if mode == 'image' else \
+        bad_value(mode, 'Unknown plot modee: %s' % (mode, ))
 
 
 def get_live_plot_from_data(data, line_to_image_threshold = 8, cmap = 'gray'):
