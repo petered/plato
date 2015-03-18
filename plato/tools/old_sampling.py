@@ -32,7 +32,7 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
     alpha = theano.shared(np.array(0))  # scalar
 
     @symbolic_updater
-    def update(x, y):
+    def train(x, y):
         w_0 = tt.set_subtensor(w[alpha], 0)  # (n_dim_in, n_dim_out)
         w_1 = tt.set_subtensor(w[alpha], 1)  # (n_dim_in, n_dim_out)
         z_0 = tt.nnet.sigmoid(x.dot(w_0))  # (n_samples, n_dim_out)
@@ -44,14 +44,14 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
         return [(w, w_new), (alpha, (alpha+1) % n_dim_in)]
 
     @symbolic_stateless
-    def sample_posterior(x):
+    def predict(x):
         p_y = tt.nnet.sigmoid(x.dot(w))
         return rng.binomial(p = p_y) if sample_y else p_y
 
-    return SamplingRegressor(update=update, sample_posterior=sample_posterior)
+    return SamplingRegressor(train=train, predict=predict)
 
 
-SamplingRegressor = namedtuple('SamplingRegressor', ('update', 'sample_posterior'))
+SamplingRegressor = namedtuple('SamplingRegressor', ('train', 'predict'))
 
 
 @symbolic_stateless
@@ -74,7 +74,7 @@ def simple_herded_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, 
     alpha = theano.shared(np.array(0))
 
     @symbolic_updater
-    def update(x, y):
+    def train(x, y):
         p_wa = compute_p_wa(w, x, y, alpha)
 
         # Now, the herding part... here're the 3 lines from the minipaper
@@ -89,11 +89,11 @@ def simple_herded_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, 
         return [(w, w_new), (phi, new_phi), (alpha, (alpha+1) % n_dim_in)]
 
     @symbolic_stateless
-    def sample_posterior(x):
+    def predict(x):
         p_y = tt.nnet.sigmoid(x.dot(w))
         return rng.binomial(p = p_y) if sample_y else p_y
 
-    return SamplingRegressor(update=update, sample_posterior=sample_posterior)
+    return SamplingRegressor(train=train, predict=predict)
 
 
 class OldGibbsRegressor(object):
@@ -122,13 +122,13 @@ class OldGibbsRegressor(object):
         return p_wa
 
     @symbolic_updater
-    def update(self, x, y):
+    def train(self, x, y):
         p_wa = self.compute_p_wa(self._w, x, y, self._alpha)
         w_sample = self._rng.binomial(p=p_wa)  # (n_dim_out, )
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), (self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])]
 
     @symbolic_stateless
-    def sample_posterior(self, x):
+    def predict(self, x):
         p_y = tt.nnet.sigmoid(x.dot(self._w))
         return self._rng.binomial(p = p_y) if self._sample_y else p_y

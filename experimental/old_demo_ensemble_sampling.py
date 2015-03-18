@@ -2,7 +2,7 @@ from experimental.rf_ensembles import get_rf_ensemble_dataset
 from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor, SamplingPredictor
 from plotting.live_plotting import LiveStream
 from scipy.stats.stats import mode
-from utils.benchmarks.compare_predictors import compare_predictors
+from utils.benchmarks.compare_predictors import compare_predictors_old
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
@@ -70,7 +70,7 @@ def demo_rf_ensemble():
             plotter = LiveStream(get_plotting_vals)
             predictor.train_function.add_callback(plotter.update)
 
-    learning_curves = compare_predictors(
+    learning_curves = compare_predictors_old(
         dataset = dataset.process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1, ))),
         offline_predictor_constructors={
             'Mode-Combination': lambda: MockPredictor(get_mode_prediction),

@@ -15,23 +15,21 @@ class MultiLayerPerceptron(IParameterized):
     A Multi-Layer Perceptron
     """
 
-    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_init_mag = 0.1, rng = None):
+    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
+            w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
         :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
             {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
         :param output_activation: A string (see above) identifying the activation function for the output layer
-        :param w_init_mag: Standard-Deviation of the gaussian-distributed initial weights
-        :param rng: The Random number generator to use for initial weight values.
+        :param w_init: A function which, given input dims, output dims, return
         """
-        if rng is None:
-            rng = np.random.RandomState()
 
         all_layer_sizes = [input_size]+layer_sizes
         all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
         processors = sum([[
-             FullyConnectedBridge(w = w_init_mag*rng.randn(pre_size, post_size)),
+             FullyConnectedBridge(w = w_init(pre_size, post_size)),
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
@@ -43,6 +41,11 @@ class MultiLayerPerceptron(IParameterized):
     @property
     def parameters(self):
         return self._chain.parameters
+
+
+def normal_w_init(mag, seed = None):
+    rng = np.random.RandomState(seed)
+    return lambda n_in, n_out: mag * rng.randn(n_in, n_out)
 
 
 @symbolic_stateless
@@ -178,6 +181,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         return self._params
 
     def reverse(self, y):
+        assert self._b_rev is not None, 'You are calling reverse on this bridge, but you failed to specify b_rev.'
         return y.flatten(2).dot(self._w.T)+self._b_rev
 
     def free_energy(self, visible):
@@ -212,7 +216,7 @@ class ConvolutionalBridge(IParameterized, IFreeEnergy):
         return -tt.sum(visible*self._b_rev.dimshuffle('x', 0, 'x', 'x'), axis = (2, 3))
 
 
-def _initialize_param(initial_value, shape = None, name = None):
+def _initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True):
     """
     Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
     instantiate a parameter:
@@ -237,14 +241,17 @@ def _initialize_param(initial_value, shape = None, name = None):
     if isinstance(shape, int):
         shape = (shape, )
 
+    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype=='float' else x
+
     if np.isscalar(initial_value):
         if shape is None:
             initial_value = np.array(initial_value)
         else:
             initial_value = np.zeros(shape)+initial_value
+        initial_value = typecast(initial_value)
     if isinstance(initial_value, np.ndarray):
         assert_compatible_shape(initial_value.shape, shape, name = name)
-        variable = theano.shared(initial_value.astype(theano.config.floatX), name = name, borrow = True, allow_downcast=True)
+        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True)
         params = [variable]
         variable_shape = initial_value.shape
     elif initial_value is Variable:

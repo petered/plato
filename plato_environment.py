@@ -11,6 +11,7 @@ At the top of the notebook.
 """
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import theano
 import theano.tensor as tt
@@ -18,3 +19,12 @@ from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, s
 import plato.tools.all as pt
 from plotting.live_plotting import LiveStream, LiveCanal
 from plotting.easy_plotting import ezplot
+
+
+def redraw(figure):
+    if 'inline' in matplotlib.get_backend():
+        from IPython import display
+        display.clear_output(wait=True)
+        display.display(figure)
+    else:
+        plt.draw()

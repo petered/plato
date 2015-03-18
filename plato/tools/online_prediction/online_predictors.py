@@ -1,16 +1,18 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, symbolic_updater
+from utils.predictors.i_predictor import IPredictor
 
 __author__ = 'peter'
 
 
-class IOnlinePredictor(object):
+class ISymbolicPredictor(object):
     """
     Online online_prediction have an initial state, and learn iteratively through repeated calls to train.
     """
 
     __metaclass__ = ABCMeta
 
+    @abstractmethod
     @symbolic_stateless
     def predict(self, inputs):
         """
@@ -20,6 +22,7 @@ class IOnlinePredictor(object):
         pass
 
 
+    @abstractmethod
     @symbolic_updater
     def train(self, inputs, labels):
         """
@@ -28,8 +31,17 @@ class IOnlinePredictor(object):
         :return: updates: A list of 2-tuples representing parameter updates.
         """
 
+    def compile(self, **kwargs):
+        """
+        Compile the predict and train methods to create an IPredictor object, which can take
+        numerical (as opposed to symbolic) data. 
 
-class GradientBasedPredictor(IOnlinePredictor):
+        see: utils.predictors.IPredictor
+        """
+        return CompiledSymbolicPredictor(self, **kwargs)
+
+
+class GradientBasedPredictor(ISymbolicPredictor):
 
     def __init__(self, function, cost_function, optimizer):
         """
@@ -50,3 +62,19 @@ class GradientBasedPredictor(IOnlinePredictor):
         cost = self._cost_function(self._function(inputs), labels)
         updates = self._optimizer(cost = cost, parameters = self._function.parameters)
         return updates
+
+
+class CompiledSymbolicPredictor(IPredictor):
+    """
+    A Predictor containing the compiled methods for a SymbolicPredictor.
+    """
+
+    def __init__(self, symbolic_predictor, **kwargs):
+        self.train_function = symbolic_predictor.train.compile(**kwargs)
+        self.predict_function = symbolic_predictor.predict.compile(**kwargs)
+
+    def train(self, input_data, target_data):
+        self.train_function(input_data, target_data)
+
+    def predict(self, input_data):
+        return self.predict_function(input_data)

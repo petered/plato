@@ -1,4 +1,4 @@
-from general.should_be_builtins import all_equal
+from general.should_be_builtins import all_equal, bad_value
 import numpy as np
 
 __author__ = 'peter'
@@ -15,6 +15,7 @@ class DataSet(object):
         self.test_set = test_set
         self._validation_set = validation_set
         self._name = name
+        self._n_categories = None
 
     @property
     def validation_set(self):
@@ -44,6 +45,15 @@ class DataSet(object):
         return self.__class__.__name__ if self._name is None else self._name
 
     @property
+    def n_categories(self):
+        if self._n_categories is None:
+            assert self.training_set.target.dtype in (int, str), \
+                'n_categories is only a valid attribute when target data is int or str.  It is %s' \
+                % (self.training_set.target.dtype, )
+            self._n_categories = len(np.unique(self.training_set.target))
+        return self._n_categories  # TODO: Do this properly (assert that train/test have same categories, etc
+
+    @property
     def xyxy(self):
         """
         Shorthand to return (input_of_training_set, targets_of_training_set, input_of_test_set, targets_of_test_set)
@@ -68,6 +78,14 @@ class DataSet(object):
                [x.shape[1:] for x in self.training_set.inputs], [x.shape[1:] for x in self.training_set.targets],
                 hex(id(self))
             )
+
+    def shorten(self, n_samples):
+        """
+        Shorten the training/test sets to n_samples each.  This is useful in code tests, when we just
+        want a little bit of the dataset to make sure that the code runs.
+        """
+        return DataSet(training_set=self.training_set.shorten(n_samples), test_set=self.test_set.shorten(n_samples),
+            validation_set=self._validation_set.shorten(n_samples) if self._validation_set is not None else None)
 
 
 class DataCollection(object):
@@ -116,6 +134,12 @@ class DataCollection(object):
         targets = targets_processor(self._targets) if targets_processor is not None else self._targets
         return DataCollection(inputs, targets)
 
+    def shorten(self, n_samples):
+        new_inputs = [x[:n_samples] for x in self.inputs]
+        new_targets = [x[:n_samples] for x in self.targets]
+        return DataCollection(new_inputs, new_targets)
+
+
 def minibatch_iterator(minibatch_size = 1, epochs = 1, final_treatment = 'stop', single_channel = False):
     """
     :param minibatch_size:
@@ -135,7 +159,9 @@ def minibatch_iterator(minibatch_size = 1, epochs = 1, final_treatment = 'stop',
         n_samples = data_collection.n_samples
         total_samples = epochs * n_samples
 
-        true_minibatch_size = n_samples if minibatch_size == 'all' else minibatch_size
+        true_minibatch_size = n_samples if minibatch_size == 'full' else \
+            minibatch_size if isinstance(minibatch_size, int) else \
+            bad_value(minibatch_size)
 
         if single_channel:
             input_data = data_collection.input

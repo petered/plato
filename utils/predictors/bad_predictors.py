@@ -10,7 +10,7 @@ class MockPredictor(IPredictor):
     def __init__(self, prediction_function):
         self._prediction_function = prediction_function
 
-    def train(self, input_data, target_data):
+    def fit(self, input_data, target_data):
         pass
 
     def predict(self, input_data):

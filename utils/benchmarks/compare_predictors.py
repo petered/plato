@@ -6,10 +6,21 @@ from utils.tools.processors import RunningAverage
 from utils.tools.progress_indicator import ProgressIndicator
 
 
-def compare_predictors(dataset, online_predictor_constructors = {}, offline_predictor_constructors = {},
+'''
+DEPRECATED: Slated for deletion.  We're going to merge online and incremental predictors, and use sklearn's
+interface for offline predictors - alsom make it so you pass predictors instead od these ridiculous predictor
+constructors.
+
+Module predictor_comparison will replace this.
+'''
+
+
+def compare_predictors_old(dataset, online_predictor_constructors = {}, offline_predictor_constructors = {},
         incremental_predictor_constructors = {}, minibatch_size = 1, test_points = sqrtspace(0, 1, 10),
         evaluation_function = 'mse', report_test_scores = True, on_construction_callback = None):
     """
+    DEPRECATED!  See above
+
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
     :param dataset: A DataSet object

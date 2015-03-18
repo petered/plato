@@ -1,3 +1,7 @@
+from collections import OrderedDict
+from general.should_be_builtins import bad_value
+from collections import Counter
+
 __author__ = 'peter'
 
 """
@@ -14,6 +18,7 @@ class SignalGraph(set):
     Signals are given explicit names, and functions are referenced by the signals they consume/produce.  Each
     signal may be produced by only one function.
     """
+    # TODO: Test this class!
 
     def __init__(self, graph_specifier):
 
@@ -26,6 +31,12 @@ class SignalGraph(set):
         else:
             graph_specifier = clean_graph(graph_specifier)
             graph_dict = None
+
+        all_dest_notes = sum([d for _, d in graph_specifier], ())
+        multiply_written_dest_nodes = [k for k, v in Counter(all_dest_notes).iteritems() if v > 1]
+        assert len(multiply_written_dest_nodes) == 0, 'Notes %s are written to more than once.\nGraph: %s' \
+            % (multiply_written_dest_nodes, graph_specifier)
+
         self._graph_dict = graph_dict
 
         for se, de in graph_specifier:
@@ -36,16 +47,24 @@ class SignalGraph(set):
         sanitized_index = _tuplefy_node(index)
         return self._graph_dict[sanitized_index]
 
+    def items(self):
+        assert self._graph_dict is not None, 'You can only call iteritems on a SignalGraph that was instantiated with a dict.'
+        return self._graph_dict.items()
+
+    def is_graph_dict(self):
+        return self._graph_dict is not None
+
     def reverse(self):
         return self.__class__({(d, s) for s, d in self})
 
     def get_predecessor_signals(self, signal, given_signals = None, _memo = None):
         """
         Get predecessor signals, including the provided signal.
-        :param signal:
-        :param given_signals:
-        :param _memo:
-        :return:
+        :param signal: A string/int identifying a signal
+        :param given_signals: A list of signals that are "given" (you don't need to keep searching for the predecessors
+            of these signals.)
+        :param _memo: (For internal use - ignore)
+        :return: A set<int/str> of prdecessor signals INCLUDING the given signal.
         """
         if given_signals is None:
             given_signals = set()
@@ -98,7 +117,8 @@ class SignalGraph(set):
         if len(functions_producing_signal) == 0:
             return None
         else:
-            assert len(functions_producing_signal) == 1, 'Invalid Graph: You cannot have 2 functions producing the same signal'
+            assert len(functions_producing_signal) == 1, 'Invalid Graph: You cannot have 2 functions producing the same signal. %s' \
+                % (self, )
             return functions_producing_signal[0]
 
     def get_functions_consuming_signal(self, signal):
@@ -121,8 +141,8 @@ class SignalGraph(set):
 
     def get_subgraph(self, input_signals = None, output_signals = None):
 
-        input_signals = self.get_input_signals() if input_signals is None else set(input_signals)
-        output_signals = self.get_output_signals() if output_signals is None else set(output_signals)
+        input_signals = self.get_input_signals() if input_signals is None else set(_tuplefy_singles(input_signals))
+        output_signals = self.get_output_signals() if output_signals is None else set(_tuplefy_singles(output_signals))
 
         # Find all nodes required to compute outputs
         subgraph_nodes = set().union(*tuple(self.get_predecessor_graph(sig, given_signals = input_signals) for sig in output_signals))
@@ -142,9 +162,9 @@ class SignalGraph(set):
 
     def get_parallel_order(self):
         """
-        Get the a list of sets of function indices, where the index of the first list indicates the order in which that function
+        Get the a list of sets of function nodes, where the index of the first list indicates the order in which that function
         can be executed (all functions in the i'th list must wait until all functions in 0th to i-1th lists are complete).
-        :return: a list<set<tuple<tuple<*str>, tuple<*str>>>>
+        :return: a list<SignalGraph>
         """
         known_signals = self.get_input_signals().copy()
         remaining_function_nodes = self.copy()
@@ -160,8 +180,117 @@ class SignalGraph(set):
                     this_layers_outputs.update(output_signals)
             assert len(this_layers_outputs)> 0, 'Your graph seems to have loops.'
             known_signals.update(this_layers_outputs)
-            parallel_levels.append(this_level)
+            parallel_levels.append(self.filter_graph(lambda n: n in this_level))
         return parallel_levels
+
+    def get_serial_order(self):
+        """
+        Get a list/OrderedDict of function nodes.  Executing the graph in this order guarantees that all signals are
+        computed before they become inputs to another node.  This order can be partly arbitrary because within a parallel
+        level it doesn't matter which nodes are executed, so don't expect this to always return the same order for a
+        given graph.
+        :return: A list<*tuple<tuple<*str>, tuple<*str>>> if this is a graph_dict, else a
+            OrderedDict<*tuple<tuple<*str>, tuple<*str>>:object>
+        """
+        parallel_order = self.get_parallel_order()
+
+        if self.is_graph_dict():
+            return OrderedDict(sum([level.items() for level in parallel_order], []))
+        else:
+            return sum([list(level) for level in parallel_order], [])
+
+
+class FactorGraph(object):
+    """
+    A factor graph is a bipartite graph with "variable" nodes and "factor" nodes.  This class is currently used in the
+    implementation of a Deep-Belief network.
+    """
+
+    def __init__(self, variables, factors):
+        """
+        :param variables: A dict<int: function>, where function takes N arguments (one for each
+            factor feeding into it, and procuces one output.
+        :param factors: A dict<(int, int): reversable_function), Where function take one argument,
+            produces one output, and has a "reverse" method, which implements the function in
+            the other direction.
+
+        * Note - we don't currently deal with the fact that we can't specify the order in which factors
+        feed variables - we will have to do this at some point.  Maybe.
+        """
+        # TODO: Test this class
+        assert all(src in variables and dest in variables for src, dest in factors.viewkeys()), \
+            'All factors must link variables'
+        self._variables = variables
+        self._factors = factors
+
+    def get_execution_path(self, inference_path):
+        """
+        Given a path defined in terms of variables int the factor graph, return a full inference that defines the order
+        in which to compute factors and sample variables.
+
+        :param varible_path: A list of 2-tuples, identifying the source, destination layers for the update.
+        :return: path: An OrderedDict<(tuple<*int>, int): function> indicating the path to take.
+        """
+
+        if not isinstance(inference_path, InferencePath):
+            inference_path = InferencePath(inference_path)
+
+        path = OrderedDict()
+        for src_vars, dest_var, is_smooth in inference_path:
+            # Add the factor nodes pointing to the given variable.
+            for src_var in src_vars:
+                path[(src_var, ), factor_name(src_var, dest_var)] = \
+                    self._factors[src_var, dest_var] if (src_var, dest_var) in self._factors else \
+                    self._factors[dest_var, src_var].reverse if (dest_var, src_var) in self._factors else \
+                    bad_value((src_var, dest_var), 'Factor %s does not exist in the graph: %s' % ((src_var, dest_var), self._factors.keys()))
+            # Add the variable node
+            path[tuple(factor_name(src_var, dest_var) for src_var in src_vars), dest_var] = self._variables[dest_var].smooth if is_smooth else self._variables[dest_var]
+
+        return ExecutionPath(path)
+
+    def get_execution_path_from_io(self, input_signals, output_signals, default_smooth = False):
+
+        input_signals = _tuplefy_singles(input_signals)
+        output_signals = _tuplefy_singles(output_signals)
+        outputs_needing_calculation = tuple(os for os in output_signals if os not in input_signals)
+        direct_linking_factors = \
+            [(src, dest) for src, dest in self._factors if src in input_signals and dest in outputs_needing_calculation] + \
+            [(dest, src) for src, dest in self._factors if dest in input_signals and src in outputs_needing_calculation]
+
+        outputs_of_direct_links = [dest for _, dest in direct_linking_factors]
+
+        if set(outputs_needing_calculation).issubset(set(outputs_of_direct_links)):
+            inference_path = InferencePath([(tuple(src for src, dest in direct_linking_factors if dest==out), out) for out in outputs_needing_calculation], default_smooth=default_smooth)
+            return self.get_execution_path(inference_path)
+        else:
+            # Ugh, so we have to deal with loops and all this stuff - lets pospone.
+            raise NotImplementedError('Have not yet implemented automatic path finding between src, dest nodes.  Do it yourself!')
+
+    def get_input_variables(self):
+        written_varibles = set(dest for _, dest in self._factors)
+        return {v_name: v for v_name, v in self._variables.iteritems() if not v_name in written_varibles}
+
+
+def _clean_path(specified_path):
+    """
+    :param specified_path: Defines the flow of information along a graph.  Generally, it should be of the form:
+        [..., ((in_sig_0, in_sig_1, ...): out_sig), ...] where in_sig, out_sig are int/strings identifying signals.
+    :return:
+    """
+
+    assert isinstance(specified_path, list) and all(len(p)==2 for p in specified_path), 'Path must be a list of 2-tuples.  We got "%s".' % (specified_path, )
+    assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str)) for src, dest in specified_path)
+    path = []
+    for srcs, dests in specified_path:
+        srcs = (tuple(srcs) if isinstance(srcs, (tuple, list)) else (srcs, ))
+        dests = (tuple(dests) if isinstance(dests, (tuple, list)) else (dests, ))
+        for dest in dests:
+            path.append((srcs, dest))
+    return path
+
+
+def factor_name(src_node, dest_node):
+    return 'f[%s,%s]' % (src_node, dest_node)
 
 
 def clean_graph(graph_specifier):
@@ -173,4 +302,88 @@ def _tuplefy_node((src_signals, dest_signals)):
 
 
 def _tuplefy_singles(edge_specifier):
-    return edge_specifier if isinstance(edge_specifier, tuple) else (edge_specifier, )
+    return edge_specifier if isinstance(edge_specifier, tuple) else \
+        tuple(edge_specifier) if isinstance(edge_specifier, list) else \
+        (edge_specifier, )
+
+
+def _singlefy_tuples(edge_specifier):
+    if isinstance(edge_specifier, (list, tuple)):
+        assert len(edge_specifier)==1, 'You tried to singlefy an edge specifier, did not have 1 signal: %s' % (edge_specifier, )
+        singlified, = edge_specifier
+    else:
+        singlified = edge_specifier
+    return singlified
+
+
+class InferencePath(object):
+    """
+    An object that defines a path over which to do inference on a graph.
+    """
+
+    def __init__(self, specied_path, default_smooth = False):
+        """
+        :param specied_path: Can be defined in two ways:
+            (1) As a list of source/dest signals (with an optional third argument defining whether the pass should be "smooth".  e.g.
+                [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab', True)]
+                [('vis', 'hid'), (('hid', 'lab'), 'ass)), ('ass', ('hid', 'lab')), ('hid', 'vis', True)]
+            (2) As a list of signals to compute in order:
+                ['vis', 'hid', 'ass', 'lab']
+        :param default_smooth: For steps where smooth is not specified, define whether the pass should be smooth.
+        """
+        assert isinstance(specied_path, list)
+        assert isinstance(default_smooth, bool)
+
+        spec_type = \
+            1 if all(isinstance(el, tuple) and len(el) in (2, 3) for el in specied_path) else \
+            2 if all(isinstance(el, (int, str)) for el in specied_path) else \
+            bad_value(specied_path, 'Could not interpret the path %s - see docstring of InferencePath for required format.')
+
+        if spec_type == 1:
+            path = []
+            for el in specied_path:
+                srcs = _tuplefy_singles(el[0])
+                for dest in _tuplefy_singles(el[1]):
+                    is_smooth = el[2] if len(el)==3 else default_smooth
+                    assert isinstance(is_smooth, bool), 'The third element of the tuple in your specified path must be ' \
+                        'a boolean indicating whether to do a smooth pass.  It was %s' % (is_smooth, )
+                    path.append((srcs, dest, is_smooth))
+        else:
+            path = [((src, ), dest, default_smooth) for src, dest in zip(specied_path[:-1], specied_path[1:])]
+        self._path = path
+
+    def __iter__(self):
+        """
+        Returns an iterator that yields
+        :return:
+        """
+        return iter(self._path)
+
+
+class ExecutionPath(object):
+    """
+    An object containing a dictionary where keys are input/output signals, and values are function that take data on
+    the input signals and write it to the output signals.
+    """
+
+    def __init__(self, specified_path):
+        """
+        :param specified_path: An OrderedDict<(*int/str,int/str): func>
+        """
+
+        assert isinstance(specified_path, OrderedDict) and all(len(p)==2 for p in specified_path), \
+            'Path must be an OrderedDict mapping of 2-tuples to functions.  We got "%s".' % (specified_path, )
+        assert all(isinstance(src, (tuple, list, int, str)) and isinstance(dest, (int, str, list, tuple)) for src, dest in specified_path)
+        self._path = OrderedDict(((_tuplefy_singles(src), _singlefy_tuples(dest)), f) for (src, dest), f in specified_path.iteritems())
+        self._required_inputs = SignalGraph(self._path).get_input_signals()
+
+    def execute(self, input_signal_dict):
+
+        assert set(input_signal_dict.keys()).issuperset(self._required_inputs), 'The inputs you provided: %s, did not match the set of required inputs: %s' \
+            % (input_signal_dict.keys(), set(self._required_inputs))
+
+        signals = input_signal_dict.copy()
+        for (srcs, dest), func in self._path.iteritems():
+            out = func(*[signals[src] for src in srcs])
+            signals[dest] = out
+        return signals

@@ -16,6 +16,7 @@ class BaseStream(object):
         self._update_every = update_every
         self._plot_keys = None
         self._fig = None
+        # TODO: Allow plots to be updated every iteration but only rendered every N'th iteration.  Important for streaming.
 
     def update(self):
         self._counter += 1
@@ -37,7 +38,6 @@ class BaseStream(object):
         else:
             for k, v in data_dict.iteritems():
                 self._plots[k].update(v)
-        # self._fig.draw()
         eplt.draw()
 
     @abstractmethod
@@ -58,15 +58,22 @@ class LiveStream(BaseStream):
     Lets you automatically generate live plots from some arbitrary data structure returned by a callback.
     """
 
-    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', **kwargs):
+    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', update_every=1, **plot_preference_kwargs):
         """
         :param callback: Some function that takes no arguments and returns some object.
+        :param custom_handlers: A dict<type: function>.  If there's an object of one of the listed types
+            returned from your callback, the function will take that object and return plot data from it.
+        :param plot_mode: {'live', 'static', 'image'} - Determines what kind of plots to make for the data.
+            See get_plot_from_data.
+        :param update_every: Use this to only update the plot periodically - generally for speed.
+        :param plot_preference_kwargs: Get passed down to get_plot_from_data
         """
         assert hasattr(callback, '__call__'), 'Your callback must be callable.'
         self._callback = callback
         self._custom_handlers=custom_handlers
         self._plot_mode = plot_mode
-        BaseStream.__init__(self, **kwargs)
+        self._plot_preference_kwargs = plot_preference_kwargs
+        BaseStream.__init__(self, update_every=update_every)
 
     def _get_data_structure(self):
         struct = self._callback()
@@ -76,7 +83,7 @@ class LiveStream(BaseStream):
         return OrderedDict(flat_struct)
 
     def _get_plots_from_first_data(self, first_data):
-        return {k: eplt.get_plot_from_data(v, mode = self._plot_mode) for k, v in first_data.iteritems()}
+        return {k: eplt.get_plot_from_data(v, mode = self._plot_mode, **self._plot_preference_kwargs) for k, v in first_data.iteritems()}
 
 
 LivePlot = namedtuple('PlotBuilder', ['plot', 'cb'])
