@@ -13,6 +13,8 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
         Images are 32x32 uint8 RGB images (n_samples, 3, 32, 32) of 10 categories of objects.
         Targets are integer labels in the range [0, 9]
     """
+    # TODO: Make method for downloading/unpacking data (from http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz)
+    # We have this for single files already, but in this case the gz contains a folder with the files in it.
 
     directory = 'data/cifar-10-batches-py'
 
