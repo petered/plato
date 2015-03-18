@@ -79,6 +79,14 @@ class DataSet(object):
                 hex(id(self))
             )
 
+    def shorten(self, n_samples):
+        """
+        Shorten the training/test sets to n_samples each.  This is useful in code tests, when we just
+        want a little bit of the dataset to make sure that the code runs.
+        """
+        return DataSet(training_set=self.training_set.shorten(n_samples), test_set=self.test_set.shorten(n_samples),
+            validation_set=self._validation_set.shorten(n_samples) if self._validation_set is not None else None)
+
 
 class DataCollection(object):
 
@@ -125,6 +133,12 @@ class DataCollection(object):
         inputs = inputs_processor(self._inputs) if inputs_processor is not None else self._inputs
         targets = targets_processor(self._targets) if targets_processor is not None else self._targets
         return DataCollection(inputs, targets)
+
+    def shorten(self, n_samples):
+        new_inputs = [x[:n_samples] for x in self.inputs]
+        new_targets = [x[:n_samples] for x in self.targets]
+        return DataCollection(new_inputs, new_targets)
+
 
 def minibatch_iterator(minibatch_size = 1, epochs = 1, final_treatment = 'stop', single_channel = False):
     """

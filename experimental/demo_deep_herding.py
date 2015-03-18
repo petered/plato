@@ -12,12 +12,20 @@ from utils.tools.mymath import sqrtspace
 import numpy as np
 
 
-def demo_mnist_herding(which_dataset = 'mnist'):
+def demo_compare_sampling_predictors(which_dataset = 'mnist', test_mode = False):
 
     dataset = \
         get_synthetic_clusters_dataset(n_dims=100) if which_dataset == 'clusters' else \
         get_mnist_dataset(flat = True) if which_dataset == 'mnist' else \
         bad_value(which_dataset, 'No dataset named "%s"' % which_dataset)
+
+    n_epochs = 10
+    n_test_points = 20
+
+    if test_mode:
+        dataset.shorten(100)
+        n_epochs = 1
+        n_test_points = 3
 
     results = compare_predictors(
         dataset = dataset,
@@ -41,13 +49,11 @@ def demo_mnist_herding(which_dataset = 'mnist'):
             'MLP': None,
             'Gibbs-MLP': 'avg',
             },
-        test_epochs=sqrtspace(0, 10, 20),
-        test_batch_size=10000
+        test_epochs=sqrtspace(0, n_epochs, n_test_points),
         )
     plot_learning_curves(results)
 
 
 if __name__ == '__main__':
 
-    demo_mnist_herding()
-    # dataset = get_mnist_dataset().process_with(targets_processor=multichannel(OneHotEncoding()))
+    demo_compare_sampling_predictors()
