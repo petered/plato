@@ -105,21 +105,3 @@ def sample_categorical(rng, p, axis = -1, values = None):
     if values is not None:
         return values[indices]
     return indices
-
-
-# class SamplingPredictor(IPredictor):
-#     """
-#     Deprecated.
-#
-#     TODO: Replace with plato.tools.online_prediction.CompiledSymbolicPredictor
-#     """
-#
-#     def __init__(self, sampler, mode = 'test_and_run'):
-#         self.train_function = sampler.update.compile(mode=mode)
-#         self.predict_function = sampler.sample_posterior.compile(mode=mode)
-#
-#     def train(self, input_data, target_data):
-#         self.train_function(input_data, target_data)
-#
-#     def predict(self, input_data):
-#         return self.predict_function(input_data)

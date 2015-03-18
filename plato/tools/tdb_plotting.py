@@ -24,6 +24,7 @@ def tdbplot(data, name, **kwargs):
             make mores sense when you're running and monitoring.  "static" makes static
             plots, which make more sence for step-by-step debugging.
     """
+    # TODO: Add test/demo of this, because it's pretty cool
 
     custom_handlers = {
         TensorVariable: lambda d: d.tag.test_value if hasattr(d, 'tag') else '<No test value>',

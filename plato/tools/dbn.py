@@ -1,9 +1,6 @@
-from general.should_be_builtins import bad_value
 from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_stateless, SymbolicReturn
 from plato.tools.optimizers import SimpleGradientDescent
-from plato.tools.symbolic_graph import SymbolicGraph
 import theano
-from theano import tensor as tt
 from utils.graph_utils import FactorGraph, InferencePath
 import numpy as np
 
