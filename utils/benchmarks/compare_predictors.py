@@ -20,6 +20,8 @@ def compare_predictors(dataset, online_predictor_constructors = {}, offline_pred
         incremental_predictor_constructors = {}, minibatch_size = 1, test_points = sqrtspace(0, 1, 10),
         evaluation_function = 'mse', report_test_scores = True, on_construction_callback = None):
     """
+    DEPRECATED!  See above
+
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
     :param dataset: A DataSet object

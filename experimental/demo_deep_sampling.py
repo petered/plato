@@ -1,6 +1,6 @@
 from experimental.sampling_mlp import GibbsSamplingMLP
 from general.should_be_builtins import bad_value
-from plato.tools.cost import negative_log_likelihood
+from plato.tools.cost import negative_log_likelihood, normalized_negative_log_likelihood
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
 from plato.tools.optimizers import SimpleGradientDescent
@@ -12,7 +12,8 @@ from utils.tools.mymath import sqrtspace
 import numpy as np
 
 
-def demo_compare_sampling_predictors(which_dataset = 'mnist', test_mode = False):
+def demo_compare_deep_samplers(which_dataset = 'mnist', test_mode = False):
+    # We may remove this and move to notebook when notebook testing is up and running.
 
     dataset = \
         get_synthetic_clusters_dataset(n_dims=100) if which_dataset == 'clusters' else \
@@ -32,7 +33,7 @@ def demo_compare_sampling_predictors(which_dataset = 'mnist', test_mode = False)
         online_predictors={
             'MLP': GradientBasedPredictor(
                 function = MultiLayerPerceptron(layer_sizes = [100, dataset.n_categories], input_size = dataset.input_shape[0], output_activation='softmax', w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)),
-                cost_function=negative_log_likelihood,
+                cost_function=normalized_negative_log_likelihood,
                 optimizer=SimpleGradientDescent(eta = 0.1),
                 ).compile(),
             'Gibbs-MLP': GibbsSamplingMLP(
@@ -56,4 +57,4 @@ def demo_compare_sampling_predictors(which_dataset = 'mnist', test_mode = False)
 
 if __name__ == '__main__':
 
-    demo_compare_sampling_predictors()
+    demo_compare_deep_samplers()

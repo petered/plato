@@ -22,10 +22,8 @@ def softmax_negative_log_likelihood(actual, target):
     """
     Do a softmax on the actual along axis 1 and then compute NLL
     """
-    # Note: We do not just call negative_log_likelihood because the assert statement
-    # in there can (maybe?) block the softmax-log optimization.
     normalized_actual = tt.nnet.softmax(actual)
-    return -tt.log(actual[tt.arange(normalized_actual.shape[0]), target]).mean()
+    return negative_log_likelihood_dangerous(normalized_actual, target)
 
 
 @symbolic_stateless
@@ -37,6 +35,25 @@ def negative_log_likelihood(actual, target):
     :return: The average (over samples) of the negative log-likelihood.
     """
     actual = tt.opt.assert_(actual, tt.all(abs(actual.sum(axis=1)-1) < 1e-7))  # Data must be normalized along axis 1.
+    return negative_log_likelihood_dangerous(actual, target)
+
+
+@symbolic_stateless
+def normalized_negative_log_likelihood(actual, target):
+    normalized_actual = actual / tt.sum(actual, axis=1, keepdims=True)
+    return negative_log_likelihood_dangerous(normalized_actual, target)
+
+
+@symbolic_stateless
+def negative_log_likelihood_dangerous(actual, target):
+    """
+    No assertion that your actual distribution is normalized here.  If you use this function and forget
+    to normalize it, it's your own damn fault.  WE WILL NOT BE HELD LIABLE.
+
+    In theory this should not be necessary to use ever from outside this module.  You can use
+    normalized_negative_log_likelihood instead, and if you have a softmax on the input, theano should
+    (hopefully) optimize away the normalization step.
+    """
     return -tt.log(actual[tt.arange(actual.shape[0]), target]).mean()
 
 

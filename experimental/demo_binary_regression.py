@@ -1,9 +1,9 @@
 from collections import OrderedDict
 from experimental.rf_ensembles import MockModePredictor, get_mnist_rf_ensemble_dataset
 from general.kwarg_dealer import KwargDealer
-from general.redict import ReDict, ReCurseDict
 from general.should_be_builtins import bad_value
 import numpy as np
+from plato.tools.online_prediction.online_predictors import CompiledSymbolicPredictor
 from plotting.live_plotting import LiveStream
 from utils.benchmarks.compare_predictors import compare_predictors
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
@@ -11,7 +11,7 @@ from utils.datasets.crohns_disease import get_crohns_dataset
 from utils.datasets.synthetic_logistic import get_logistic_regression_dataset
 from utils.predictors.bad_predictors import DistributionPredictor, MockPredictor
 from utils.tools.mymath import sigm
-from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor, SamplingPredictor
+from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
 from utils.tools.processors import OneHotEncoding
 from functools import partial
 
@@ -52,7 +52,7 @@ def demo_plot_binary_regression_learning(dataset, offline_predictors, incrementa
 
 def setup_visualization(predictor):
     """ Lets you plot internals of predictor as it trains. """
-    if isinstance(predictor, SamplingPredictor):
+    if isinstance(predictor, CompiledSymbolicPredictor):
         # variable_getter = lambda: predictor.train_function.locals
         predictor.train_function.set_debug_variables('locals+class')
 
@@ -74,8 +74,8 @@ def setup_visualization(predictor):
 
 def get_predictor_factory(n_dim_in, n_dim_out, sample_y, sampling_type, n_alpha, alpha_update_policy = 'sequential', possible_ws = (0, 1)):
     klass = {'gibbs': GibbsRegressor, 'herded': HerdedGibbsRegressor}[sampling_type]
-    return lambda: SamplingPredictor(klass(n_dim_in=n_dim_in, n_dim_out=n_dim_out, sample_y = sample_y, n_alpha = n_alpha, seed = None,
-            alpha_update_policy = alpha_update_policy, possible_ws = possible_ws), mode = 'tr')
+    return lambda: klass(n_dim_in=n_dim_in, n_dim_out=n_dim_out, sample_y = sample_y, n_alpha = n_alpha, seed = None,
+            alpha_update_policy = alpha_update_policy, possible_ws = possible_ws).compile(mode = 'tr')
 
 
 def get_named_predictors(names, n_dim_in, n_dim_out, sample_y = False, w_range = (0, 1)):
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     if SPECITY_AS=='figure':
         # -- Params -- #
         demo_create_figure(
-            '7D',
+            '5A',
             live_plot=False,
             test_mode=False
         )

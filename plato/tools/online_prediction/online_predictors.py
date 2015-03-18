@@ -1,17 +1,18 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, symbolic_updater
 from utils.predictors.i_predictor import IPredictor
 
 __author__ = 'peter'
 
 
-class IOnlinePredictor(object):
+class ISymbolicPredictor(object):
     """
     Online online_prediction have an initial state, and learn iteratively through repeated calls to train.
     """
 
     __metaclass__ = ABCMeta
 
+    @abstractmethod
     @symbolic_stateless
     def predict(self, inputs):
         """
@@ -21,6 +22,7 @@ class IOnlinePredictor(object):
         pass
 
 
+    @abstractmethod
     @symbolic_updater
     def train(self, inputs, labels):
         """
@@ -31,14 +33,15 @@ class IOnlinePredictor(object):
 
     def compile(self, **kwargs):
         """
-        Possible TODO, allow compilation of any class containing symbolic methods, which
-        will result in a new class where all symbolic methods are compiled.
-        :return:
+        Compile the predict and train methods to create an IPredictor object, which can take
+        numerical (as opposed to symbolic) data. 
+
+        see: utils.predictors.IPredictor
         """
         return CompiledSymbolicPredictor(self, **kwargs)
 
 
-class GradientBasedPredictor(IOnlinePredictor):
+class GradientBasedPredictor(ISymbolicPredictor):
 
     def __init__(self, function, cost_function, optimizer):
         """
@@ -61,16 +64,10 @@ class GradientBasedPredictor(IOnlinePredictor):
         return updates
 
 
-class ISamplingPredictor(IOnlinePredictor):
-
-    def update(self, x, y):
-        pass
-
-    def sample_posterior(self, x, y):
-        pass
-
-
 class CompiledSymbolicPredictor(IPredictor):
+    """
+    A Predictor containing the compiled methods for a SymbolicPredictor.
+    """
 
     def __init__(self, symbolic_predictor, **kwargs):
         self.train_function = symbolic_predictor.train.compile(**kwargs)

@@ -9,6 +9,9 @@ import numpy as np
 
 
 class DeepBeliefNet(object):
+    """
+    A Deep Belief Network.  This class contains methods for doing training and inference on a DBN.
+    """
 
     def __init__(self, layers, bridges):
         assert all(src in layers and dest in layers for src, dest in bridges.viewkeys()), \
@@ -18,7 +21,23 @@ class DeepBeliefNet(object):
         self._bridges = bridges
 
     def get_inference_function(self, input_layers, output_layers, path=None, smooth = False):
-
+        """
+        Create a synbolic function that does inference along a given path
+        :param input_layers: A layer of list of layers whose activations will be provided to the funciton
+        :param output_layers: A layer or list of layers whose activations will be returned from the function
+        :param path: A path for inference.  From InferencePath documentation, path can be specified:
+            (1) As a list of source/dest signals (with an optional third argument defining whether the pass should be "smooth".  e.g.
+                [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab', True)]
+                [('vis', 'hid'), (('hid', 'lab'), 'ass)), ('ass', ('hid', 'lab')), ('hid', 'vis', True)]
+            (2) As a list of signals to compute in order:
+                ['vis', 'hid', 'ass', 'lab']
+        :param smooth: Boolean indicating whether to do smooth or stochastic inference, when not specified in
+            steps of the path.
+        :return: A symbolic function of standard form:
+            (out_0, out_1, ...), [] = func(in_0, in_1, ..._)
+            Which takes the activations of input_layers as inputs and returns the activations of output functions,
+            and any state updates (currently no state updates).
+        """
         input_layers = input_layers if isinstance(input_layers, (list, tuple)) else (input_layers, )
         output_layers = output_layers if isinstance(output_layers, (list, tuple)) else (output_layers, )
 
@@ -36,6 +55,21 @@ class DeepBeliefNet(object):
 
     def get_constrastive_divergence_function(self, visible_layers, hidden_layers, input_layers = None, up_path = None, n_gibbs = 1, persistent = False,
             optimizer = SimpleGradientDescent(eta = 0.1)):
+        """
+        Make a symbolic function that does one step of contrastive divergence given a minibatch of input data.
+        :param visible_layers: The visible layers of the RBM to be trained
+        :param hidden_layers: The hidden layers of the RBM to be trained
+        :param input_layers: The input layers (if not the same as the visible), whose activations will have to be passed
+            up to the visible layers before training.
+        :param up_path: The path from the input_layers to the hidden_layers (in the future this should be found
+            automatically - now it is only computed automatically if there's a direct connection from input to visible)
+        :param n_gibbs: Number of Gibbs block sampling steps to do
+        :param persistent: True for pCD, false for regular
+        :param optimizer: An IGradientOptimizer object.
+        :return: A symbolic function of upate form:
+            [(param_0, new_param_0), ...(persistent_state_0, new_persistent_state_0), ...] = func(in_0, in_1, ..._)
+            That updates parameters in the specified RBM, and persistent state if persistent=True.
+        """
 
         visible_layers = visible_layers if isinstance(visible_layers, (list, tuple)) else (visible_layers, )
         hidden_layers = hidden_layers if isinstance(hidden_layers, (list, tuple)) else (hidden_layers, )
@@ -48,8 +82,6 @@ class DeepBeliefNet(object):
             up_path = self.get_inference_function(input_layers = input_layers, output_layers = visible_layers)
         else:
             up_path = self._graph.get_execution_path(up_path)
-
-        # input_layers = visible_layers if input_layers is None else input_layers if isinstance(input_layers, (list, tuple)) else (input_layers, )
 
         propup = self.get_inference_function(visible_layers, hidden_layers)
         free_energy = self.get_free_energy_function(visible_layers, hidden_layers)
@@ -86,9 +118,12 @@ class DeepBeliefNet(object):
 
     def get_free_energy_function(self, visible_layers, hidden_layers):
         """
-        :param visible_layers:
-        :param hidden_layers:
-        :return: A s
+        :param visible_layers: Visible layers of the RBM over which to compute the free energy
+        :param hidden_layers: Hidden layers of the RBM over which to compute the free energy
+        :return: A symbolic function of the form:
+            free_energy = fcn(vis_0, vis_1, ...)
+            Where each vis_x is a symbolic tensor of shape (n_samples, ...) and free_energy is a vector of length n_samples
+            indicating the free energy per data point.
         """
 
         # TODO: Verify that computation is correct for all choices of vis/hidden layers
@@ -113,19 +148,3 @@ class DeepBeliefNet(object):
             return sum(visible_contributions+hidden_contributions)
 
         return free_energy
-
-    # def get_training_function(self, visible_layer_ds, hidden_layer_ids, input_layer_ids = None,
-    #         n_gibbs=1, persistent = False, optimizer = SimpleGradientDescent(eta = 0.01)):
-    #     pass
-    #
-    #
-# def _build_dbn_graph(layers, bridges):
-#     graph_specifier = {}
-#     bridge_namer = lambda src, dest: 'bridge[%s,%s]' % (src, dest)
-#     for (src_layer_id, dest_layer_id), b in bridges:
-#         bridge_out_id = bridge_namer(src_layer_id, dest_layer_id)
-#         graph_specifier[src_layer_id, bridge_out_id] = b
-#         graph_specifier[bridge_out_id, src_layer_id] = b.reverse
-#     for layer_id, layer in layers:
-#         graph_specifier[tuple(bridge_namer(s, d) for s, d in bridges if d == layer_id), layer_id] = layer
-#     return SymbolicGraph(graph_specifier)

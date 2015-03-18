@@ -1,7 +1,7 @@
 from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
 from plato.tools.basic import softmax
 from plato.tools.networks import MultiLayerPerceptron
-from plato.tools.online_prediction.online_predictors import IOnlinePredictor
+from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
 from plato.tools.sampling import sample_categorical
 from plato.tools.tdb_plotting import tdbplot
 from plotting.db_plotting import dbplot
@@ -14,7 +14,7 @@ import numpy as np
 __author__ = 'peter'
 
 
-class GibbsSamplingMLP(IOnlinePredictor):
+class GibbsSamplingMLP(ISymbolicPredictor):
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_prior = None,
             possible_ws = (0, 1), frac_to_update = 1., random_seed = None):

@@ -1,15 +1,15 @@
+from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
 import theano
 import numpy as np
 import theano.tensor as tt
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
 from theano.tensor.shared_randomstreams import RandomStreams
-from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
 
 
-class GibbsRegressor(object):
+class GibbsRegressor(ISymbolicPredictor):
 
     def __init__(self, n_dim_in, n_dim_out, sample_y = False, n_alpha = 1, possible_ws = [0, 1],
             alpha_update_policy = 'sequential', seed = None):
@@ -49,15 +49,14 @@ class GibbsRegressor(object):
             .reshape([alpha.shape[0], w.shape[1], possible_ws.shape[0]])  # (n_alpha, n_dim_out, n_possible_ws)
 
     @symbolic_updater
-    def update(self, x, y):
+    def train(self, x, y):
         p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)  # (n_alpha, n_dim_out, n_possible_ws)
-        w_indices = sample_categorical(self._rng, p_wa, values = self._possible_ws)
-        w_sample = self._possible_ws[w_indices]  # (n_alpha, n_dim_out)
+        w_sample = sample_categorical(self._rng, p_wa, values = self._possible_ws)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), self._get_alpha_update()]
 
     @symbolic_stateless
-    def sample_posterior(self, x):
+    def predict(self, x):
         p_y = tt.nnet.sigmoid(x.dot(self._w))
         return self._rng.binomial(p = p_y) if self._sample_y else p_y
 
@@ -69,7 +68,7 @@ class HerdedGibbsRegressor(GibbsRegressor):
         self._phi = theano.shared(np.zeros((n_dim_in, n_dim_out, len(possible_ws)), dtype = 'float'), name = 'phi')
 
     @symbolic_updater
-    def update(self, x, y):
+    def train(self, x, y):
         p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)
         phi_alpha = self._phi[self._alpha] + p_wa  # (n_alpha, n_dim_out, n_possible_ws)
 
@@ -108,19 +107,19 @@ def sample_categorical(rng, p, axis = -1, values = None):
     return indices
 
 
-class SamplingPredictor(IPredictor):
-    """
-    Deprecated.
-
-    TODO: Replace with plato.tools.online_prediction.CompiledSymbolicPredictor
-    """
-
-    def __init__(self, sampler, mode = 'test_and_run'):
-        self.train_function = sampler.update.compile(mode=mode)
-        self.predict_function = sampler.sample_posterior.compile(mode=mode)
-
-    def train(self, input_data, target_data):
-        self.train_function(input_data, target_data)
-
-    def predict(self, input_data):
-        return self.predict_function(input_data)
+# class SamplingPredictor(IPredictor):
+#     """
+#     Deprecated.
+#
+#     TODO: Replace with plato.tools.online_prediction.CompiledSymbolicPredictor
+#     """
+#
+#     def __init__(self, sampler, mode = 'test_and_run'):
+#         self.train_function = sampler.update.compile(mode=mode)
+#         self.predict_function = sampler.sample_posterior.compile(mode=mode)
+#
+#     def train(self, input_data, target_data):
+#         self.train_function(input_data, target_data)
+#
+#     def predict(self, input_data):
+#         return self.predict_function(input_data)

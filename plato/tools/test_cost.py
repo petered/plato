@@ -1,6 +1,6 @@
 from general.mymath import softmax
 from plato.tools.cost import percent_correct, mean_squared_error, negative_log_likelihood, \
-    softmax_negative_log_likelihood
+    softmax_negative_log_likelihood, normalized_negative_log_likelihood
 import numpy as np
 from utils.tools.processors import OneHotEncoding
 import pytest
@@ -22,12 +22,17 @@ def test_cost_functions():
     with pytest.raises(AssertionError):
         nll_func(actual, target)
 
-    normalized_actual = softmax(actual, axis=1)
+    softmax_actual = softmax(actual, axis=1)
 
-    assert np.allclose(nll_func(normalized_actual, target),
-        -np.log(normalized_actual[np.arange(actual.shape[0]), target]).mean())
+    assert np.allclose(nll_func(softmax_actual, target),
+        -np.log(softmax_actual[np.arange(actual.shape[0]), target]).mean())
 
     assert np.allclose(softmax_negative_log_likelihood.compile()(actual, target),
+           nll_func(softmax_actual, target))
+
+    normalized_actual = actual/actual.sum(axis=1, keepdims=True)
+
+    assert np.allclose(normalized_negative_log_likelihood.compile()(normalized_actual, target),
            nll_func(normalized_actual, target))
 
 

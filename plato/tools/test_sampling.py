@@ -70,8 +70,8 @@ def test_samplers_not_broken():
 
     for name, sampler in samplers.iteritems():
         print 'Running Test for Sampler %s' % name
-        sampling_fcn = sampler.sample_posterior.compile()
-        update_fcn = sampler.update.compile()
+        sampling_fcn = sampler.predict.compile()
+        update_fcn = sampler.train.compile()
         for _ in xrange(2):
             out = sampling_fcn(x_tr)
             assert out.shape == (n_samples, 1)
