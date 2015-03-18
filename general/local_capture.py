@@ -8,24 +8,6 @@ def execute_and_capture_locals(fcn, *args, **kwargs):
     the LOCAL VARIABLES of the function.  This is crazy.  It actually looks inside the
     function at the time that return is called and grabs all the local variables.
     """
-    # _locs = [None]
-
-    # def tracer(frame, event, arg):
-    #     if event == 'return':
-    #         # Note - this is called for every return of every function called within.  The only
-    #         # reason it's ok is that the final return is always that of the decorated function.
-    #         # Still, we're often doing thousands of unnecessary copies.
-    #         local_variables = frame.f_locals.copy()
-    #         _locs[0] = local_variables
-
-    # with _CaptureInnards(tracer):
-    #     out = fcn(*args, **kwargs)
-    #
-    # local_vars, = _locs
-    #
-    # if local_vars is None:
-    #     logging.critical('Failed to capture locals.  This can happen when you call a function from the debugger.')
-
     cap = CaptureLocals()
 
     with cap:
@@ -74,4 +56,5 @@ class CaptureLocals(object):
 class LocalsNotCapturedError(Exception):
 
     def __init__(self):
-        return Exception("Locals not captured.  This can happen if you're calling a function from the debugger")
+        Exception.__init__(self, "Locals not captured.  This can happen if you're calling a function from the debugger or "
+            "something else that messes with the profiler.")

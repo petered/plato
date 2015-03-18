@@ -25,10 +25,9 @@ class GibbsSamplingMLP(IOnlinePredictor):
         :param hidden_activation: Activation function for hidden layers
         :param output_activation: Activation function for output layer
         :param w_prior: Prior probability on each possible value of
-        :param possible_ws:
-        :param frac_to_update:
-        :param random_seed:
-        :return:
+        :param possible_ws: Possible values that w can take on
+        :param frac_to_update: Fraction of parameters to update in a given pass
+        :param random_seed: Random seed - used for both sampling and selecting parameters to update.
         """
         assert output_activation in ('sig', 'softmax')
         if w_prior is None:

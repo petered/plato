@@ -57,8 +57,7 @@ def simple_rbm(visible_layer, bridge, hidden_layer):
 
         @symbolic_standard
         def free_sample():
-            (visible_state, hidden_state), _ = get_bounce_fcn(start_from=start_from, n_steps = n_steps,
-                return_smooth_visible = return_smooth_visible)(persistent_state)
+            (visible_state, hidden_state), _ = get_bounce_fcn(start_from=start_from, n_steps = n_steps, return_smooth_visible = return_smooth_visible)(persistent_state)
             return (visible_state, hidden_state), [(persistent_state, visible_state if start_from == 'visible' else hidden_state)]
         return free_sample
 

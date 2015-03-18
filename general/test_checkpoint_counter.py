@@ -6,10 +6,6 @@ __author__ = 'peter'
 
 def test_checkpoint_counter():
 
-    # n_checkpoints = 5
-
-    # points = np.sort(np.random.rand(n_checkpoints))
-
     points = [0, 0.2, 0.4, 0.6, 0.9]
 
     cpc = CheckPointCounter(points)

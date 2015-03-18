@@ -51,7 +51,7 @@ def demo_compare_sampling_predictors(which_dataset = 'mnist', test_mode = False)
             },
         test_epochs=sqrtspace(0, n_epochs, n_test_points),
         )
-    plot_learning_curves(results)
+    plot_learning_curves(results, hang = not test_mode)
 
 
 if __name__ == '__main__':

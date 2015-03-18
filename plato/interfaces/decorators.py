@@ -215,24 +215,6 @@ class BaseSymbolicFunction(ISymbolicFunction):
     def _check_outputs(self, *args, **kwargs):
         pass
 
-
-    # def _call_fcn(self, *args, **kwargs):
-    #
-    #     if ENABLE_OMNISCENCE:
-    #         # Look inside the function that this decorator is wrapping, and grab the local variables.  This is
-    #         # inherently evil, but useful for debugging purposes.  Use the trick from
-    #         # http://stackoverflow.com/questions/9186395/python-is-there-a-way-to-get-a-local-function-variable-from-within-a-decorator
-    #         if self._instance is None:
-    #             return_val, self._locals = execute_and_capture_locals(self._fcn, *args, **kwargs)
-    #         else:
-    #             return_val, self._locals = execute_and_capture_locals(self._fcn, self._instance, *args, **kwargs)
-    #
-    #         if self._locals is None:
-    #             logging.critical('Failed to get locals of symbolic function %s.' % (self._fcn, ))
-    #     else:
-    #         return_val = self._fcn(*args, **kwargs) if self._instance is None else lambda *fargs, **fkwargs: self._fcn(self._instance, *fargs, **fkwargs)
-    #     return return_val
-
     def locals(self):
         if self._type in ('function', 'method'):
             local_vars = self._locals
@@ -244,10 +226,6 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise Exception('Unexpected type: %s' % (self._type))
         assert local_vars is not None, 'You tried to retrieve locals, but they are not available.  Have you called the function yet?'
         return LocalsContainer(local_vars)
-
-    # @abstractmethod
-    # def __call__(self, *args, **kwargs):
-    #     raise NotImplementedError()
 
     @abstractproperty
     def original(self):
@@ -297,12 +275,6 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
     def _check_outputs(self, out):
         self._assert_is_tensor(out, 'Output')
 
-    # def __call__(self, *args):
-    #     self._assert_all_tensors(args, 'Arguments')
-    #     out = self._call_fcn(*args)
-    #     self._assert_is_tensor(out, 'Output')
-    #     return out
-
     @property
     def symbolic_stateless(self):
         return self
@@ -317,12 +289,6 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
 
 
 class SymbolicUpdateFunction(BaseSymbolicFunction):
-
-    # def __call__(self, *args, **kwargs):
-    #     self._assert_all_tensors(args, 'Arguments')
-    #     updates = self._call_fcn(*args, **kwargs)
-    #     self._assert_all_updates(updates)
-    #     return updates
 
     def _check_inputs(self, *args, **kwargs):
         """
@@ -350,12 +316,6 @@ class SymbolicUpdateFunction(BaseSymbolicFunction):
 
 
 class SymbolicStandardFunction(BaseSymbolicFunction):
-
-    # def __call__(self, *args):
-    #     self._assert_all_tensors(args, 'Arguments')
-    #     return_val = self._call_fcn(*args)
-    #     self._assert_standard_return(return_val)
-    #     return return_val
 
     def _check_inputs(self, *args, **kwargs):
         self._assert_all_tensors(args, 'Arguments')
@@ -625,10 +585,6 @@ def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True
     return tensor
 
 
-def get_shared_ancestors(variable):
-    pass
-
-
 def show_all_locals():
     locals_of_calling_frame = inspect.currentframe().f_back.f_locals
     print '=== Locals ==='
@@ -686,7 +642,7 @@ class SymbolicReturn(object):
         if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
             raise SymbolicFormatError('Updates must be a list of 2-tuples of (shared_variable, update_tensor).  We got %s instead' % (updates, ))
-        self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else updates
+        self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else outputs
         self.updates = updates
 
     def __iter__(self):

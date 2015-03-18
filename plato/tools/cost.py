@@ -19,7 +19,13 @@ class ICostFunction(object):
 
 @symbolic_stateless
 def softmax_negative_log_likelihood(actual, target):
-    return negative_log_likelihood(tt.nnet.softmax(actual), target)
+    """
+    Do a softmax on the actual along axis 1 and then compute NLL
+    """
+    # Note: We do not just call negative_log_likelihood because the assert statement
+    # in there can (maybe?) block the softmax-log optimization.
+    normalized_actual = tt.nnet.softmax(actual)
+    return -tt.log(actual[tt.arange(normalized_actual.shape[0]), target]).mean()
 
 
 @symbolic_stateless
@@ -30,8 +36,8 @@ def negative_log_likelihood(actual, target):
     :param target: An (n_samples, ) tensor indicating the target label for each sample
     :return: The average (over samples) of the negative log-likelihood.
     """
-    # TODO: Assert that actual is (n_samples, n_categories) and normalized along n_categories
-    return -tt.mean(tt.log(actual)[tt.arange(actual.shape[0]), target])
+    actual = tt.opt.assert_(actual, tt.all(abs(actual.sum(axis=1)-1) < 1e-7))  # Data must be normalized along axis 1.
+    return -tt.log(actual[tt.arange(actual.shape[0]), target]).mean()
 
 
 @symbolic_stateless

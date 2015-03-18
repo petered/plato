@@ -43,6 +43,11 @@ class MultiLayerPerceptron(IParameterized):
         return self._chain.parameters
 
 
+def normal_w_init(mag, seed = None):
+    rng = np.random.RandomState(seed)
+    return lambda n_in, n_out: mag * rng.randn(n_in, n_out)
+
+
 @symbolic_stateless
 class Layer(object):
     """
