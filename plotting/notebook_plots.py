@@ -60,4 +60,3 @@ _ORIGINAL_SHOW_FCN = plt.show
 
 def set_link_and_show_mode(mode = True):
     plt.show = link_and_show if mode else _ORIGINAL_SHOW_FCN
-    import pdb; pdb.set_trace()
