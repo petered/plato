@@ -18,8 +18,8 @@ def test_binary_logistic_regression(plot = False):
 
     sampler = simple_binary_gibbs_regressor(n_dim_in = n_dims, n_dim_out = 1, seed = 5)
 
-    train_fcn = sampler.update.compile(mode='tr')
-    predict_fcn = sampler.sample_posterior.compile(mode = 'run')
+    train_fcn = sampler.train.compile(mode='tr')
+    predict_fcn = sampler.predict.compile(mode = 'run')
 
     out = []
     pi = ProgressIndicator(n_steps, update_every=(1, 'seconds'))

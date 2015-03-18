@@ -22,9 +22,9 @@ class IPredictor(object):
         """
 
 
-class CategoricalPredictor(object):
+class CategoricalPredictor(IPredictor):
     """
-    A wrapper that transforms a predictor that outouts a vector into
+    A wrapper that transforms a predictor that outputs a vector into
     a predictor that outputs an integer "category" label.
     """
     def __init__(self, predictor, n_categories = None):
