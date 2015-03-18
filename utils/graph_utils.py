@@ -18,6 +18,7 @@ class SignalGraph(set):
     Signals are given explicit names, and functions are referenced by the signals they consume/produce.  Each
     signal may be produced by only one function.
     """
+    # TODO: Test this class!
 
     def __init__(self, graph_specifier):
 
@@ -59,10 +60,11 @@ class SignalGraph(set):
     def get_predecessor_signals(self, signal, given_signals = None, _memo = None):
         """
         Get predecessor signals, including the provided signal.
-        :param signal:
-        :param given_signals:
-        :param _memo:
-        :return:
+        :param signal: A string/int identifying a signal
+        :param given_signals: A list of signals that are "given" (you don't need to keep searching for the predecessors
+            of these signals.)
+        :param _memo: (For internal use - ignore)
+        :return: A set<int/str> of prdecessor signals INCLUDING the given signal.
         """
         if given_signals is None:
             given_signals = set()
@@ -199,6 +201,10 @@ class SignalGraph(set):
 
 
 class FactorGraph(object):
+    """
+    A factor graph is a bipartite graph with "variable" nodes and "factor" nodes.  This class is currently used in the
+    implementation of a Deep-Belief network.
+    """
 
     def __init__(self, variables, factors):
         """
@@ -210,8 +216,8 @@ class FactorGraph(object):
 
         * Note - we don't currently deal with the fact that we can't specify the order in which factors
         feed variables - we will have to do this at some point.  Maybe.
-        :return:
         """
+        # TODO: Test this class
         assert all(src in variables and dest in variables for src, dest in factors.viewkeys()), \
             'All factors must link variables'
         self._variables = variables
@@ -355,6 +361,10 @@ class InferencePath(object):
 
 
 class ExecutionPath(object):
+    """
+    An object containing a dictionary where keys are input/output signals, and values are function that take data on
+    the input signals and write it to the output signals.
+    """
 
     def __init__(self, specified_path):
         """

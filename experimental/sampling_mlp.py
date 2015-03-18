@@ -18,10 +18,23 @@ class GibbsSamplingMLP(IOnlinePredictor):
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig', w_prior = None,
             possible_ws = (0, 1), frac_to_update = 1., random_seed = None):
-
+        """
+        Gibbs sampling MLP.  See the backprop_sampling_network notebook for a description.
+        :param layer_sizes: Sizes of each layer
+        :param input_size: Size of the input
+        :param hidden_activation: Activation function for hidden layers
+        :param output_activation: Activation function for output layer
+        :param w_prior: Prior probability on each possible value of
+        :param possible_ws:
+        :param frac_to_update:
+        :param random_seed:
+        :return:
+        """
         assert output_activation in ('sig', 'softmax')
         if w_prior is None:
-            self._w_prior = theano.shared(np.ones(len(possible_ws))/len(possible_ws))  # TODO: INCLUDE!
+            self._w_prior = theano.shared(np.ones(len(possible_ws))/len(possible_ws))
+        else:
+            assert len(self._w_prior)==len(possible_ws), 'The length of w-prior '
         self._forward_network = MultiLayerPerceptron(layer_sizes=layer_sizes, input_size=input_size, hidden_activation=hidden_activation,
                 output_activation=output_activation, w_init = lambda n_in, n_out: np.zeros((n_in, n_out)))
         self._possible_ws = theano.shared(np.array(possible_ws).astype(theano.config.floatX))
@@ -64,12 +77,3 @@ class GibbsSamplingMLP(IOnlinePredictor):
         p_w = softmax(log_likelihoods, axis = -1) * self._w_prior
 
         return p_w
-
-
-# class HerdingMLP(GibbsSamplingMLP):
-#
-#     def _update_w(self, log_p_y_given_xw, param):
-#         p_w = self._get_p_w(log_p_y_given_xw, param)  # param.shape + (n_possible_ws, )
-#         sampled_p_values = sample_categorical(self._rng, p_w, values = self._possible_ws)
-#         new_param = tt.switch(self._rng.uniform(param.get_value().shape)<self._frac_to_update, sampled_p_values, param)
-#         return new_param
