@@ -5,7 +5,7 @@ from general.should_be_builtins import bad_value
 import numpy as np
 from plato.tools.online_prediction.online_predictors import CompiledSymbolicPredictor
 from plotting.live_plotting import LiveStream
-from utils.benchmarks.compare_predictors import compare_predictors
+from utils.benchmarks.compare_predictors import compare_predictors_old
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.datasets.crohns_disease import get_crohns_dataset
 from utils.datasets.synthetic_logistic import get_logistic_regression_dataset
@@ -37,7 +37,7 @@ def demo_plot_binary_regression_learning(dataset, offline_predictors, incrementa
     Code for creating plots in our report.
     """
 
-    learning_curves = compare_predictors(
+    learning_curves = compare_predictors_old(
         dataset = dataset,
         offline_predictor_constructors=offline_predictors,
         incremental_predictor_constructors = incremental_predictors,

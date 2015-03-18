@@ -15,8 +15,7 @@ Module predictor_comparison will replace this.
 '''
 
 
-
-def compare_predictors(dataset, online_predictor_constructors = {}, offline_predictor_constructors = {},
+def compare_predictors_old(dataset, online_predictor_constructors = {}, offline_predictor_constructors = {},
         incremental_predictor_constructors = {}, minibatch_size = 1, test_points = sqrtspace(0, 1, 10),
         evaluation_function = 'mse', report_test_scores = True, on_construction_callback = None):
     """

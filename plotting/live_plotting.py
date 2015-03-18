@@ -16,6 +16,7 @@ class BaseStream(object):
         self._update_every = update_every
         self._plot_keys = None
         self._fig = None
+        # TODO: Allow plots to be updated every iteration but only rendered every N'th iteration.  Important for streaming.
 
     def update(self):
         self._counter += 1
@@ -37,7 +38,6 @@ class BaseStream(object):
         else:
             for k, v in data_dict.iteritems():
                 self._plots[k].update(v)
-        # self._fig.draw()
         eplt.draw()
 
     @abstractmethod
@@ -61,6 +61,12 @@ class LiveStream(BaseStream):
     def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', update_every=1, **plot_preference_kwargs):
         """
         :param callback: Some function that takes no arguments and returns some object.
+        :param custom_handlers: A dict<type: function>.  If there's an object of one of the listed types
+            returned from your callback, the function will take that object and return plot data from it.
+        :param plot_mode: {'live', 'static', 'image'} - Determines what kind of plots to make for the data.
+            See get_plot_from_data.
+        :param update_every: Use this to only update the plot periodically - generally for speed.
+        :param plot_preference_kwargs: Get passed down to get_plot_from_data
         """
         assert hasattr(callback, '__call__'), 'Your callback must be callable.'
         self._callback = callback
