@@ -168,7 +168,6 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
 
         predictor.train(input_minibatch, target_minibatch)
 
-
     return record
 
 
