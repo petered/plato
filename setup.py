@@ -14,4 +14,4 @@ setup(name='plato',
       long_description='Deep Learning Library built on top of Theano',
       version=0,
       packages=['plato'],
-      scripts=['bin/plato'])
+      scripts=[])
