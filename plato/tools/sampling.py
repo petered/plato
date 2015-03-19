@@ -1,6 +1,7 @@
 from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
 import theano
 import numpy as np
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
 from theano.tensor.shared_randomstreams import RandomStreams
@@ -100,7 +101,13 @@ def sample_categorical(rng, p, axis = -1, values = None):
     """
     assert axis==-1, 'Currenly you can only sample along the last axis.'
     p = p/tt.sum(p, axis = axis, keepdims=True)
-    samples = rng.multinomial(n=1, pvals = p)
+    if isinstance(rng, MRG_RandomStreams):
+        old_p_shape = p.shape
+        samples = rng.multinomial(n=1, pvals = p.reshape((-1, p.shape[-1])))
+        samples = samples.reshape(old_p_shape.tag.test_value)
+    else:
+        samples = rng.multinomial(n=1, pvals = p)
+
     indices = tt.argmax(samples, axis = -1)  # Argmax is just a way to find the location of the only element that is 1.
     if values is not None:
         return values[indices]

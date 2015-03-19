@@ -149,10 +149,13 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
         # Bewate the in-loop lambda - but I think we're ok here.
 
     checker = CheckPointCounter(test_epochs)
+
+    last_n_samples_seen = 0
     for (n_samples_seen, input_minibatch, target_minibatch) in \
             dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
 
-        current_epoch = (float(n_samples_seen)-minibatch_size)/dataset.training_set.n_samples
+        current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
+        last_n_samples_seen = n_samples_seen
         time_for_a_test, done = checker.check(current_epoch)
         if time_for_a_test:
 
@@ -164,6 +167,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
                 break
 
         predictor.train(input_minibatch, target_minibatch)
+
 
     return record
 
