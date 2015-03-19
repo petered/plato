@@ -102,6 +102,8 @@ def sample_categorical(rng, p, axis = -1, values = None):
     assert axis==-1, 'Currenly you can only sample along the last axis.'
     p = p/tt.sum(p, axis = axis, keepdims=True)
     if isinstance(rng, MRG_RandomStreams):
+        # MRG_RandomStreams is faster but only works for 2-d pvals, so we have to reshape and
+        # then unreshape.
         old_p_shape = p.shape
         samples = rng.multinomial(n=1, pvals = p.reshape((-1, p.shape[-1])))
         samples = samples.reshape(old_p_shape.tag.test_value)
