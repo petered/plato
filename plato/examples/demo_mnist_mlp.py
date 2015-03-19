@@ -1,5 +1,5 @@
 import logging
-from plato.tools.cost import negative_log_likelihood, percent_correct, softmax_negative_log_likelihood
+from plato.tools.cost import percent_correct, normalized_negative_log_likelihood
 from plato.tools.networks import MultiLayerPerceptron, normal_w_init
 from plato.tools.optimizers import SimpleGradientDescent
 from plato.tools.training import SupervisedTrainingFunction, SupervisedTestFunction
@@ -25,8 +25,14 @@ def demo_mnist_mlp(test_mode = False):
         dataset = get_mnist_dataset()
 
     # Setup the training and test functions
-    classifier = MultiLayerPerceptron(layer_sizes=[500, 10], input_size = 784, hidden_activation='sig', output_activation='lin', w_init = normal_w_init(mag = 0.01))
-    training_cost_function = softmax_negative_log_likelihood
+    classifier = MultiLayerPerceptron(
+        layer_sizes=[500, 10],
+        input_size = 784,
+        hidden_activation='sig',
+        output_activation='softmax',
+        w_init = normal_w_init(mag = 0.01)
+        )
+    training_cost_function = normalized_negative_log_likelihood
     optimizer = SimpleGradientDescent(eta = 0.1)
     training_function = SupervisedTrainingFunction(classifier, training_cost_function, optimizer).compile()
     test_cost_function = percent_correct
