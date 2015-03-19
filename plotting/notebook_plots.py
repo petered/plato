@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime
 from matplotlib import pyplot as plt
 from IPython.display import FileLink
@@ -7,8 +8,8 @@ __author__ = 'peter'
 
 def get_local_figures_dir():
     this_path, _ = os.path.split(os.path.abspath(__file__))
-    figures_dir = os.path.abspath(os.path.join(this_path, '..', get_relative_figures_dir()))
-
+    figures_dir = os.path.abspath(os.path.join(sys.executable, '..', '..', '..', get_relative_figures_dir()))
+    
     try:
         os.makedirs(figures_dir)
     except OSError:
