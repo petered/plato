@@ -7,6 +7,12 @@ __author__ = 'peter'
 
 
 def always_link_figures(state = True, **link_and_show_arg):
+    """
+    Call this function to always
+    :param state: True to display links to plots
+    :param show: Set to False if you just want to print the link, and not actually show the plot.
+    :param link_and_show_arg: Passed down to link_and_show/save_and_show
+    """
 
     set_show_callback(lambda fig = None: link_and_show(fig=fig, **link_and_show_arg) if state else None)
 
@@ -14,12 +20,7 @@ def always_link_figures(state = True, **link_and_show_arg):
 def link_and_show(**save_and_show_kwargs):
     """
     Use this function to show a plot in IPython Notebook, and provide a link to download the figure.
-
-    :param name: The figure name.  The extension, if included, specifies the file type.
-    :param default_extension: The default extension to use.
-    :param preprend_datetime: Prepend the datetime to the filename.  This makes it so new plots don't overwrite old ones
-        with the same name.
-    :return: A FigureLink.  In IPython notebook, this will display as a link to the figure (and to the figures folder)
+    See function save_and_show for parameters.
     """
 
     base_dir = get_local_figures_dir()
@@ -35,4 +36,3 @@ def link_and_show(**save_and_show_kwargs):
 
     display(HTML("See <a href='%s' target='_blank'>this figure</a>.  See <a href='%s' target='_blank'>all figures</a>"
             % (relative_path, '/tree/figures')))
-

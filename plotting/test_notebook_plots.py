@@ -1,6 +1,6 @@
 import os
 from plotting.notebook_plots import always_link_figures
-from plotting.saving_plots import get_saved_figure_locs, get_local_figures_dir
+from plotting.saving_plots import get_saved_figure_locs, get_local_figures_dir, clear_saved_figure_locs
 import matplotlib.pyplot as plt
 import numpy as np
 import shutil
@@ -10,6 +10,7 @@ __author__ = 'peter'
 
 def test_link_figures():
 
+    clear_saved_figure_locs()
     test_dir = os.path.join(get_local_figures_dir(), 'testing')
 
     try:  # Remove dir if not already removed

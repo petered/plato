@@ -80,6 +80,11 @@ def get_saved_figure_locs():
     return _SAVED_FIGURES
 
 
+def clear_saved_figure_locs():
+    global _SAVED_FIGURES
+    _SAVED_FIGURES = []
+
+
 def get_local_figures_dir(subdir = None):
     this_path, _ = os.path.split(os.path.abspath(__file__))
     figures_dir = os.path.abspath(os.path.join(sys.executable, '..', '..', '..', get_relative_figures_subdir()))
