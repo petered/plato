@@ -52,9 +52,6 @@ def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir 
     if block is None:
         block = not is_interactive
 
-    # base, ext = os.path.splitext(name)
-    # if ext == '':
-    #     ext = default_extension
     full_figure_dir = os.path.join(base_dir, subdir)
     full_figure_loc = os.path.join(full_figure_dir, name)
 
