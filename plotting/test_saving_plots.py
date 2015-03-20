@@ -9,7 +9,7 @@ __author__ = 'peter'
 
 
 def test_save_figures():
-
+    
     clear_saved_figure_locs()
     test_dir = os.path.join(get_local_figures_dir(), 'testing')
 
