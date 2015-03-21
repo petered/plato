@@ -1,5 +1,6 @@
 from datetime import datetime
 import sys
+from general.notebook_utils import get_local_server_dir, make_file_dir
 import os
 from matplotlib import pyplot as plt
 
@@ -11,17 +12,10 @@ _ORIGINAL_SHOW_FCN = plt.show
 _SAVED_FIGURES = []
 
 
-def get_relative_figures_subdir():
-    return 'figures'
-
-
 def get_local_figures_dir(subdir = None):
-    this_path, _ = os.path.split(os.path.abspath(__file__))
-    figures_dir = os.path.abspath(os.path.join(sys.executable, '..', '..', '..', get_relative_figures_subdir()))
-
+    figures_dir = get_local_server_dir(subdir = 'figures')
     if subdir is not None:
         figures_dir = os.path.join(figures_dir, subdir)
-
     return figures_dir
 
 
@@ -52,13 +46,8 @@ def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir 
     if block is None:
         block = not is_interactive
 
-    full_figure_dir = os.path.join(base_dir, subdir)
-    full_figure_loc = os.path.join(full_figure_dir, name)
-
-    try:
-        os.makedirs(full_figure_dir)
-    except OSError:
-        pass
+    full_figure_loc = os.path.join(base_dir, subdir, name)
+    make_file_dir(full_figure_loc)
 
     fig.savefig(full_figure_loc)
     if print_loc:
@@ -80,21 +69,6 @@ def get_saved_figure_locs():
 def clear_saved_figure_locs():
     global _SAVED_FIGURES
     _SAVED_FIGURES = []
-
-
-def get_local_figures_dir(subdir = None):
-    this_path, _ = os.path.split(os.path.abspath(__file__))
-    figures_dir = os.path.abspath(os.path.join(sys.executable, '..', '..', '..', get_relative_figures_subdir()))
-
-    if subdir is not None:
-        figures_dir = os.path.join(figures_dir, subdir)
-
-    try:
-        os.makedirs(figures_dir)
-    except OSError:
-        pass
-
-    return figures_dir
 
 
 def set_show_callback(cb):

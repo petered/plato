@@ -106,7 +106,7 @@ def sample_categorical(rng, p, axis = -1, values = None):
         # then unreshape.
         old_p_shape = p.shape
         samples = rng.multinomial(n=1, pvals = p.reshape((-1, p.shape[-1])))
-        samples = samples.reshape(old_p_shape.tag.test_value)
+        samples = samples.reshape(old_p_shape)
     else:
         samples = rng.multinomial(n=1, pvals = p)
 
