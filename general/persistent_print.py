@@ -77,6 +77,7 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log.tx
             display(HTML("Writing to <a href='%s' target='_blank'>this log file</a>.  See <a href='%s' target='_blank'>all logs</a>"
                 % (relative_link, '/tree/logs')))
         sys.stdout = logger
+        return logger.get_log_file_path()
     else:
         sys.stdout = _ORIGINAL_STDOUT
 
