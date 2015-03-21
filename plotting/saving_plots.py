@@ -71,20 +71,6 @@ def clear_saved_figure_locs():
     _SAVED_FIGURES = []
 
 
-# def get_local_figures_dir(subdir = None):
-#     figures_dir = os.path.abspath(os.path.join(sys.executable, '..', '..', '..', get_relative_figures_subdir()))
-#
-#     if subdir is not None:
-#         figures_dir = os.path.join(figures_dir, subdir)
-#
-#     try:
-#         os.makedirs(figures_dir)
-#     except OSError:
-#         pass
-#
-#     return figures_dir
-
-
 def set_show_callback(cb):
     """
     :param cb: Can be:
