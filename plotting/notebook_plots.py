@@ -1,7 +1,7 @@
 from IPython.core.display import HTML
-import os
+from general.notebook_utils import get_relative_link
 from IPython.display import display
-from plotting.saving_plots import save_and_show, get_local_figures_dir, set_show_callback, get_relative_figures_subdir
+from plotting.saving_plots import save_and_show, get_local_figures_dir, set_show_callback
 
 __author__ = 'peter'
 
@@ -25,14 +25,6 @@ def link_and_show(**save_and_show_kwargs):
 
     base_dir = get_local_figures_dir()
     full_figure_loc = save_and_show(print_loc = False, base_dir=base_dir, **save_and_show_kwargs)
-    assert full_figure_loc.startswith(base_dir)
-
-    relative_figure_loc = full_figure_loc[len(base_dir):]
-
-    if relative_figure_loc.startswith(os.sep):
-        relative_figure_loc = relative_figure_loc[1:]
-
-    relative_path = os.path.join('/files', get_relative_figures_subdir(), relative_figure_loc)
-
+    relative_link = get_relative_link(local_path_to_file=full_figure_loc)
     display(HTML("See <a href='%s' target='_blank'>this figure</a>.  See <a href='%s' target='_blank'>all figures</a>"
-            % (relative_path, '/tree/figures')))
+            % (relative_link, '/tree/figures')))
