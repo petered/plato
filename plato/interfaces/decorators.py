@@ -463,21 +463,42 @@ class AutoCompilingFunction(object):
             else:
                 raise Exception("Get OUT!")
 
-            self._there_are_debug_variables = self._debug_variable_getter is not None
+            # Now - check the trace variables.  If any of them are ancestors of the outputs,
+            # add themj
+
+            self._there_are_debug_variables = self._debug_variable_getter is not None or len(_TRACE_VARIABLES) > 0
             if self._there_are_debug_variables:
-                # Setup debug variables
+
+                all_debug_variables = {}
                 self._single_output = not isinstance(outputs, (list, tuple))
                 if self._single_output:
                     outputs = (outputs, )
-                debug_variables = self._debug_variable_getter()
+
+                # Setup debug variables
+                if self._debug_variable_getter is not None:
+                    fetched_debug_variables = self._debug_variable_getter()
+                    filtered_debug_variables = {k: v for k, v in fetched_debug_variables.iteritems() if isinstance(v, Variable)}
+                    assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
+                        'It returned %s' % (filtered_debug_variables, )
+                    all_debug_variables.update(filtered_debug_variables)
+
+                # Add trace variables
+                if len(_TRACE_VARIABLES) > 0:
+                    # Find all trace variables that are ancestors of the output/updates
+                    out_and_up = outputs + tuple(new for old, new in updates)
+                    all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+
+                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_all_ancestors(var).isdisjoint(all_ancestors)}
+                    # Maybe check for name conflicts here?
+                    all_debug_variables.update(trace_variables)
+                    for name in trace_variables:
+                        if name in _TRACE_CALLBACKS:
+                            self._callbacks.append(_TRACE_CALLBACKS[name])
 
                 # There may be some non-symbolic variables in the mix (like self).  We just filter these out.
-                filtered_debug_variables = {k: v for k, v in debug_variables.iteritems() if isinstance(v, Variable)}
-                assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
-                    'It returned %s' % (filtered_debug_variables, )
-                debug_variables = filtered_debug_variables
-                self._debug_variable_keys = debug_variables.keys()
-                outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
+
+                self._debug_variable_keys = all_debug_variables.keys()
+                outputs_and_internals = tuple(outputs)+tuple(all_debug_variables.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
@@ -495,7 +516,8 @@ class AutoCompilingFunction(object):
         if self._there_are_debug_variables:
             all_out = self._compiled_fcn(*args)
             self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
-            numeric_output = all_out[:-len(self._debug_variable_keys)]
+            _TRACE_VALUES.update(self._debug_values)
+            numeric_output = all_out if len(self._debug_variable_keys) == 0 else all_out[:-len(self._debug_variable_keys)]
             if self._single_output:
                 numeric_output, = numeric_output
         else:
@@ -634,6 +656,16 @@ def find_shared_ancestors(variable):
         return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
 
 
+def find_all_ancestors(variable):
+    """
+    Return a set including the all ancestors of the given variable
+    :param variable: A Theano Tensor
+    :return: A set containing all ancestors, including the given variable.
+    """
+
+    return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
+
+
 class SymbolicReturn(object):
 
     def __init__(self, outputs = (), updates = []):
@@ -647,3 +679,21 @@ class SymbolicReturn(object):
 
     def __iter__(self):
         return (self.outputs, self.updates).__iter__()
+
+
+_TRACE_VARIABLES = {}  # A dict of trace-variable-name: Trace Variable
+_TRACE_VALUES = {}  # A dict of trace variable name: Most recently computed value
+_TRACE_CALLBACKS = {}  # A dict of trace-variable-name: Callback to call after trace ver is used.
+
+
+def get_tdb_traces():
+    return _TRACE_VALUES
+
+
+def tdb_trace(var, name = None, callback = None):
+    if name is None:
+        # TODO: Get default by sneakily grabbing name from calling scope.
+        name = str(var)
+    _TRACE_VARIABLES[name] = var
+    if callback is not None:
+        _TRACE_CALLBACKS[name] = callback

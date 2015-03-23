@@ -19,10 +19,18 @@ def dbplot(data, name = None, plot_mode = 'static', **kwargs):
         'static' is better for step-by-step debugging, or plotting from the debugger.
     """
 
-    global STREAM
-    if STREAM is None:
-        STREAM = LiveStream(lambda: PLOT_DATA, plot_mode=plot_mode, **kwargs)
+    # global STREAM
+    # if STREAM is None:
+    #     STREAM = LiveStream(lambda: PLOT_DATA, plot_mode=plot_mode, **kwargs)
+    stream = get_dbplot_stream(plot_mode = plot_mode, **kwargs)
     if not isinstance(name, str):
         name = str(name)
     PLOT_DATA[name] = data
-    STREAM.update()
+    stream.update()
+
+
+def get_dbplot_stream(**kwargs):
+    global STREAM
+    if STREAM is None:
+        STREAM = LiveStream(lambda: PLOT_DATA, **kwargs)
+    return STREAM

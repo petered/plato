@@ -1,7 +1,8 @@
 import sys
 from abc import abstractmethod
 import time
-from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError
+from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
+    tdb_trace, get_tdb_traces
 import pytest
 import theano
 import numpy as np
@@ -281,7 +282,44 @@ def test_method_caching_bug():
     assert c1 == [0]  # Before the fix, this was [2]
 
 
+def test_debug_trace():
+    """
+    This demonstrates our debug system wherein we add traces
+    to a global dict.
+    :return:
+    """
+
+    @symbolic_stateless
+    def average(a, b):
+        sum_a_b = a+b
+        tdb_trace(sum_a_b, name = 'sum_a_b')
+        return sum_a_b/2.
+
+    f = average.compile()
+
+    assert f(3, 5) == 4
+    assert f.get_debug_values()['sum_a_b'] == 8
+    assert get_tdb_traces()['sum_a_b'] == 8
+
+
+def test_omniscence_on_multiuple_calls():
+    # TODO: Finish!
+
+    @symbolic_stateless
+    def add_4(number):
+        for i in xrange(4):
+            number = add_one(number)
+
+    @symbolic_stateless
+    def add_one(number):
+        return number+1
+
+
+
+
+
 if __name__ == '__main__':
+    test_debug_trace()
     test_method_caching_bug()
     test_omniscence()
     test_stateless_decorators()
