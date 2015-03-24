@@ -17,7 +17,7 @@ def get_mnist_dataset(n_training_samples = None, n_test_samples = None, flat = F
     :return: A DataSet object containing the MNIST data
     """
     filename = get_file(
-        local_name = 'data/mnist.pkl',
+        relative_name = 'data/mnist.pkl',
         url = 'http://deeplearning.net/data/mnist/mnist.pkl.gz',
         data_transformation = unzip_gz)
 

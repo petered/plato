@@ -302,21 +302,6 @@ def test_debug_trace():
     assert get_tdb_traces()['sum_a_b'] == 8
 
 
-def test_omniscence_on_multiuple_calls():
-    # TODO: Finish!
-
-    @symbolic_stateless
-    def add_4(number):
-        n_to_add = 4
-        for i in xrange(n_to_add):
-            number = add_one(number)
-        return number
-
-    @symbolic_stateless
-    def add_one(number):
-        return number+1
-
-
 if __name__ == '__main__':
     test_debug_trace()
     test_method_caching_bug()
