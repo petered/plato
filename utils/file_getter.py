@@ -1,18 +1,21 @@
 import urllib2
 from StringIO import StringIO
 import gzip
+import sys
 import os
 __author__ = 'peter'
 
-LOCAL_DIR = os.path.join(os.getenv("HOME"), 'Library', 'Application Support', 'Plato')
+LOCAL_DIR = \
+    os.path.join(os.getenv("HOME"), 'Library', 'Application Support', 'Plato') if sys.platform == 'darwin' else \
+    os.path.join(os.getenv("HOME"), '.PlatoData')
 
 
-def get_file(local_name, url = None, data_transformation = None):
+def get_file(relative_name, url = None, data_transformation = None):
 
-    relative_folder, file_name = os.path.split(local_name)
+    relative_folder, file_name = os.path.split(relative_name)
     local_folder = os.path.join(LOCAL_DIR, relative_folder)
 
-    try:  # Best way to see if folder exists already - avoids race condition
+    try:  # Best way to see if folder exists already - avoids race condition between processes
         os.makedirs(local_folder)
     except OSError:
         pass
@@ -31,6 +34,10 @@ def get_file(local_name, url = None, data_transformation = None):
         with open(full_filename, 'w') as f:
             f.write(data)
     return full_filename
+
+
+def get_local_path(relative_path):
+    return os.path.join(LOCAL_DIR, relative_path)
 
 
 def unzip_gz(data):

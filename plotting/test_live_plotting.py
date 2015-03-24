@@ -68,16 +68,17 @@ def test_canaling(duration = 10):
     cb_sinusoid_data = lambda: lambda c=count(): np.sin(c.next()/40.)
 
     canal = LiveCanal({
-        'histo': LivePlot(plot = HistogramPlot([-5, 0, 0.5, 1, 1.5, 2]), cb = lambda: np.random.randn(np.random.randint(10))),
-        # '1d-default': cb_constructor_1d(),
-        # '1d-image': LivePlot(plot = MovingImagePlot(buffer_len=20), cb = cb_constructor_1d()),
-        # '1d-seizmic': LivePlot(plot = MovingPointPlot(), cb = cb_constructor_1d()),
-        # '1d-line': LivePlot(plot = LinePlot(), cb = cb_constructor_1d()),
-        # 'image-autoscale': LivePlot(ImagePlot(), cb_image_data()),
-        # 'image-overexposed': LivePlot(ImagePlot(scale = (0, 0.2)), cb_image_data()),
-        # 'image-jet': LivePlot(ImagePlot(cmap='jet'), cb_image_data()),
-        # 'trace-default': cb_sinusoid_data(),
-        # 'trace-prescaled': LivePlot(MovingPointPlot(yscale=(-1, 1)), cb_sinusoid_data()),
+        'histo-mass': LivePlot(plot = HistogramPlot([-2.5, 0, 0.5, 1, 1.5, 2, 2.5], mode = 'mass'), cb = lambda: np.random.randn(np.random.randint(10))),
+        'histo-density': LivePlot(plot = HistogramPlot([-2.5, 0, 0.5, 1, 1.5, 2, 2.5], mode = 'density'), cb = lambda: np.random.randn(np.random.randint(10))),
+        '1d-default': cb_constructor_1d(),
+        '1d-image': LivePlot(plot = MovingImagePlot(buffer_len=20), cb = cb_constructor_1d()),
+        '1d-seizmic': LivePlot(plot = MovingPointPlot(), cb = cb_constructor_1d()),
+        '1d-line': LivePlot(plot = LinePlot(), cb = cb_constructor_1d()),
+        'image-autoscale': LivePlot(ImagePlot(), cb_image_data()),
+        'image-overexposed': LivePlot(ImagePlot(clims = (0, 0.2)), cb_image_data()),
+        'image-jet': LivePlot(ImagePlot(cmap='jet'), cb_image_data()),
+        'trace-default': cb_sinusoid_data(),
+        'trace-prescaled': LivePlot(MovingPointPlot(yscale=(-1, 1)), cb_sinusoid_data()),
         })
 
     for i in xrange(duration):
@@ -86,6 +87,6 @@ def test_canaling(duration = 10):
 
 if __name__ == '__main__':
 
-    # test_dynamic_rebuild()
-    # test_streaming(10)
-    test_canaling(100)
+    test_dynamic_rebuild()
+    test_streaming(10)
+    test_canaling(10)
