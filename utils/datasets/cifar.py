@@ -1,8 +1,10 @@
+import pickle
+
 import os
 from utils.datasets.datasets import DataSet, DataCollection
-from utils.file_getter import get_file
-import pickle
+from fileman.file_getter import get_file
 import numpy as np
+
 
 __author__ = 'peter'
 

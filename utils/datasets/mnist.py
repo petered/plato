@@ -1,6 +1,8 @@
-from utils.datasets.datasets import DataSet, DataCollection
-from utils.file_getter import get_file, unzip_gz
 import pickle
+
+from utils.datasets.datasets import DataSet, DataCollection
+from fileman.file_getter import get_file, unzip_gz
+
 
 __author__ = 'peter'
 

@@ -25,7 +25,7 @@ def test_link_figures():
     figures = get_saved_figure_locs()
     assert len(figures) == 1 and os.path.exists(figures[0]) and figures[0].endswith('testing/test_fig.pdf')
 
-    try:  # Always good to clean up after yourself.
+    try:  # Always good to clean up after yourself.  Your mama isn't going to do it for you.
         shutil.rmtree(test_dir)
     except OSError:
         pass

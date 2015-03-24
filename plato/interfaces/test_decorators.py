@@ -307,15 +307,14 @@ def test_omniscence_on_multiuple_calls():
 
     @symbolic_stateless
     def add_4(number):
-        for i in xrange(4):
+        n_to_add = 4
+        for i in xrange(n_to_add):
             number = add_one(number)
+        return number
 
     @symbolic_stateless
     def add_one(number):
         return number+1
-
-
-
 
 
 if __name__ == '__main__':
