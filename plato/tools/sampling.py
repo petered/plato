@@ -1,9 +1,11 @@
 from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
 import theano
 import numpy as np
+from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
+from theano.tensor.elemwise import TensorVariable
 from theano.tensor.shared_randomstreams import RandomStreams
 from utils.tools.mymath import bernoulli
 
@@ -95,20 +97,34 @@ def sample_categorical(rng, p, axis = -1, values = None):
     :param axis: The axis which we consider to be the distribution (only -1 (last axis)) supported now.
     :param values: The values of the variable.  len(values) must equal p.shape[axis].  If not included, the
         values will be considered to be integers in range(0, p.shape[axis])
-
-    TODO: assert no negative values in p / assert p normalized along axis instead of dividing
-    TODO: assert len(values) == p.shape[axis]
     """
+    # TODO: assert no negative values in p / assert p normalized along axis instead of dividing
+    # TODO: assert len(values) == p.shape[axis]
     assert axis==-1, 'Currenly you can only sample along the last axis.'
     p = p/tt.sum(p, axis = axis, keepdims=True)
-    if isinstance(rng, MRG_RandomStreams):
+    # TODO: Check that differnt RNGs are doing the same thing!
+
+    if isinstance(rng, TensorVariable):
+        # Externally generated random numbers - we receive the maximum number of uniform random numbers
+        # we could need, and then generate samplews from thos.
+        old_p_shape = p.shape
+        random_numbers = rng[:p.size].reshape((p.size, 1))
+        cumulative_prob_mass = tt.cumsum(p.reshape((-1, p.shape[-1])), axis = 1)
+        samples = random_numbers < cumulative_prob_mass
+        samples.reshape(old_p_shape)
+    elif isinstance(rng, MRG_RandomStreams):
         # MRG_RandomStreams is faster but only works for 2-d pvals, so we have to reshape and
         # then unreshape.
         old_p_shape = p.shape
         samples = rng.multinomial(n=1, pvals = p.reshape((-1, p.shape[-1])))
         samples = samples.reshape(old_p_shape)
+    elif isinstance(rng, CURAND_RandomStreams):
+        # TODO: Make this work if possible - problem now is it needs to know shape in advance
+        raise NotImplementedError("Curand doesn't work yet.")
+        cumulative_prob_mass = np.cumsum(p, axis = axis)
+        samples = rng.uniform(size = tt.set_subtensor(p.shape[axis], 1)) > cumulative_prob_mass
     else:
-        samples = rng.multinomial(n=1, pvals = p)
+        samples = tt.switch(tt.eq(p.size, 0), tt.zeros(p.shape), rng.multinomial(n=1, pvals = tt.switch(tt.eq(p.size, 0), 1, p)))
 
     indices = tt.argmax(samples, axis = -1)  # Argmax is just a way to find the location of the only element that is 1.
     if values is not None:

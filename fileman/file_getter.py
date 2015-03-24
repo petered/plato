@@ -1,18 +1,19 @@
 import urllib2
 from StringIO import StringIO
 import gzip
+
+from fileman.local_dir import get_local_path
 import os
+
 __author__ = 'peter'
 
-LOCAL_DIR = os.path.join(os.getenv("HOME"), 'Library', 'Application Support', 'Plato')
 
+def get_file(relative_name, url = None, data_transformation = None):
 
-def get_file(local_name, url = None, data_transformation = None):
+    relative_folder, file_name = os.path.split(relative_name)
+    local_folder = get_local_path(relative_folder)
 
-    relative_folder, file_name = os.path.split(local_name)
-    local_folder = os.path.join(LOCAL_DIR, relative_folder)
-
-    try:  # Best way to see if folder exists already - avoids race condition
+    try:  # Best way to see if folder exists already - avoids race condition between processes
         os.makedirs(local_folder)
     except OSError:
         pass
@@ -35,4 +36,3 @@ def get_file(local_name, url = None, data_transformation = None):
 
 def unzip_gz(data):
     return gzip.GzipFile(fileobj = StringIO(data)).read()
-

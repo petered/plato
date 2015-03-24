@@ -1,8 +1,8 @@
 from datetime import datetime
-import sys
-from general.notebook_utils import get_local_server_dir, make_file_dir
+from fileman.local_dir import get_local_path, make_file_dir
 import os
 from matplotlib import pyplot as plt
+
 
 __author__ = 'peter'
 
@@ -13,7 +13,7 @@ _SAVED_FIGURES = []
 
 
 def get_local_figures_dir(subdir = None):
-    figures_dir = get_local_server_dir(subdir = 'figures')
+    figures_dir = get_local_path('figures')
     if subdir is not None:
         figures_dir = os.path.join(figures_dir, subdir)
     return figures_dir
@@ -90,4 +90,3 @@ def always_save_figures(state = True, **save_and_show_args):
         set_show_callback(lambda fig = None: save_and_show(fig, **save_and_show_args))
     else:
         set_show_callback(None)
-

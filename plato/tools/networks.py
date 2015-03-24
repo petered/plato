@@ -1,6 +1,7 @@
 from collections import namedtuple
 from plato.interfaces.decorators import symbolic_standard, symbolic_stateless, find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
+from plato.tools.tdb_plotting import tdbplot
 from theano.gof.graph import Variable
 import theano.tensor as tt
 import theano
@@ -33,6 +34,7 @@ class MultiLayerPerceptron(IParameterized):
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
+
         self._chain = Chain(*processors)
 
     def __call__(self, x):

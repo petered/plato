@@ -1,5 +1,6 @@
 from general.nested_structures import flatten_struct
-from plotting.db_plotting import dbplot
+from plato.interfaces.decorators import tdb_trace, get_tdb_traces
+from plotting.db_plotting import dbplot, get_dbplot_stream
 from theano.compile.sharedvalue import SharedVariable
 from theano.tensor.var import TensorVariable
 
@@ -9,13 +10,14 @@ __author__ = 'peter'
 Special debug plotter that can handle theano variables.
 """
 
+_UPDATE_CALLBACK_ADDED = False
 
-def tdbplot(data, name, **kwargs):
+
+def tdbplot(var, name, **kwargs):
     """
-    Debug plot, which can handle theano variables (as long as they have test
-    values attached).
+    Debug plot which can handle theano variables.
 
-    :param data: Any data structure containing your data/tensors
+    :param data: A theano variable
     :param name: The name of this plot (make it unique from other instances where
         dbplot is called)
     :param kwargs: Passed down to LivePlot.  Some noteable ones:
@@ -26,9 +28,17 @@ def tdbplot(data, name, **kwargs):
     """
     # TODO: Add test/demo of this, because it's pretty cool
 
-    custom_handlers = {
-        TensorVariable: lambda d: d.tag.test_value if hasattr(d, 'tag') else '<No test value>',
-        SharedVariable: lambda d: d.get_value(),
-    }
+    global _UPDATE_CALLBACK_ADDED
+    if not _UPDATE_CALLBACK_ADDED:
+        callback = lambda: dbplot(get_tdb_traces(), **kwargs)
+        _UPDATE_CALLBACK_ADDED = True
+    else:
+        callback = None
 
-    return dbplot(data, name=name, custom_handlers=custom_handlers, **kwargs)
+    tdb_trace(var, name, callback=callback)
+
+    #
+    #
+    # return dbplot(data, name=name, custom_handlers=custom_handlers, **kwargs)
+    #
+    #

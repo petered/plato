@@ -1,5 +1,5 @@
 import os
-from general.persistent_print import capture_print, read_print
+from fileman.persistent_print import capture_print, read_print
 
 __author__ = 'peter'
 
