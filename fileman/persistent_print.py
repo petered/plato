@@ -30,7 +30,9 @@ def get_local_log_dir(subdir = None):
 
 
 class PrintAndStoreLogger(object):
-    def __init__(self, log_file_path = None, base_dir = get_local_log_dir()):
+    def __init__(self, log_file_path = None, base_dir = get_local_log_dir(), print_to_console = True):
+
+        self._print_to_console = print_to_console
 
         now = datetime.now().isoformat().replace(':', '.').replace('-', '.')
         if log_file_path is not None:
@@ -46,7 +48,8 @@ class PrintAndStoreLogger(object):
         return self._log_file_path
 
     def write(self, message):
-        self.terminal.write(message)
+        if self._print_to_console:
+            self.terminal.write(message)
         self.log.write(message)
         self.log.flush()
 
@@ -64,7 +67,6 @@ class PrintAndStoreLogger(object):
 
 def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log.txt', **print_and_store_kwargs):
     """
-
     :param state:
     :param to_file:
     :param log_file_path:

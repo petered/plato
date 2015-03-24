@@ -58,6 +58,8 @@ def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir 
         plt.interactive(not block)
         _ORIGINAL_SHOW_FCN()  # There's an argument block, but it's not supported for all backends
         plt.interactive(is_interactive)
+    else:
+        plt.close()
 
     return full_figure_loc
 

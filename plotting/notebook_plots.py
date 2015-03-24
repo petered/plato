@@ -17,15 +17,19 @@ def always_link_figures(state = True, **link_and_show_arg):
     set_show_callback(lambda fig = None: link_and_show(fig=fig, **link_and_show_arg) if state else None)
 
 
-def link_and_show(**save_and_show_kwargs):
+def link_and_show(embed = True, **save_and_show_kwargs):
     """
     Use this function to show a plot in IPython Notebook, and provide a link to download the figure.
     See function save_and_show for parameters.
     """
 
     base_dir = get_local_figures_dir()
-    full_figure_loc = save_and_show(print_loc = False, base_dir=base_dir, **save_and_show_kwargs)
+    full_figure_loc = save_and_show(print_loc = False, base_dir=base_dir, show = not embed, **save_and_show_kwargs)
     relative_link = get_relative_link_from_local_path(full_figure_loc)
     figure_folder_loc = get_relative_link_from_relative_path('figures')
+
+    if embed:
+        display(HTML("<iframe src='%s' width=700 height=350></iframe>" % (relative_link, )))
+
     display(HTML("See <a href='%s' target='_blank'>this figure</a>.  See <a href='%s' target='_blank'>all figures</a>"
             % (relative_link, figure_folder_loc)))
