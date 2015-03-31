@@ -42,3 +42,44 @@ def make_file_dir(full_file_path):
         pass
     return full_file_path
 
+
+def format_filename(file_string, current_time = None, base_name = None, rel_dir = None, local__dir = get_local_path(), ext = None, allow_partial_formatting = False):
+    """
+    Return a formatted string with placeholders in the filestring replaced by their provided values.
+    :param file_string: A string, eg '%T-%N'.  The placeholders %T, %N indicate that they should be replaced
+        with the time and the provided name, respectively
+    :param current_time: Current time, as returned by datetime.datetime.now() - the ISO representation of this
+        time will be used to fill the %T placeholder
+    :param base_name: The name to swap in for the %N placeholder
+    :param rel_dir: Optionally, a directory to prepend to the file_string, relative to the local storage folder (if any).
+        This can also contain placeholders
+    :param local__dir: Optionally, the local folder on this machine where you store your data.  This defaults to the
+        directory returned by get_local_path
+    :param ext: Optionally, an extension to append to the filename.
+    :param allow_partial_formatting: If True, the placeholders (%T, %N) are allowed to pass through if no values are
+        specified.  This may be useful if one placeholder is not yet known at the time the rest of the info is specified.
+    :return: The formatted filename.
+    """
+
+
+    if rel_dir is not None:
+        file_string = os.path.join(rel_dir, file_string)
+
+    if local__dir is not None:
+        file_string = os.path.join(local__dir, file_string)
+
+    if ext is not None:
+        file_string += '.'+ext
+
+    if current_time is not None:
+        iso_time = current_time.isoformat().replace(':', '.').replace('-', '.')
+        file_string = file_string.replace('%T', iso_time)
+    elif not allow_partial_formatting:
+        assert '%T' not in file_string
+
+    if base_name is not None:
+        file_string = file_string.replace('%N', base_name)
+    elif not allow_partial_formatting:
+        assert '%N' not in file_string
+
+    return file_string

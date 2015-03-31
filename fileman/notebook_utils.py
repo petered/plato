@@ -1,3 +1,4 @@
+from datetime import datetime
 import sys
 from fileman.local_dir import get_local_path, get_relative_path
 import os
@@ -50,9 +51,11 @@ def get_relative_link_from_relative_path(relative_path):
     true_local_data_dir = get_local_path()
 
     local_path = get_local_path(relative_path)
-
     launcher = 'tree' if os.path.isdir(local_path) else 'files'
 
-    if not os.path.exists(SERVER_RELATIVE_DATA_DIR):
-        os.symlink(SERVER_RELATIVE_DATA_DIR, true_local_data_dir)
+    if not os.path.lexists(SERVER_RELATIVE_DATA_DIR):
+        os.symlink(true_local_data_dir, SERVER_RELATIVE_DATA_DIR)
     return os.path.join('/', launcher, DATA_FOLDER_NAME, relative_path)
+
+
+

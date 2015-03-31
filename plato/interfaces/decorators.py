@@ -697,3 +697,15 @@ def tdb_trace(var, name = None, callback = None):
     _TRACE_VARIABLES[name] = var
     if callback is not None:
         _TRACE_CALLBACKS[name] = callback
+
+
+def set_enable_omniscence(state):
+    """
+    When ENABLE_OMNISCENCE is True, we do some weird things to the profiler to allow us to retrieve
+    internal variables for debugging purposes.  Generally, this is harmless, but it seems that on occasion
+    it can cause an error, so you can disable it if needed here.
+
+    :param state: False to disable omniscence.
+    """
+    global ENABLE_OMNISCENCE
+    ENABLE_OMNISCENCE = state

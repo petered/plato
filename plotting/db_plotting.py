@@ -5,10 +5,12 @@ __author__ = 'peter'
 
 PLOT_DATA = {}
 
+_SPECIFIED_PLOTS = set()
+
 STREAM = None
 
 
-def dbplot(data, name = None, plot_mode = 'static', **kwargs):
+def dbplot(data, name = None, **kwargs):
     """
     Quick plot of some variable - you can call this in a loop and it will know to update the
     same plot.
@@ -22,12 +24,26 @@ def dbplot(data, name = None, plot_mode = 'static', **kwargs):
     # global STREAM
     # if STREAM is None:
     #     STREAM = LiveStream(lambda: PLOT_DATA, plot_mode=plot_mode, **kwargs)
-    stream = get_dbplot_stream(plot_mode = plot_mode, **kwargs)
     if not isinstance(name, str):
         name = str(name)
-    PLOT_DATA[name] = data
-    stream.update()
 
+
+    # TODO: Actually properly allow speciying plot types.
+
+    # if any(k not in _SPECIFIED_PLOTS for k in plot_constructors):
+    #     for k in plot_constructors:
+    #         if k not in _SPECIFIED_PLOTS:
+    #             stream.add_plot_type(k, plot_constructors[k]())
+    #         _SPECIFIED_PLOTS.add(k)
+
+    # PLOT_DATA[name] = data
+    set_plot_data_and_update(name, data, **kwargs)
+
+
+def set_plot_data_and_update(name, data, **kwargs):
+    PLOT_DATA[name] = data
+    stream = get_dbplot_stream(**kwargs)
+    stream.update()
 
 def get_dbplot_stream(**kwargs):
     global STREAM
