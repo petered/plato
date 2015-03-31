@@ -133,7 +133,7 @@ class TextPlot(IPlot):
 
 class HistogramPlot(IPlot):
 
-    def __init__(self, edges, mode = 'density'):
+    def __init__(self, edges, mode = 'mass'):
         assert mode in ('mass', 'density')
         edges = np.array(edges)
         self._edges = edges
@@ -149,7 +149,7 @@ class HistogramPlot(IPlot):
         # Update data
         new_n_points = self._n_points + data.size
         this_hist, _ = np.histogram(data, self._edges)
-        frac = float(data.size)/self._n_points if self._n_points > 0 else 1
+        frac = (float(data.size)/self._n_points) if self._n_points > 0 else 1
         self._binvals += this_hist * frac
         self._binvals /= max(1, np.sum(self._binvals))
         self._n_points = new_n_points
@@ -161,7 +161,8 @@ class HistogramPlot(IPlot):
         else:
             for rect, h in zip(self._plot, heights):
                 rect.set_height(h)
-        self._plot[0].axes.set_ybound(0, np.max(self._binvals))
+        self._plot[0].axes.set_ybound(0, np.max(heights))
+
 
 def get_plot_from_data(data, mode, **plot_preference_kwargs):
 

@@ -1,9 +1,11 @@
+import shutil
+
 import os
-from plotting.saving_plots import always_save_figures, get_saved_figure_locs, get_local_figures_dir, \
+from fileman.saving_plots import always_save_figures, get_saved_figure_locs, get_local_figures_dir, \
     clear_saved_figure_locs
 import matplotlib.pyplot as plt
 import numpy as np
-import shutil
+
 
 __author__ = 'peter'
 

@@ -1,6 +1,4 @@
-import sys
 from abc import abstractmethod
-import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
     tdb_trace, get_tdb_traces
 import pytest

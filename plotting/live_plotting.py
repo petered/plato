@@ -58,7 +58,7 @@ class LiveStream(BaseStream):
     Lets you automatically generate live plots from some arbitrary data structure returned by a callback.
     """
 
-    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', update_every=1, **plot_preference_kwargs):
+    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', plot_types = {}, update_every=1, **plot_preference_kwargs):
         """
         :param callback: Some function that takes no arguments and returns some object.
         :param custom_handlers: A dict<type: function>.  If there's an object of one of the listed types
@@ -73,7 +73,15 @@ class LiveStream(BaseStream):
         self._custom_handlers=custom_handlers
         self._plot_mode = plot_mode
         self._plot_preference_kwargs = plot_preference_kwargs
+        self._plot_types = plot_types
         BaseStream.__init__(self, update_every=update_every)
+
+    def add_plot_type(self, key, plot_type):
+        """
+        You can pre-specify a plot to use for a given key.  The fact that you can add them dynamically is used in
+        dbplot, where the data structure can change dynamically.
+        """
+        self._plot_types[key] = plot_type
 
     def _get_data_structure(self):
         struct = self._callback()
@@ -83,7 +91,8 @@ class LiveStream(BaseStream):
         return OrderedDict(flat_struct)
 
     def _get_plots_from_first_data(self, first_data):
-        return {k: eplt.get_plot_from_data(v, mode = self._plot_mode, **self._plot_preference_kwargs) for k, v in first_data.iteritems()}
+        return {k: eplt.get_plot_from_data(v, mode = self._plot_mode, **self._plot_preference_kwargs)
+            if k not in self._plot_types else self._plot_types[k] for k, v in first_data.iteritems()}
 
 
 LivePlot = namedtuple('PlotBuilder', ['plot', 'cb'])

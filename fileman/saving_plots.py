@@ -1,4 +1,5 @@
 from datetime import datetime
+import pickle
 from fileman.local_dir import get_local_path, make_file_dir
 import os
 from matplotlib import pyplot as plt
@@ -19,7 +20,7 @@ def get_local_figures_dir(subdir = None):
     return figures_dir
 
 
-def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir = get_local_figures_dir(),
+def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = get_local_figures_dir(),
         subdir = 'dump', block = None, print_loc = True, show = True):
     """
     Save and show a figure.
@@ -38,9 +39,12 @@ def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir 
     if fig is None:
         fig = plt.gcf()
 
+    fig_name = fig.get_label() if fig.get_label() is not '' else 'unnamed'
+
     now = datetime.now().isoformat().replace(':', '.').replace('-', '.')
     subdir = subdir.replace('%T', now)
     name = name.replace('%T', now) + '.'+ext
+    name = name.replace('%N', fig_name)
 
     is_interactive = plt.isinteractive()
     if block is None:
@@ -58,6 +62,8 @@ def save_and_show(fig = None, name = '%T-unnamed_figure', ext = 'pdf', base_dir 
         plt.interactive(not block)
         _ORIGINAL_SHOW_FCN()  # There's an argument block, but it's not supported for all backends
         plt.interactive(is_interactive)
+    else:
+        plt.close()
 
     return full_figure_loc
 
@@ -77,7 +83,9 @@ def set_show_callback(cb):
         - A function which is called instead of plt.show()
         - None, which just returns things to the default.
     """
+    _old_show_callback = plt.show
     plt.show = cb if cb is not None else _ORIGINAL_SHOW_FCN
+    return _old_show_callback
 
 
 def always_save_figures(state = True, **save_and_show_args):
@@ -90,3 +98,42 @@ def always_save_figures(state = True, **save_and_show_args):
         set_show_callback(lambda fig = None: save_and_show(fig, **save_and_show_args))
     else:
         set_show_callback(None)
+
+
+_SERIALIZED_FIGURES = []
+
+
+class FigureCollector(object):
+
+    def __init__(self):
+        self._ser_figures = []
+
+    def __call__(self):
+        fig = plt.gcf()
+        self._ser_figures.append(pickle.dumps(fig))
+        plt.close(fig)
+
+    def iter_figures(self):
+        for serfig in self._ser_figures:
+            yield pickle.loads(serfig)
+
+
+def serialize_figure(fig):
+
+    fig_dict = {
+        'label': fig.get_label(),
+        'axes': pickle.dumps(fig.get_axes()),
+        'VERSION': 0
+    }
+    return pickle.dumps(fig_dict)
+
+
+def deserialize_figure(serialized):
+    fig_dict = pickle.loads(serialized)
+    fig = plt.figure(fig_dict['label'])
+    ax = pickle.loads(fig_dict['axes'])
+    for a in ax:
+        # fig.axes.append(a)
+        a.set_figure(fig)
+        fig.add_axes(a)
+    return fig
