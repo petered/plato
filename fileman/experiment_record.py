@@ -77,7 +77,8 @@ class ExperimentRecord(object):
     def end_and_show(self):
         if not self._has_run:
             self.__exit__()
-        display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"))
+        display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
+                     % get_relative_link_from_local_path(self._log_file_path)))
         self.show_figures()
 
 
