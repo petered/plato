@@ -87,6 +87,6 @@ def test_canaling(duration = 10):
 
 if __name__ == '__main__':
 
-    # test_dynamic_rebuild()
+    test_dynamic_rebuild()
     test_streaming(100)
-    # test_canaling(10)
+    test_canaling(10)
