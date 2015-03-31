@@ -1,7 +1,7 @@
 import inspect
 import logging
 from abc import abstractproperty, abstractmethod
-from general.local_capture import execute_and_capture_locals, CaptureLocals, LocalsNotCapturedError
+from general.local_capture import CaptureLocals, LocalsNotCapturedError
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as ts
@@ -703,7 +703,10 @@ def set_enable_omniscence(state):
     """
     When ENABLE_OMNISCENCE is True, we do some weird things to the profiler to allow us to retrieve
     internal variables for debugging purposes.  Generally, this is harmless, but it seems that on occasion
-    it can cause an error, so you can disable it if needed here.
+
+    The error that happens in Theano is an AssertionError in vm.py
+    assert c0 == sys.getrefcount(node_n_inputs)
+    If you get this, just set_enable_omniscence(False).
 
     :param state: False to disable omniscence.
     """

@@ -1,6 +1,4 @@
-import sys
 from abc import abstractmethod
-import time
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
     tdb_trace, get_tdb_traces
 import pytest
@@ -303,13 +301,13 @@ def test_debug_trace():
 
 
 if __name__ == '__main__':
-    # test_debug_trace()
-    # test_method_caching_bug()
+    test_debug_trace()
+    test_method_caching_bug()
     test_omniscence()
-    # test_stateless_decorators()
-    # test_standard_decorators()
-    # test_pure_updater()
-    # test_function_format_checking()
-    # test_callable_format_checking()
-    # test_inhereting_from_decorated()
-    # test_dual_decoration()
+    test_stateless_decorators()
+    test_standard_decorators()
+    test_pure_updater()
+    test_function_format_checking()
+    test_callable_format_checking()
+    test_inhereting_from_decorated()
+    test_dual_decoration()

@@ -21,12 +21,16 @@ class ExperimentRecord(object):
         plot_figures()
 
     exp_1.show_all_figures()
-
     """
     VERSION = 0  # We keep this in case we want to change this class.
 
     def __init__(self, name = 'unnamed', filename = '%T-%N', experiment_dir = 'experiments', print_to_console = False):
-
+        """
+        :param name: Base-name of the experiment
+        :param filename: Format of the filename (placeholders: %T is replaced by time, %N by name)
+        :param experiment_dir: Relative directory (relative to data dir) to save this experiment when it closes
+        :param print_to_console: If True, print statements still go to console - if False, they're just rerouted to file.
+        """
         now = datetime.now()
         self._experiment_file_path = format_filename(filename, base_name=name, current_time = now, rel_dir = experiment_dir, ext = 'exp.pkl')
         self._log_file_path = format_filename('%T-%N', base_name = name, current_time = now, rel_dir = 'logs', ext = 'txt')

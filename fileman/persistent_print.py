@@ -24,6 +24,9 @@ _ORIGINAL_STDERR = sys.stderr
 
 
 class PrintAndStoreLogger(object):
+    """
+    An logger that both prints to stdout and writes to file.
+    """
 
     def __init__(self, log_file_path = None, print_to_console = True):
 
@@ -72,14 +75,15 @@ def get_local_log_dir(subdir = None):
 
 def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', **print_and_store_kwargs):
     """
-    :param state:
-    :param to_file:
-    :param log_file_path:
-    :param print_and_store_kwargs:
-    :return:
+    :param state: True to caputure print, False to not capture print
+    :param to_file: True to print to file
+    :param log_file_path: Path of file to print to, if (state and to_file)
+    :param print_and_store_kwargs: Passed to the PrintAndStoreLogger constructor.
+    :return: The path to the logger.
     """
 
     if state:
+        log_file_path = format_filename(log_file_path, current_time = datetime.now(), local__dir=get_local_log_dir())
         logger = PrintAndStoreLogger(log_file_path=log_file_path, **print_and_store_kwargs)
         if to_file:
             relative_link = get_relative_link_from_local_path(logger.get_log_file_path())
@@ -99,12 +103,10 @@ def new_log_file(log_file_path = 'dump/%T-log.txt', print_to_console = False):
     """
     Just capture-print with different defaults - intended to be called from notebooks where
     you don't want all output printed, but want to be able to see it with a link.
-    :param log_file_path:
-    :param print_to_console:
-    :return:
+    :param log_file_path: Path to the log file - %T is replaced with time
+    :param print_to_console: True to continue printing to console
     """
-    log_file_path = format_filename(log_file_path, current_time = datetime.now()) if to_file else None
-    capture_print(state = True, to_file=True, log_file_path=log_file_path, print_to_console=print_to_console)
+    return capture_print(state = True, to_file=True, log_file_path=log_file_path, print_to_console=print_to_console)
 
 
 def read_print():

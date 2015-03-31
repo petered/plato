@@ -18,11 +18,9 @@ def test_tdb_plotting():
         b = rng.normal((10, 1))
 
         tdbplot(a, 'a', ImagePlot(cmap = 'jet'))
-
         tdbplot(b, 'b', HistogramPlot(edges = np.linspace(-5, 5, 20)))
         c = a+b
         return c
-        # return
 
     f = random_stuff.compile()
 
