@@ -83,7 +83,7 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', 
     """
 
     if state:
-        log_file_path = format_filename(log_file_path, current_time = datetime.now(), local__dir=get_local_log_dir())
+        log_file_path = format_filename(log_file_path, current_time = datetime.now(), local__dir=get_local_log_dir(), ext = 'txt')
         logger = PrintAndStoreLogger(log_file_path=log_file_path, **print_and_store_kwargs)
         if to_file:
             relative_link = get_relative_link_from_local_path(logger.get_log_file_path())
@@ -99,7 +99,7 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', 
         sys.stderr = _ORIGINAL_STDERR
 
 
-def new_log_file(log_file_path = 'dump/%T-log.txt', print_to_console = False):
+def new_log_file(log_file_path = 'dump/%T-log', print_to_console = False):
     """
     Just capture-print with different defaults - intended to be called from notebooks where
     you don't want all output printed, but want to be able to see it with a link.

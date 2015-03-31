@@ -33,18 +33,14 @@ class ExperimentRecord(object):
         """
         now = datetime.now()
         self._experiment_file_path = format_filename(filename, base_name=name, current_time = now, rel_dir = experiment_dir, ext = 'exp.pkl')
-        self._log_file_path = format_filename('%T-%N', base_name = name, current_time = now, rel_dir = 'logs', ext = 'txt')
+        self._log_file_name = format_filename('%T-%N', base_name = name, current_time = now)
         self._has_run = False
         self._print_to_console = print_to_console
 
     def __enter__(self):
         clear_saved_figure_locs()
-
-        # self._logger = PrintAndStoreLogger(log_file_path=self._log_file_path, print_to_console = self._print_to_console)
         plt.ioff()
-        capture_print(True, to_file = True, log_file_path = self._log_file_path, print_to_console = False)
-        # self._figure_collector = FigureCollector()
-
+        self._log_file_path = capture_print(True, to_file = True, log_file_path = self._log_file_name, print_to_console = False)
         always_save_figures(show = False, print_loc = False)
         return self
 

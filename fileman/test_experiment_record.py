@@ -41,7 +41,12 @@ def test_experiment_with():
     assert len(exp_1.get_figure_locs()) == 2
 
 
-def test_experiment_launch():
+def test_start_experiment():
+    """
+    An alternative syntax to the with statement - less tidy but possibly better
+    for notebooks and such because it avoids you having to indent all code in the
+    experiment.
+    """
 
     exp = start_experiment()
     _run_experiment()
@@ -51,4 +56,4 @@ def test_experiment_launch():
 
 if __name__ == '__main__':
     test_experiment_with()
-    test_experiment_launch()
+    test_start_experiment()

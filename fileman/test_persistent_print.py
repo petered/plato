@@ -24,7 +24,7 @@ def test_persistent_print():
 def test_new_log_file():
     # Just a shorthand for persistent print.
 
-    log_file_loc = new_log_file('dump/test_file.txt')
+    log_file_loc = new_log_file('dump/test_file')
     print 'eee'
     print 'fff'
     capture_print(False)
