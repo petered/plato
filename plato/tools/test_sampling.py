@@ -99,10 +99,16 @@ def test_compute_hypothetical_vs():
 
 
 def test_get_p_w_given():
-    d = _get_test_data()
+    d = _get_test_data(possible_ws=(0, 1))
     p_w_alpha_w1 = get_p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws, boolean_ws = True))(d.x, d.w, d.y)
-    assert p_w_alpha_w1.shape == (d.n_alpha,) and np.all(0 <= p_w_alpha_w1) and np.all(p_w_alpha_w1 <= 1)
-    # TODO: Better test
+    assert p_w_alpha_w1.shape == (d.n_alpha,)
+    assert np.all(0 <= p_w_alpha_w1) and np.all(p_w_alpha_w1 <= 1)
+
+    p_w_alpha_wk = get_p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
+    assert p_w_alpha_wk.shape == (d.n_alpha, 2)
+    assert np.allclose(p_w_alpha_wk[:, 1], p_w_alpha_w1)
+
+    # TODO: Test that it's actually computing the right thing, as this code is complicated and important
 
 
 if __name__ == '__main__':

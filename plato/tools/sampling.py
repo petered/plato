@@ -1,5 +1,6 @@
 import numpy as np
 from plato.interfaces.decorators import symbolic_stateless
+from plato.tools.basic import softmax
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
@@ -25,7 +26,7 @@ def sample_categorical(rng, p, axis = -1, values = None):
     """
     # TODO: assert no negative values in p / assert p normalized along axis instead of dividing
     # TODO: assert len(values) == p.shape[axis]
-    assert axis==-1, 'Currenly you can only sample along the last axis.'
+    assert axis == -1, 'Currenly you can only sample along the last axis.'
     p = p/tt.sum(p, axis = axis, keepdims=True)
     # TODO: Check that differnt RNGs are doing the same thing!
 
@@ -56,6 +57,7 @@ def sample_categorical(rng, p, axis = -1, values = None):
         return values[indices]
     return indices
 
+
 @symbolic_stateless
 def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_prior = None):
     """
@@ -80,25 +82,21 @@ def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_pri
         If boolean_ws is False, the shape is (n_alpha, len(possible_ws))
     """
     if boolean_ws: assert len(possible_ws) == 2, 'Come on.'
-
     if w_prior is None:
         w_prior = np.ones(len(possible_ws))/len(possible_ws)
     else:
         assert len(w_prior) == len(possible_ws)
-
     v_alpha_wk = compute_hypothetical_vs(x, w, alpha, possible_ws=possible_ws)  # (nS, n_alpha, n_possible_ws)
-
     alpha_rows, alpha_cols = alpha
-
+    y_alpha = y[:, alpha_cols]
+    log_likelihood = tt.sum(tt.log(bernoulli(y_alpha[:, :, None], tt.nnet.sigmoid(v_alpha_wk))), axis = 0) + tt.log(w_prior)  # (n_alpha, n_possible_ws)
     if boolean_ws:
-        y_alpha = y[:, alpha_cols]
         # Note: Possibly reformulating this would let theano do the log-sigmoid optimization.  Would be good to check.
-        log_likelihood_w0 = tt.log(bernoulli(y_alpha, tt.nnet.sigmoid(v_alpha_wk[:, :, 0]))) + tt.log(w_prior[0])  # (nS, n_alpha)
-        log_likekihood_w1 = tt.log(bernoulli(y_alpha, tt.nnet.sigmoid(v_alpha_wk[:, :, 1]))) + tt.log(w_prior[1])  # (nS, n_alpha)
-        p_w_alpha_w1 = tt.nnet.sigmoid(tt.sum(log_likekihood_w1 - log_likelihood_w0, axis = 0))  # (n_alpha, )
+        p_w_alpha_w1 = tt.nnet.sigmoid(log_likelihood[:, 1] - log_likelihood[:, 0])  # (n_alpha, )
         return p_w_alpha_w1
     else:
-        raise NotImplementedError('Need to implement for categorical')
+        p_w_alpha_wk = softmax(log_likelihood, axis = 1)
+        return p_w_alpha_wk
 
 
 @symbolic_stateless
