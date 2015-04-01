@@ -7,8 +7,6 @@ __author__ = 'peter'
 
 class IPredictor(object):
 
-    __metaclass__ == ABCMeta
-
     @abstractmethod
     def train(self, input_data, target_data):
         """
