@@ -271,8 +271,10 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
         # TODO: Need to check inputs only if trying to compile as a theano function.
-        # self._assert_all_tensors(args, 'Arguments')
-        # self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # Previously we checked with the following lines that all inputs were symbolic:
+        #   self._assert_all_tensors(args, 'Arguments')
+        #   self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # ... But we've lifted that constraint - sometimes you want inputs defined at compile time.
         pass
 
     def _check_outputs(self, out):
@@ -294,12 +296,7 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
 class SymbolicUpdateFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        """
-        Currently no requirements on the inputs, since we often feed parameters/variables
-        """
         pass
-        # self._assert_all_tensors(args, 'Arguments')
-        # self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
 
     def _check_outputs(self, out):
         self._assert_all_updates(out)
@@ -321,8 +318,7 @@ class SymbolicUpdateFunction(BaseSymbolicFunction):
 class SymbolicStandardFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        pass
 
     def _check_outputs(self, out):
         self._assert_standard_return(out)
@@ -459,11 +455,6 @@ class AutoCompilingFunction(object):
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
         returns the result, in numpy arrays.
         """
-
-        # We can re-add the following if we introduce kwargs.
-        # assert not any(k in self._fixed_args for k in kwargs), \
-        #     'You compiled this function with fixed args %s, but then provided %s when calling it.   Once you provide an arg as fixed, you cannot change it.' \
-        #     % (self._fixed_args.values(), kwargs.values())
 
         if self._compiled_fcn is None:
 
