@@ -1,7 +1,5 @@
-from plato.tools.old_sampling import simple_binary_gibbs_regressor, simple_herded_binary_gibbs_regressor, \
-    OldGibbsRegressor
-from utils.datasets.synthetic_logistic import get_logistic_regression_data
-from plato.tools.sampling import GibbsRegressor, HerdedGibbsRegressor
+from plato.tools.sampling import compute_hypothetical_vs, get_p_w_given
+from utils.tools.mymath import sigm
 
 __author__ = 'peter'
 import numpy as np
@@ -47,38 +45,68 @@ def test_correctness_of_weight_shortcut():
     assert np.allclose(super_compact_results, obv_results)
 
 
-def test_samplers_not_broken():
+def dumb_compute_hypothetical_vs(x, w, alpha, (w0, w1)):
+    # The obvious, wasteful way
+
+    assert len(alpha) == 2 and len(alpha[0]) == len(alpha[1])
+    n_alpha = len(alpha[0])
+
+    obv_results = np.empty((x.shape[0], n_alpha, 2))
+    for a, (ai, aj) in enumerate(zip(*alpha)):
+        w_temp = w.copy()
+        w_temp[ai, aj] = w0
+        v_w0 = x.dot(w_temp)[:, aj]
+        w_temp[ai, aj] = w1
+        v_w1 = x.dot(w_temp)[:, aj]
+        obv_results[:, a, 0] = v_w0
+        obv_results[:, a, 1] = v_w1
+    return obv_results
+
+
+class Container(object):
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
+
+
+def _get_test_data(n_samples=10, n_input_dims=20, n_output_dims=5, n_alpha=25, possible_ws = (0, 1), seed = None):
     """
-    Just test that samplers don't break.  This doesn't assert that they actually work as
-    they're meant to.  It's like testing that the car starts - it still may be a bad car,
-    but at least it starts.
+    :return: Random test data
+        x: An (n_samples, n_input_dims) matrix
+        w: An (n_input_dims, n_output_dims) matrix with values in possible_ws
+        alpha: A set of random indices (with replacement) of w
+        possible_ws: The set of possible values of w.
+    """
+    rng = np.random.RandomState(seed)
+    alpha = (rng.choice(n_input_dims, size = n_alpha), rng.choice(n_output_dims, size = n_alpha))
+    x = rng.randn(n_samples, n_input_dims)
+    w = rng.choice(possible_ws, size = (n_input_dims, n_output_dims))
+    y = rng.choice((0, 1), size = (n_samples, n_output_dims))
+    return Container(**locals())
+
+
+def test_compute_hypothetical_vs():
     """
 
-    n_samples = 30
-    n_dims = 20
+    :return:
+    """
+    d = _get_test_data(seed = 45)
+    x, w, alpha, possible_ws = d.x, d.w, d.alpha, d.possible_ws
+    # Note - assert fails with some seeds when floatX = float32
+    obv_results = dumb_compute_hypothetical_vs(x, w, alpha, possible_ws)
+    efficient_results = compute_hypothetical_vs.compile(fixed_args = dict(alpha=alpha, possible_ws=possible_ws))(x, w)
+    assert np.allclose(obv_results, efficient_results)
 
-    x_tr, y_tr, _, _, _ = get_logistic_regression_data(n_dims = n_dims,
-        n_training=n_samples, n_test=15, noise_factor = 0.1)
 
-    samplers = {
-        'gibbs': GibbsRegressor(n_dim_in=n_dims, n_dim_out=1, n_alpha=3, possible_ws = [-1, 0, 1]),
-        'herded-gibbs': HerdedGibbsRegressor(n_dim_in=n_dims, n_dim_out=1, n_alpha=3, possible_ws = [-1, 0, 1]),
-        'simple-gibbs': simple_binary_gibbs_regressor(n_dim_in=n_dims, n_dim_out=1),
-        'simple-herded-gibbs': simple_herded_binary_gibbs_regressor(n_dim_in=n_dims, n_dim_out=1),
-        'old-gibbs': OldGibbsRegressor(n_dim_in=n_dims, n_dim_out=1)
-        }
-
-    for name, sampler in samplers.iteritems():
-        print 'Running Test for Sampler %s' % name
-        sampling_fcn = sampler.predict.compile()
-        update_fcn = sampler.train.compile()
-        for _ in xrange(2):
-            out = sampling_fcn(x_tr)
-            assert out.shape == (n_samples, 1)
-            update_fcn(x_tr, y_tr)
+def test_get_p_w_given():
+    d = _get_test_data()
+    p_w_alpha_w1 = get_p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws, boolean_ws = True))(d.x, d.w, d.y)
+    assert p_w_alpha_w1.shape == (d.n_alpha,) and np.all(0 <= p_w_alpha_w1) and np.all(p_w_alpha_w1 <= 1)
+    # TODO: Better test
 
 
 if __name__ == '__main__':
 
-    test_samplers_not_broken()
+    test_get_p_w_given()
+    test_compute_hypothetical_vs()
     test_correctness_of_weight_shortcut()

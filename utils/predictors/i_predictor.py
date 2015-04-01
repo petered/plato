@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from utils.tools.processors import OneHotEncoding
 import numpy as np
 
@@ -6,6 +6,8 @@ __author__ = 'peter'
 
 
 class IPredictor(object):
+
+    __metaclass__ == ABCMeta
 
     @abstractmethod
     def train(self, input_data, target_data):
