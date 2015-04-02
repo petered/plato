@@ -58,8 +58,10 @@ def sample_categorical(rng, p, axis = -1, values = None):
     return indices
 
 
+bernoulli_likelihood = lambda k, p: tt.switch(k, p, 1-p)  # or (p**k)*((1-p)**(1-k))
+
 @symbolic_stateless
-def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_prior = None):
+def get_p_w_given(x, w, y, alpha=None, possible_ws = (0, 1), boolean_ws = True, w_prior = None, input2prob = tt.nnet.sigmoid):
     """
     We have the following situation:
     y ~ Bernoulli(sigm(x.dot(w)))
@@ -77,7 +79,7 @@ def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_pri
     :param possible_ws: Possible states of w.
     :param boolean_ws: True if you want to treat your weights as Bernoulli variables.  False if, in the more general
         case, you want to treat them as categorical variables.   This affects the shape of the output.
-    :return: An array of probabilities of w[alpha] taking on each value.  It's shape depends on boolean_ws:
+    :return: An array of probabilities of w[alpha] taking on each value.  Its shape depends on boolean_ws:
         If boolean_ws is True, the shape is (n_alpha, )
         If boolean_ws is False, the shape is (n_alpha, len(possible_ws))
     """
@@ -86,10 +88,10 @@ def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_pri
         w_prior = np.ones(len(possible_ws))/len(possible_ws)
     else:
         assert len(w_prior) == len(possible_ws)
+
     v_alpha_wk = compute_hypothetical_vs(x, w, alpha, possible_ws=possible_ws)  # (nS, n_alpha, n_possible_ws)
-    alpha_rows, alpha_cols = alpha
-    y_alpha = y[:, alpha_cols]
-    log_likelihood = tt.sum(tt.log(bernoulli(y_alpha[:, :, None], tt.nnet.sigmoid(v_alpha_wk))), axis = 0) + tt.log(w_prior)  # (n_alpha, n_possible_ws)
+    y_alpha = y[:, alpha[1]] if alpha is not None else y[:, tt.arange(w.size) % y.shape[1]]
+    log_likelihood = tt.sum(tt.log(bernoulli_likelihood(y_alpha[:, :, None], input2prob(v_alpha_wk))), axis = 0) + tt.log(w_prior)  # (n_alpha, n_possible_ws)
     if boolean_ws:
         # Note: Possibly reformulating this would let theano do the log-sigmoid optimization.  Would be good to check.
         p_w_alpha_w1 = tt.nnet.sigmoid(log_likelihood[:, 1] - log_likelihood[:, 0])  # (n_alpha, )
@@ -100,7 +102,7 @@ def get_p_w_given(x, w, y, alpha, possible_ws = (0, 1), boolean_ws = True, w_pri
 
 
 @symbolic_stateless
-def compute_hypothetical_vs(x, w, alpha, possible_ws = (0, 1)):
+def compute_hypothetical_vs(x, w, alpha=None, possible_ws = (0, 1)):
     """
     We have v = x.dot(w)
     Where w can take on a discrete set of states.  We want to ask:
@@ -113,12 +115,16 @@ def compute_hypothetical_vs(x, w, alpha, possible_ws = (0, 1)):
     :return: v_alpha_wk: An array of shape (nS, n_alpha, len(possible_ws)) of "would be" values of v[j] - that is, the
         value v_alpha_wk[s, j, k] is what v[s, alpha[j]] WOULD be if we changed w[alpha_rows[j],alpha_cols[j]] to possible_ws[k]
     """
-    alpha_rows, alpha_cols = alpha
     v_current = x.dot(w)  # (nS, nY)
     # Each potential change in w changes a column in v_current.  Lets get the set of vs that are affected by each
     # selected weight w[alpha]
-    v_current_alpha = v_current[:, alpha_cols]  # (nS, n_alpha)
-    x_alpha = x[:, alpha_rows]  # (n_S, n_alpha)
-    v_alpha_0 = v_current_alpha - x_alpha * w[alpha]  # (nS, n_alpha) - What v would be if the input x for each alpha were set to zero.
-    v_alpha_wk = v_alpha_0[:, :, None] + x_alpha[:, :, None] * possible_ws  # (nS, n_alpha, n_possible_ws) - What v would be if the input x for each alpha were set to each possible value of w.
+    if alpha is not None:
+        alpha_rows, alpha_cols = alpha
+        v_current_alpha = v_current[:, alpha_cols]  # (nS, n_alpha)
+        x_alpha = x[:, alpha_rows]  # (n_S, n_alpha)
+        v_alpha_0 = v_current_alpha - x_alpha * w[alpha]  # (nS, n_alpha) - What v would be if the input x for each alpha were set to zero.
+        v_alpha_wk = v_alpha_0[:, :, None] + x_alpha[:, :, None] * possible_ws  # (nS, n_alpha, n_possible_ws) - What v would be if the input x for each alpha were set to each possible value of w.
+    else:
+        v_alpha_0 = v_current[:, None, :] - x[:, :, None] * w[None, :, :]  # (nS, nX, nY): Current with each weight zeroed
+        v_alpha_wk = (v_alpha_0[:, :, :, None] + x[:, :, None, None] * possible_ws).reshape((x.shape[0], -1, len(possible_ws)))  # (nS, w.size, n_possible_ws)
     return v_alpha_wk  # (nS, n_alpha, n_possible_ws)

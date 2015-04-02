@@ -78,12 +78,17 @@ def _get_test_data(n_samples=10, n_input_dims=20, n_output_dims=5, n_alpha=25, p
         possible_ws: The set of possible values of w.
     """
     rng = np.random.RandomState(seed)
-    alpha = (rng.choice(n_input_dims, size = n_alpha), rng.choice(n_output_dims, size = n_alpha))
     x = rng.randn(n_samples, n_input_dims)
     w = rng.choice(possible_ws, size = (n_input_dims, n_output_dims))
     y = rng.choice((0, 1), size = (n_samples, n_output_dims))
+    alpha = (rng.choice(n_input_dims, size = n_alpha), rng.choice(n_output_dims, size = n_alpha))
     return Container(**locals())
 
+
+def _get_full_alpha(n_input_dims, n_output_dims):
+    flat_ix = np.arange(n_input_dims*n_output_dims)
+    alpha = (flat_ix/n_output_dims, flat_ix % n_output_dims)
+    return alpha
 
 def test_compute_hypothetical_vs():
     """
@@ -91,11 +96,18 @@ def test_compute_hypothetical_vs():
     :return:
     """
     d = _get_test_data(seed = 45)
-    x, w, alpha, possible_ws = d.x, d.w, d.alpha, d.possible_ws
     # Note - assert fails with some seeds when floatX = float32
-    obv_results = dumb_compute_hypothetical_vs(x, w, alpha, possible_ws)
-    efficient_results = compute_hypothetical_vs.compile(fixed_args = dict(alpha=alpha, possible_ws=possible_ws))(x, w)
+    obv_results = dumb_compute_hypothetical_vs(d.x, d.w, d.alpha, d.possible_ws)
+    efficient_results = compute_hypothetical_vs.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws))(d.x, d.w)
     assert np.allclose(obv_results, efficient_results)
+
+    # Test that it works with alpha = None
+    d1 = _get_test_data(seed = 45)
+    res1 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=None, possible_ws=d1.possible_ws))(d1.x, d1.w)
+    d2 = _get_test_data(seed = 45)
+    full_alpha = _get_full_alpha(d1.n_input_dims, d1.n_output_dims)
+    res2 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=full_alpha, possible_ws=d1.possible_ws))(d2.x, d2.w)
+    assert np.array_equal(res1, res2)
 
 
 def test_get_p_w_given():
@@ -108,6 +120,10 @@ def test_get_p_w_given():
     assert p_w_alpha_wk.shape == (d.n_alpha, 2)
     assert np.allclose(p_w_alpha_wk[:, 1], p_w_alpha_w1)
 
+    full_alpha = _get_full_alpha(d.n_input_dims, d.n_output_dims)
+    p1 = get_p_w_given.compile(fixed_args = dict(alpha=full_alpha, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
+    p2 = get_p_w_given.compile(fixed_args = dict(alpha=None, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
+    assert np.array_equal(p1, p2)
     # TODO: Test that it's actually computing the right thing, as this code is complicated and important
 
 
