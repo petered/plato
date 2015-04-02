@@ -1,4 +1,4 @@
-from plato.tools.sampling import compute_hypothetical_vs, get_p_w_given
+from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given
 from utils.tools.mymath import sigm
 
 __author__ = 'peter'
@@ -91,44 +91,49 @@ def _get_full_alpha(n_input_dims, n_output_dims):
     return alpha
 
 def test_compute_hypothetical_vs():
-    """
-
-    :return:
-    """
     d = _get_test_data(seed = 45)
     # Note - assert fails with some seeds when floatX = float32
     obv_results = dumb_compute_hypothetical_vs(d.x, d.w, d.alpha, d.possible_ws)
-    efficient_results = compute_hypothetical_vs.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws))(d.x, d.w)
+    efficient_results = compute_hypothetical_vs.compile(fixed_args = dict(alpha=d.alpha, possible_vals=d.possible_ws))(d.x, d.w)
     assert np.allclose(obv_results, efficient_results)
 
     # Test that it works with alpha = None
     d1 = _get_test_data(seed = 45)
-    res1 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=None, possible_ws=d1.possible_ws))(d1.x, d1.w)
+    res1 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=None, possible_vals=d1.possible_ws))(d1.x, d1.w)
     d2 = _get_test_data(seed = 45)
     full_alpha = _get_full_alpha(d1.n_input_dims, d1.n_output_dims)
-    res2 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=full_alpha, possible_ws=d1.possible_ws))(d2.x, d2.w)
+    res2 = compute_hypothetical_vs.compile(fixed_args = dict(alpha=full_alpha, possible_vals=d1.possible_ws))(d2.x, d2.w)
     assert np.array_equal(res1, res2)
 
 
-def test_get_p_w_given():
+def test_p_w_given():
     d = _get_test_data(possible_ws=(0, 1))
-    p_w_alpha_w1 = get_p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws, boolean_ws = True))(d.x, d.w, d.y)
+    p_w_alpha_w1 = p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_vals=d.possible_ws, binary = True))(d.x, d.w, d.y)
     assert p_w_alpha_w1.shape == (d.n_alpha,)
     assert np.all(0 <= p_w_alpha_w1) and np.all(p_w_alpha_w1 <= 1)
 
-    p_w_alpha_wk = get_p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
+    p_w_alpha_wk = p_w_given.compile(fixed_args = dict(alpha=d.alpha, possible_vals=d.possible_ws, binary = False))(d.x, d.w, d.y)
     assert p_w_alpha_wk.shape == (d.n_alpha, 2)
     assert np.allclose(p_w_alpha_wk[:, 1], p_w_alpha_w1)
 
     full_alpha = _get_full_alpha(d.n_input_dims, d.n_output_dims)
-    p1 = get_p_w_given.compile(fixed_args = dict(alpha=full_alpha, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
-    p2 = get_p_w_given.compile(fixed_args = dict(alpha=None, possible_ws=d.possible_ws, boolean_ws = False))(d.x, d.w, d.y)
+    p1 = p_w_given.compile(fixed_args = dict(alpha=full_alpha, possible_vals=d.possible_ws, binary = False))(d.x, d.w, d.y)
+    p2 = p_w_given.compile(fixed_args = dict(alpha=None, possible_vals=d.possible_ws, binary = False))(d.x, d.w, d.y)
     assert np.array_equal(p1, p2)
     # TODO: Test that it's actually computing the right thing, as this code is complicated and important
 
 
+def test_p_x_given():
+
+    d = _get_test_data()
+    p_x_alpha_xk = p_x_given.compile(fixed_args = dict(alpha=None, possible_vals=d.possible_ws, binary = True))(d.x, d.w, d.y)
+    assert p_x_alpha_xk.shape == (d.n_samples*d.n_input_dims, )
+    assert np.all(0 <= p_x_alpha_xk) and np.all(p_x_alpha_xk <= 1)
+
+
 if __name__ == '__main__':
 
-    test_get_p_w_given()
+    test_p_x_given()
+    test_p_w_given()
     test_compute_hypothetical_vs()
     test_correctness_of_weight_shortcut()

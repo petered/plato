@@ -60,8 +60,30 @@ def sample_categorical(rng, p, axis = -1, values = None):
 
 bernoulli_likelihood = lambda k, p: tt.switch(k, p, 1-p)  # or (p**k)*((1-p)**(1-k))
 
+
+
 @symbolic_stateless
-def get_p_w_given(x, w, y, alpha=None, possible_ws = (0, 1), boolean_ws = True, w_prior = None, input2prob = tt.nnet.sigmoid):
+def p_x_given(x, w, y, **p_w_given_kwargs):
+    """
+    Note that we can just switch around x and w if we want to sample x's.
+
+    If we swap the shapes in p_w_given:
+    x -> w.T (nY, nX)
+    w -> x.T (nX, nS)
+    y -> y.T (nY, nS)
+
+    A point (i, j) in alpha now indicates input-dimension-i, sample-j
+
+    We now interpret the result as an array of probabilities of x[alpha] taking on each value.
+    """
+
+    p_x = p_w_given(x=w.T, w=x.T, y=y.T, **p_w_given_kwargs)
+    return p_x  # (n_alpha, n_possible_ws) or (n_alpha, ) for boolean_ws
+
+
+
+@symbolic_stateless
+def p_w_given(x, w, y, alpha=None, possible_vals = (0, 1), binary = True, prior = None, input2prob = tt.nnet.sigmoid):
     """
     We have the following situation:
     y ~ Bernoulli(sigm(x.dot(w)))
@@ -76,23 +98,23 @@ def get_p_w_given(x, w, y, alpha=None, possible_ws = (0, 1), boolean_ws = True, 
     :param x: A shape (nS, nX) tensor
     :param y: A shape (nS, nY) tensor
     :param alpha: Some indices that we will use to reference the elements of w that we want to modify.
-    :param possible_ws: Possible states of w.
-    :param boolean_ws: True if you want to treat your weights as Bernoulli variables.  False if, in the more general
+    :param possible_vals: Possible states of w.
+    :param binary: True if you want to treat your weights as Bernoulli variables.  False if, in the more general
         case, you want to treat them as categorical variables.   This affects the shape of the output.
     :return: An array of probabilities of w[alpha] taking on each value.  Its shape depends on boolean_ws:
         If boolean_ws is True, the shape is (n_alpha, )
         If boolean_ws is False, the shape is (n_alpha, len(possible_ws))
     """
-    if boolean_ws: assert len(possible_ws) == 2, 'Come on.'
-    if w_prior is None:
-        w_prior = np.ones(len(possible_ws))/len(possible_ws)
+    if binary: assert len(possible_vals) == 2, 'Come on.'
+    if prior is None:
+        prior = np.ones(len(possible_vals))/len(possible_vals)
     else:
-        assert len(w_prior) == len(possible_ws)
+        assert len(prior) == len(possible_vals)
 
-    v_alpha_wk = compute_hypothetical_vs(x, w, alpha, possible_ws=possible_ws)  # (nS, n_alpha, n_possible_ws)
+    v_alpha_wk = compute_hypothetical_vs(x, w, alpha, possible_vals=possible_vals)  # (nS, n_alpha, n_possible_ws)
     y_alpha = y[:, alpha[1]] if alpha is not None else y[:, tt.arange(w.size) % y.shape[1]]
-    log_likelihood = tt.sum(tt.log(bernoulli_likelihood(y_alpha[:, :, None], input2prob(v_alpha_wk))), axis = 0) + tt.log(w_prior)  # (n_alpha, n_possible_ws)
-    if boolean_ws:
+    log_likelihood = tt.sum(tt.log(bernoulli_likelihood(y_alpha[:, :, None], input2prob(v_alpha_wk))), axis = 0) + tt.log(prior)  # (n_alpha, n_possible_ws)
+    if binary:
         # Note: Possibly reformulating this would let theano do the log-sigmoid optimization.  Would be good to check.
         p_w_alpha_w1 = tt.nnet.sigmoid(log_likelihood[:, 1] - log_likelihood[:, 0])  # (n_alpha, )
         return p_w_alpha_w1
@@ -102,7 +124,7 @@ def get_p_w_given(x, w, y, alpha=None, possible_ws = (0, 1), boolean_ws = True, 
 
 
 @symbolic_stateless
-def compute_hypothetical_vs(x, w, alpha=None, possible_ws = (0, 1)):
+def compute_hypothetical_vs(x, w, alpha=None, possible_vals = (0, 1)):
     """
     We have v = x.dot(w)
     Where w can take on a discrete set of states.  We want to ask:
@@ -123,8 +145,14 @@ def compute_hypothetical_vs(x, w, alpha=None, possible_ws = (0, 1)):
         v_current_alpha = v_current[:, alpha_cols]  # (nS, n_alpha)
         x_alpha = x[:, alpha_rows]  # (n_S, n_alpha)
         v_alpha_0 = v_current_alpha - x_alpha * w[alpha]  # (nS, n_alpha) - What v would be if the input x for each alpha were set to zero.
-        v_alpha_wk = v_alpha_0[:, :, None] + x_alpha[:, :, None] * possible_ws  # (nS, n_alpha, n_possible_ws) - What v would be if the input x for each alpha were set to each possible value of w.
+        v_alpha_wk = v_alpha_0[:, :, None] + x_alpha[:, :, None] * possible_vals  # (nS, n_alpha, n_possible_ws) - What v would be if the input x for each alpha were set to each possible value of w.
     else:
         v_alpha_0 = v_current[:, None, :] - x[:, :, None] * w[None, :, :]  # (nS, nX, nY): Current with each weight zeroed
-        v_alpha_wk = (v_alpha_0[:, :, :, None] + x[:, :, None, None] * possible_ws).reshape((x.shape[0], -1, len(possible_ws)))  # (nS, w.size, n_possible_ws)
+        v_alpha_wk = (v_alpha_0[:, :, :, None] + x[:, :, None, None] * possible_vals).reshape((x.shape[0], -1, len(possible_vals)))  # (nS, w.size, n_possible_ws)
     return v_alpha_wk  # (nS, n_alpha, n_possible_ws)
+
+
+def gibbs_sample(p_wa, rng):
+    return rng.choice(p_wa)
+
+
