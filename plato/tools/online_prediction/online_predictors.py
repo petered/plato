@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, symbolic_updater
+from plato.interfaces.interfaces import IParameterized
 from utils.predictors.i_predictor import IPredictor
 
 __author__ = 'peter'
@@ -41,7 +42,7 @@ class ISymbolicPredictor(object):
         return CompiledSymbolicPredictor(self, **kwargs)
 
 
-class GradientBasedPredictor(ISymbolicPredictor):
+class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
     def __init__(self, function, cost_function, optimizer):
         """
@@ -62,6 +63,11 @@ class GradientBasedPredictor(ISymbolicPredictor):
         cost = self._cost_function(self._function(inputs), labels)
         updates = self._optimizer(cost = cost, parameters = self._function.parameters)
         return updates
+
+    @property
+    def parameters(self):
+        opt_params = self._optimizer.parameters if isinstance(self._optimizer, IParameterized) else []
+        return self._function.parameters + opt_params
 
 
 class CompiledSymbolicPredictor(IPredictor):
