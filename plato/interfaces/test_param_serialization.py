@@ -33,13 +33,14 @@ This file shows some approaches to serializing predictors.  There are 3 ways to 
       with unpicklable fields like lambda functions.
     - When moving stuff, you have to leave behind "dummy" classes if you want to reload old pickles that
       were based on those classes.
-3) Pickle in standardized format (not shown) have some standardized format in which to save e.g. and MLP.  And convert
+3) Pickle in standardized format (not shown) have some standardized format in which to save e.g. an MLP.  And convert
    your object to this format (so that it only has native numpy/python objects in it)
     Pros:
-    - Your serialized object is state-independent
+    - Your serialized object is code-independent (no PicklingErrors, other people using different code can use it, if
+      they make the mapping function from their MLP to the format and back.
     - You can instantiate a new object from file
     Cons:
-    - You have to maintain the conversion of your object to the standard format.
+    - You have to maintain the mapping of your object to the standard format and back.
 """
 
 
