@@ -70,7 +70,7 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
         return self._function.parameters + opt_params
 
 
-class CompiledSymbolicPredictor(IPredictor):
+class CompiledSymbolicPredictor(IPredictor, IParameterized):
     """
     A Predictor containing the compiled methods for a SymbolicPredictor.
     """
@@ -78,9 +78,14 @@ class CompiledSymbolicPredictor(IPredictor):
     def __init__(self, symbolic_predictor, **kwargs):
         self.train_function = symbolic_predictor.train.compile(**kwargs)
         self.predict_function = symbolic_predictor.predict.compile(**kwargs)
+        self._params = symbolic_predictor.parameters
 
     def train(self, input_data, target_data):
         self.train_function(input_data, target_data)
 
     def predict(self, input_data):
         return self.predict_function(input_data)
+
+    @property
+    def parameters(self):
+        return self._params
