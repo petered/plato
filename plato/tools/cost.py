@@ -65,3 +65,8 @@ def mean_squared_error(actual, target):
 @symbolic_stateless
 def percent_correct(actual, target):
     return tt.mean(tt.eq(tt.argmax(actual, axis=1), target), axis = 0) * 100
+
+
+@symbolic_stateless
+def mean_xe(actual, target):
+    return tt.nnet.binary_crossentropy(actual, target).mean()

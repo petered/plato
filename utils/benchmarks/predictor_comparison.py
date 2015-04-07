@@ -2,6 +2,7 @@ from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import evaluate_predictor, get_evaluation_function
 from collections import OrderedDict
+from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import sqrtspace
 import numpy as np
 from utils.tools.processors import RunningAverage
@@ -135,6 +136,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :return: LearningCurveData containing the score on the test sets
     """
+
+    assert isinstance(predictor, IPredictor), 'You must pass in an object implementing the IPredictor inferface.  %s does not.' % (predictor, )
 
     record = LearningCurveData()
 
