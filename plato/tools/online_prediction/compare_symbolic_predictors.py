@@ -10,8 +10,7 @@ class CompareOnlinePredictors(object):
     evaluation is done in one compiled function.  However, it only works with theano-based predictors, and probably
     doesn't speed things up that much, it may become depricated.
 
-    DEPRECATED - will be deleted!
-    Use utils.benchmarks.predictor_comparison.compare_predictors instead.
+    TODO: Refactor to be more like compare_predictors
     """
 
     def __init__(self, dataset, classifier_constructors, minibatch_size, test_points, evaluation_function):

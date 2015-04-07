@@ -75,13 +75,6 @@ class SqrtScale(ScaleBase):
         """
         return SqrtTransform()
 
-    # def limit_range_for_scale(self, vmin, vmax, minpos):
-    #     """
-    #     Copied from LogScale.limit_range_for_scale
-    #     """
-    #     return (vmin <= 0.0 and minpos or vmin,
-    #             vmax <= 0.0 and minpos or vmax)
-
     def set_default_locators_and_formatters(self, axis):
         """
         Just took the code from LinearScale.set_default_locators_and_formatters
