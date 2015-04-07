@@ -1,4 +1,3 @@
-from argmaxlab.herding_experiments.demo_gibbs_regression import GibbsSampler
 from plato.tools.cost import negative_log_likelihood_dangerous
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
@@ -72,6 +71,6 @@ def test_gibbs_logistic_regressor_full_update():
 
 if __name__ == '__main__':
     test_gibbs_logistic_regressor_full_update()
-    # test_herded_logistic_regressor()
-    # test_gibbs_logistic_regressor()
-    # test_mlp()
+    test_herded_logistic_regressor()
+    test_gibbs_logistic_regressor()
+    test_mlp()
