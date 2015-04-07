@@ -36,11 +36,11 @@ def compare_example_predictors(
         n_epochs = 1
         n_tests = 3
 
-    # Here we compare three predictors on MNIST - an MLP, a Perceptron, and an SVM.
+    # Here we compare three predictors on MNIST - an MLP, a Perceptron, and a Random Forest.
     # - The MLP is defined using Plato's interfaces - we create a Symbolic Predictor (GradientBasedPredictor) and
     #   then compile it into an IPredictor object
     # - The Perceptron directly implements the IPredictor interface.
-    # - The SVM implements SciKit learn's predictor interface - that is, it has a fit(x, y) and a predict(x) method.
+    # - The Random Forest implements SciKit learn's predictor interface - that is, it has a fit(x, y) and a predict(x) method.
     learning_curve_data = compare_predictors(
         dataset = dataset,
         online_predictors = {
