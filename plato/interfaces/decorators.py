@@ -1,7 +1,8 @@
+from functools import partial
 import inspect
 import logging
 from abc import abstractproperty, abstractmethod
-from general.local_capture import execute_and_capture_locals, CaptureLocals, LocalsNotCapturedError
+from general.local_capture import CaptureLocals, LocalsNotCapturedError
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as ts
@@ -269,8 +270,12 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
     """
 
     def _check_inputs(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # TODO: Need to check inputs only if trying to compile as a theano function.
+        # Previously we checked with the following lines that all inputs were symbolic:
+        #   self._assert_all_tensors(args, 'Arguments')
+        #   self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # ... But we've lifted that constraint - sometimes you want inputs defined at compile time.
+        pass
 
     def _check_outputs(self, out):
         self._assert_is_tensor(out, 'Output')
@@ -291,12 +296,7 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
 class SymbolicUpdateFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        """
-        Currently no requirements on the inputs, since we often feed parameters/variables
-        """
         pass
-        # self._assert_all_tensors(args, 'Arguments')
-        # self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
 
     def _check_outputs(self, out):
         self._assert_all_updates(out)
@@ -318,8 +318,7 @@ class SymbolicUpdateFunction(BaseSymbolicFunction):
 class SymbolicStandardFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        pass
 
     def _check_outputs(self, out):
         self._assert_standard_return(out)
@@ -341,6 +340,10 @@ class SymbolicStandardFunction(BaseSymbolicFunction):
         out, = outputs
         return out
 
+
+# TODO: Add option for "required fixed args": arguments that must be defined at compile time.
+# Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
+# or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
 
 def symbolic_stateless(fcn):
     return _decorate_anything(SymbolicStatelessFunction, fcn)
@@ -410,7 +413,7 @@ class AutoCompilingFunction(object):
     instantiate the input tensors.
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', debug_getter = None):
+    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', fixed_args = None, debug_getter = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
@@ -421,13 +424,16 @@ class AutoCompilingFunction(object):
                 value var.tag.test_value where var is some tensor variable.
             'debug': Never compile - just keep passing through test values.  This is basically like running the code
                 in numpy, except to see variable values, you have to go var.tag.test_value
+        :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
         assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic function.  Decorate it!'
         if mode == 'tr':
             mode = 'test_and_run'
         assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
-        self._fcn = fcn
+
+        self._fcn_class = type(fcn)
+        self._fcn = fcn if fixed_args is None else partial(fcn, **fixed_args)
         self._format = format
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
@@ -435,6 +441,7 @@ class AutoCompilingFunction(object):
         self._debug_values = None
         self._debug_variable_getter = None
         self._debug_values = None
+
         self._callbacks = []
         if debug_getter is not None:
             self.set_debug_variables(debug_getter)
@@ -448,36 +455,61 @@ class AutoCompilingFunction(object):
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
         returns the result, in numpy arrays.
         """
+
         if self._compiled_fcn is None:
-            tensor_args = [_data_to_tensor(arg, cast_floats_to_floatx = self._cast_floats_to_floatX,
-                test = self._mode in ('test_and_run', 'debug', 'omniscent')) for arg in args]
+
+            d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
+
+            tensor_args = [d2t(arg) for arg in args]
+
             return_value = self._fcn(*tensor_args)
-            if isinstance(self._fcn, SymbolicStatelessFunction):
+            if issubclass(self._fcn_class, SymbolicStatelessFunction):
                 outputs = return_value
                 updates = []
-            elif isinstance(self._fcn, SymbolicStandardFunction):
+            elif issubclass(self._fcn_class, SymbolicStandardFunction):
                 outputs, updates = return_value
-            elif isinstance(self._fcn, SymbolicUpdateFunction):
+            elif issubclass(self._fcn_class, SymbolicUpdateFunction):
                 outputs = ()
                 updates = return_value
             else:
                 raise Exception("Get OUT!")
 
-            self._there_are_debug_variables = self._debug_variable_getter is not None
+            # Now - check the trace variables.  If any of them are ancestors of the outputs,
+            # add themj
+
+            self._there_are_debug_variables = self._debug_variable_getter is not None or len(_TRACE_VARIABLES) > 0
             if self._there_are_debug_variables:
-                # Setup debug variables
+
+                all_debug_variables = {}
                 self._single_output = not isinstance(outputs, (list, tuple))
                 if self._single_output:
                     outputs = (outputs, )
-                debug_variables = self._debug_variable_getter()
+
+                # Setup debug variables
+                if self._debug_variable_getter is not None:
+                    fetched_debug_variables = self._debug_variable_getter()
+                    filtered_debug_variables = {k: v for k, v in fetched_debug_variables.iteritems() if isinstance(v, Variable)}
+                    assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
+                        'It returned %s' % (filtered_debug_variables, )
+                    all_debug_variables.update(filtered_debug_variables)
+
+                # Add trace variables
+                if len(_TRACE_VARIABLES) > 0:
+                    # Find all trace variables that are ancestors of the output/updates
+                    out_and_up = outputs + tuple(new for old, new in updates)
+                    all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+
+                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_all_ancestors(var).isdisjoint(all_ancestors)}
+                    # Maybe check for name conflicts here?
+                    all_debug_variables.update(trace_variables)
+                    for name in trace_variables:
+                        if name in _TRACE_CALLBACKS:
+                            self._callbacks.append(_TRACE_CALLBACKS[name])
 
                 # There may be some non-symbolic variables in the mix (like self).  We just filter these out.
-                filtered_debug_variables = {k: v for k, v in debug_variables.iteritems() if isinstance(v, Variable)}
-                assert len(filtered_debug_variables) > 0, 'debug_variable_getter did not return any symbolic variables.' \
-                    'It returned %s' % (filtered_debug_variables, )
-                debug_variables = filtered_debug_variables
-                self._debug_variable_keys = debug_variables.keys()
-                outputs_and_internals = tuple(outputs)+tuple(debug_variables.values())
+
+                self._debug_variable_keys = all_debug_variables.keys()
+                outputs_and_internals = tuple(outputs)+tuple(all_debug_variables.values())
                 self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs_and_internals, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
             elif self._mode == 'debug':  # Never compile - just keep passing through test values
                 for (shared_var, new_val) in updates:  # Need to manually update shared vars
@@ -495,7 +527,8 @@ class AutoCompilingFunction(object):
         if self._there_are_debug_variables:
             all_out = self._compiled_fcn(*args)
             self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
-            numeric_output = all_out[:-len(self._debug_variable_keys)]
+            _TRACE_VALUES.update(self._debug_values)
+            numeric_output = all_out if len(self._debug_variable_keys) == 0 else all_out[:-len(self._debug_variable_keys)]
             if self._single_output:
                 numeric_output, = numeric_output
         else:
@@ -634,6 +667,16 @@ def find_shared_ancestors(variable):
         return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
 
 
+def find_all_ancestors(variable):
+    """
+    Return a set including the all ancestors of the given variable
+    :param variable: A Theano Tensor
+    :return: A set containing all ancestors, including the given variable.
+    """
+
+    return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
+
+
 class SymbolicReturn(object):
 
     def __init__(self, outputs = (), updates = []):
@@ -647,3 +690,36 @@ class SymbolicReturn(object):
 
     def __iter__(self):
         return (self.outputs, self.updates).__iter__()
+
+
+_TRACE_VARIABLES = {}  # A dict of trace-variable-name: Trace Variable
+_TRACE_VALUES = {}  # A dict of trace variable name: Most recently computed value
+_TRACE_CALLBACKS = {}  # A dict of trace-variable-name: Callback to call after trace ver is used.
+
+
+def get_tdb_traces():
+    return _TRACE_VALUES
+
+
+def tdb_trace(var, name = None, callback = None):
+    if name is None:
+        # TODO: Get default by sneakily grabbing name from calling scope.
+        name = str(var)
+    _TRACE_VARIABLES[name] = var
+    if callback is not None:
+        _TRACE_CALLBACKS[name] = callback
+
+
+def set_enable_omniscence(state):
+    """
+    When ENABLE_OMNISCENCE is True, we do some weird things to the profiler to allow us to retrieve
+    internal variables for debugging purposes.  Generally, this is harmless, but it seems that on occasion
+
+    The error that happens in Theano is an AssertionError in vm.py
+    assert c0 == sys.getrefcount(node_n_inputs)
+    If you get this, just set_enable_omniscence(False).
+
+    :param state: False to disable omniscence.
+    """
+    global ENABLE_OMNISCENCE
+    ENABLE_OMNISCENCE = state

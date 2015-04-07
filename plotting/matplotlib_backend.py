@@ -19,22 +19,24 @@ class IPlot(object):
 
 class ImagePlot(object):
 
-    def __init__(self, interpolation = 'nearest', show_axes = False, scale = None, aspect = 'auto', cmap = 'gray'):
+    def __init__(self, interpolation = 'nearest', show_axes = False, clims = None, aspect = 'auto', cmap = 'gray'):
         self._plot = None
         self._interpolation = interpolation
         self._show_axes = show_axes
-        self._scale = scale
+        self._clims = clims
         self._aspect = aspect
         self._cmap = cmap
 
     def update(self, data):
 
-        if data.ndim==1:
+        if data.ndim == 1:
             data = data[None]
 
-        plottable_data = put_data_in_grid(data, clims = self._scale, cmap = self._cmap) \
-            if not (data.ndim==2 or data.ndim==3 and data.shape[2]==3) else \
-            data_to_image(data, clims = self._scale, cmap = self._cmap)
+        clims = ((np.nanmin(data), np.nanmax(data)) if data.size != 0 else (0, 1)) if self._clims is None else self._clims
+
+        plottable_data = put_data_in_grid(data, clims = clims, cmap = self._cmap) \
+            if not (data.ndim == 2 or data.ndim == 3 and data.shape[2] == 3) else \
+            data_to_image(data, clims = clims, cmap = self._cmap)
 
         if self._plot is None:
             self._plot = imshow(plottable_data, interpolation = self._interpolation, aspect = self._aspect, cmap = self._cmap)
@@ -46,7 +48,7 @@ class ImagePlot(object):
 
         else:
             self._plot.set_array(plottable_data)
-        self._plot.axes.set_xlabel('%.2f - %.2f' % (np.nanmin(data), np.nanmax(data)))
+        self._plot.axes.set_xlabel('%.2f - %.2f' % clims)
             # self._plot.axes.get_caxis
 
 
@@ -127,6 +129,39 @@ class TextPlot(IPlot):
             self._text_plot = ax.text(0.05, 0.05, full_text)
         else:
             self._text_plot.set_text(full_text)
+
+
+class HistogramPlot(IPlot):
+
+    def __init__(self, edges, mode = 'mass'):
+        assert mode in ('mass', 'density')
+        edges = np.array(edges)
+        self._edges = edges
+        self._mode = mode
+        self._binvals = np.ones(len(edges)-1)/len(edges)
+        self._n_points = 0
+        self._plot = None
+        self._widths = np.diff(edges)
+        self._lefts = edges[:-1]
+
+    def update(self, data):
+
+        # Update data
+        new_n_points = self._n_points + data.size
+        this_hist, _ = np.histogram(data, self._edges)
+        frac = (float(data.size)/self._n_points) if self._n_points > 0 else 1
+        self._binvals += this_hist * frac
+        self._binvals /= max(1, np.sum(self._binvals))
+        self._n_points = new_n_points
+
+        # DIsplay
+        heights = self._binvals if self._mode == 'mass' else self._binvals/self._widths
+        if self._plot is None:
+            self._plot = bar(self._lefts, heights, width = self._widths)
+        else:
+            for rect, h in zip(self._plot, heights):
+                rect.set_height(h)
+        self._plot[0].axes.set_ybound(0, np.max(heights))
 
 
 def get_plot_from_data(data, mode, **plot_preference_kwargs):

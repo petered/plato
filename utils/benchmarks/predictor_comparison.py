@@ -2,6 +2,7 @@ from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import evaluate_predictor, get_evaluation_function
 from collections import OrderedDict
+from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import sqrtspace
 import numpy as np
 from utils.tools.processors import RunningAverage
@@ -136,6 +137,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :return: LearningCurveData containing the score on the test sets
     """
 
+    assert isinstance(predictor, IPredictor), 'You must pass in an object implementing the IPredictor inferface.  %s does not.' % (predictor, )
+
     record = LearningCurveData()
 
     testing_sets = dataset_to_testing_sets(dataset, test_on)
@@ -149,10 +152,13 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
         # Bewate the in-loop lambda - but I think we're ok here.
 
     checker = CheckPointCounter(test_epochs)
+
+    last_n_samples_seen = 0
     for (n_samples_seen, input_minibatch, target_minibatch) in \
             dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
 
-        current_epoch = (float(n_samples_seen)-minibatch_size)/dataset.training_set.n_samples
+        current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
+        last_n_samples_seen = n_samples_seen
         time_for_a_test, done = checker.check(current_epoch)
         if time_for_a_test:
 

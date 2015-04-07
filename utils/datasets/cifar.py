@@ -1,8 +1,10 @@
+import pickle
+
 import os
 from utils.datasets.datasets import DataSet, DataCollection
-from utils.file_getter import get_file
-import pickle
+from fileman.file_getter import get_file
 import numpy as np
+
 
 __author__ = 'peter'
 
@@ -54,4 +56,4 @@ if __name__ == '__main__':
     ezplot({
         'sampled training images': np.swapaxes(dataset.training_set.input[:n_samples], 1, 3).reshape(10, 10, 32, 32, 3),
         'sampled training labels': dataset.training_set.target[:n_samples].reshape(10, 10)
-        }, cmap = 'Paired')
+        }, cmap = 'jet')

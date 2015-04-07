@@ -1,6 +1,7 @@
 from collections import namedtuple
 from plato.interfaces.decorators import symbolic_standard, symbolic_stateless, find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
+from plato.tools.tdb_plotting import tdbplot
 from theano.gof.graph import Variable
 import theano.tensor as tt
 import theano
@@ -16,7 +17,7 @@ class MultiLayerPerceptron(IParameterized):
     """
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
-            w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
+            normalize_minibatch = False, w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
@@ -29,10 +30,11 @@ class MultiLayerPerceptron(IParameterized):
         all_layer_sizes = [input_size]+layer_sizes
         all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
         processors = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size)),
+             FullyConnectedBridge(w = w_init(pre_size, post_size), normalize_minibatch=normalize_minibatch),
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
+
         self._chain = Chain(*processors)
 
     def __call__(self, x):
@@ -153,7 +155,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
     An element which multiplies the input by some weight matrix w and adds a bias.
     """
 
-    def __init__(self, w, b = 0, b_rev = None):
+    def __init__(self, w, b = 0, b_rev = None, normalize_minibatch = False):
         """
         :param w: Initial weight value.  Can be:
             - A numpy array, in which case a shared variable is instantiated from this data.
@@ -171,9 +173,15 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         self._b, b_params, b_shape = _initialize_param(b, shape = w_shape[1], name = 'b')
         self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = w_shape[0], name = 'b_rev')
         self._params = w_params+b_params+b_rev_params
+        self._normalize_minibatch = normalize_minibatch
 
     def __call__(self, x):
-        y = x.flatten(2).dot(self._w) + self._b
+        current = x.flatten(2).dot(self._w)
+
+        if self._normalize_minibatch:
+            current = (current - current.mean(axis = 0, keepdims = True)) / current.std(axis = 0, keepdims = True)
+
+        y = current + self._b
         return y
 
     @property
@@ -182,6 +190,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     def reverse(self, y):
         assert self._b_rev is not None, 'You are calling reverse on this bridge, but you failed to specify b_rev.'
+        assert not self._normalize_minibatch, "Don't really know about this case..."
         return y.flatten(2).dot(self._w.T)+self._b_rev
 
     def free_energy(self, visible):

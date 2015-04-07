@@ -30,7 +30,7 @@ def test_compare_predictors(hang_plot = False):
 
     assert 99 < records['SVM'].get_scores('Test') <= 100
     assert 20 < records['slow-perceptron'].get_scores('Test')[0] < 40 and 95 < records['slow-perceptron'].get_scores('Test')[-1] <= 100
-    assert 20 < records['fast-perceptron'].get_scores('Test')[0] < 40 and 99 < records['fast-perceptron'].get_scores('Test')[-1] <= 100
+    assert 20 < records['fast-perceptron'].get_scores('Test')[0] < 40 and 98 < records['fast-perceptron'].get_scores('Test')[-1] <= 100
 
     plot_learning_curves(records, hang = hang_plot)
 
