@@ -75,12 +75,12 @@ class SqrtScale(ScaleBase):
         """
         return SqrtTransform()
 
-    def limit_range_for_scale(self, vmin, vmax, minpos):
-        """
-        Copied from LogScale.limit_range_for_scale
-        """
-        return (vmin <= 0.0 and minpos or vmin,
-                vmax <= 0.0 and minpos or vmax)
+    # def limit_range_for_scale(self, vmin, vmax, minpos):
+    #     """
+    #     Copied from LogScale.limit_range_for_scale
+    #     """
+    #     return (vmin <= 0.0 and minpos or vmin,
+    #             vmax <= 0.0 and minpos or vmax)
 
     def set_default_locators_and_formatters(self, axis):
         """
@@ -106,7 +106,7 @@ class SqrtTransform(Transform):
         Transform.__init__(self)
 
     def transform_non_affine(self, a):
-        return np.sqrt(a)
+        return np.sqrt(np.abs(a))*np.sign(a)
 
     def inverted(self):
         return QuadTransform()
@@ -123,7 +123,7 @@ class QuadTransform(Transform):
         Transform.__init__(self)
 
     def transform_non_affine(self, a):
-        return a**2
+        return a**2*np.sign(a)
 
     def inverted(self):
         return SqrtTransform()

@@ -1,3 +1,4 @@
+from plato.examples.demo_prediction_example import compare_example_predictors
 from plato.examples.demo_mnist_mlp import demo_mnist_mlp
 from plato.examples.demo_compare_optimizers import comparisons
 from plato.tools.online_prediction.compare_symbolic_predictors import plot_records
@@ -25,8 +26,21 @@ def test_demo_rbm_mnist():
     demo_rbm_mnist(plot = True, test_mode = True)
 
 
+def test_demo_compare_optimizers():
+    from plato.examples.demo_compare_optimizers import comparisons
+
+    for name, c in comparisons.__dict__.iteritems():
+        _ = c(test_mode = True)
+
+
+def test_demo_prediction_example():
+
+    compare_example_predictors(test_mode = True)
+
+
 if __name__ == '__main__':
 
+    test_demo_prediction_example()
     test_demo_compare_optimizers()
     test_demo_mnist_mlp()
     test_demo_rbm_mnist()
