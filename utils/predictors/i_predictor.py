@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 from utils.tools.processors import OneHotEncoding
 import numpy as np
 

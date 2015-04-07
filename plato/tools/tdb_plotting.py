@@ -10,7 +10,7 @@ Special debug plotter that can handle theano variables.
 _UPDATE_CALLBACK_ADDED = False
 
 
-def tdbplot(var, name, plot_type = None, **kwargs):
+def tdbplot(var, name = None, plot_type = None, **kwargs):
     """
     Debug plot which can handle theano variables.
 
@@ -23,7 +23,9 @@ def tdbplot(var, name, plot_type = None, **kwargs):
             make mores sense when you're running and monitoring.  "static" makes static
             plots, which make more sence for step-by-step debugging.
     """
-    # TODO: Add test/demo of this, because it's pretty cool
+
+    if name is None:
+        name = '%s-%s' % (str(var), hex(id(var)))
 
     global _UPDATE_CALLBACK_ADDED
     if not _UPDATE_CALLBACK_ADDED:

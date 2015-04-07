@@ -55,10 +55,10 @@ def percent_argmax_correct(actual, target):
     :param target: An (n_samples, ) array of indices OR an (n_samples, n_dims) array
     :return:
     """
-    assert actual.ndim==2, 'percent_argmax_correct expects shape (n_samples, n_categories) labels.  Shape was %s' % (actual.shape, )
+    assert actual.ndim == 2, 'percent_argmax_correct expects shape (n_samples, n_categories) labels.  Shape was %s' % (actual.shape, )
     if target.ndim == 2:
         target = np.argmax(target, axis = 1)
     else:
-        assert target.ndim==1
+        assert target.ndim == 1
 
     return 100*fraction_correct(np.argmax(actual, axis = 1), target)

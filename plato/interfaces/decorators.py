@@ -1,3 +1,4 @@
+from functools import partial
 import inspect
 import logging
 from abc import abstractproperty, abstractmethod
@@ -269,8 +270,12 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
     """
 
     def _check_inputs(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # TODO: Need to check inputs only if trying to compile as a theano function.
+        # Previously we checked with the following lines that all inputs were symbolic:
+        #   self._assert_all_tensors(args, 'Arguments')
+        #   self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        # ... But we've lifted that constraint - sometimes you want inputs defined at compile time.
+        pass
 
     def _check_outputs(self, out):
         self._assert_is_tensor(out, 'Output')
@@ -291,12 +296,7 @@ class SymbolicStatelessFunction(BaseSymbolicFunction):
 class SymbolicUpdateFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        """
-        Currently no requirements on the inputs, since we often feed parameters/variables
-        """
         pass
-        # self._assert_all_tensors(args, 'Arguments')
-        # self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
 
     def _check_outputs(self, out):
         self._assert_all_updates(out)
@@ -318,8 +318,7 @@ class SymbolicUpdateFunction(BaseSymbolicFunction):
 class SymbolicStandardFunction(BaseSymbolicFunction):
 
     def _check_inputs(self, *args, **kwargs):
-        self._assert_all_tensors(args, 'Arguments')
-        self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+        pass
 
     def _check_outputs(self, out):
         self._assert_standard_return(out)
@@ -341,6 +340,10 @@ class SymbolicStandardFunction(BaseSymbolicFunction):
         out, = outputs
         return out
 
+
+# TODO: Add option for "required fixed args": arguments that must be defined at compile time.
+# Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
+# or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
 
 def symbolic_stateless(fcn):
     return _decorate_anything(SymbolicStatelessFunction, fcn)
@@ -410,7 +413,7 @@ class AutoCompilingFunction(object):
     instantiate the input tensors.
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', debug_getter = None):
+    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', fixed_args = None, debug_getter = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
@@ -421,13 +424,16 @@ class AutoCompilingFunction(object):
                 value var.tag.test_value where var is some tensor variable.
             'debug': Never compile - just keep passing through test values.  This is basically like running the code
                 in numpy, except to see variable values, you have to go var.tag.test_value
+        :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
         assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic function.  Decorate it!'
         if mode == 'tr':
             mode = 'test_and_run'
         assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
-        self._fcn = fcn
+
+        self._fcn_class = type(fcn)
+        self._fcn = fcn if fixed_args is None else partial(fcn, **fixed_args)
         self._format = format
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
@@ -435,6 +441,7 @@ class AutoCompilingFunction(object):
         self._debug_values = None
         self._debug_variable_getter = None
         self._debug_values = None
+
         self._callbacks = []
         if debug_getter is not None:
             self.set_debug_variables(debug_getter)
@@ -448,16 +455,20 @@ class AutoCompilingFunction(object):
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
         returns the result, in numpy arrays.
         """
+
         if self._compiled_fcn is None:
-            tensor_args = [_data_to_tensor(arg, cast_floats_to_floatx = self._cast_floats_to_floatX,
-                test = self._mode in ('test_and_run', 'debug', 'omniscent')) for arg in args]
+
+            d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
+
+            tensor_args = [d2t(arg) for arg in args]
+
             return_value = self._fcn(*tensor_args)
-            if isinstance(self._fcn, SymbolicStatelessFunction):
+            if issubclass(self._fcn_class, SymbolicStatelessFunction):
                 outputs = return_value
                 updates = []
-            elif isinstance(self._fcn, SymbolicStandardFunction):
+            elif issubclass(self._fcn_class, SymbolicStandardFunction):
                 outputs, updates = return_value
-            elif isinstance(self._fcn, SymbolicUpdateFunction):
+            elif issubclass(self._fcn_class, SymbolicUpdateFunction):
                 outputs = ()
                 updates = return_value
             else:

@@ -1,87 +1,13 @@
-from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
-import theano
 import numpy as np
+from plato.interfaces.decorators import symbolic_stateless
+from plato.tools.basic import softmax
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
-from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
 from theano.tensor.elemwise import TensorVariable
-from theano.tensor.shared_randomstreams import RandomStreams
 from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
-
-
-class GibbsRegressor(ISymbolicPredictor):
-
-    def __init__(self, n_dim_in, n_dim_out, sample_y = False, n_alpha = 1, possible_ws = [0, 1],
-            alpha_update_policy = 'sequential', seed = None):
-        self._w = theano.shared(np.zeros((n_dim_in, n_dim_out), dtype = theano.config.floatX), name = 'w')
-        self._rng = RandomStreams(seed)
-        if n_alpha == 'all':
-            n_alpha = n_dim_in
-        self._n_alpha = n_alpha
-        self._alpha = theano.shared(np.arange(n_alpha))  # scalar
-        self._sample_y = sample_y
-        self._possible_ws = theano.shared(np.array(possible_ws), name = 'possible_ws')
-        assert alpha_update_policy in ('sequential', 'random')
-        self._alpha_update_policy = alpha_update_policy
-
-    def _get_alpha_update(self):
-        new_alpha = (self._alpha+self._n_alpha) % self._w.shape[0] \
-            if self._alpha_update_policy == 'sequential' else \
-            self._rng.choice(a=self._w.shape[0], size = (self._n_alpha, ), replace = False).reshape([-1])  # Reshape is for some reason necessary when n_alpha=1
-        return self._alpha, new_alpha
-
-    @staticmethod
-    def compute_p_wa(w, x, y, alpha, possible_ws = np.array([0, 1])):
-        """
-        Compute the probability the weights at index alpha taking on each of the values in possible_ws
-        """
-        assert x.tag.test_value.ndim == y.tag.test_value.ndim == 2
-        assert x.tag.test_value.shape[0] == y.tag.test_value.shape[0]
-        assert w.get_value().shape[1] == y.tag.test_value.shape[1]
-        v_current = x.dot(w)  # (n_samples, n_dim_out)
-        v_0 = v_current[None, :, :] - w[alpha, None, :]*x.T[alpha, :, None]  # (n_alpha, n_samples, n_dim_out)
-        possible_vs = v_0[:, :, :, None] + possible_ws[None, None, None, :]*x.T[alpha, :, None, None]  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
-        all_zs = tt.nnet.sigmoid(possible_vs)  # (n_alpha, n_samples, n_dim_out, n_possible_ws)
-        log_likelihoods = tt.sum(tt.log(bernoulli(y[None, :, :, None], all_zs[:, :, :, :])), axis = 1)  # (n_alpha, n_dim_out, n_possible_ws)
-        # Question: Need to shift for stability here or will Theano take care of that?
-        # Stupid theano didn't implement softmax very nicely so we have to do some reshaping.
-        return tt.nnet.softmax(log_likelihoods.reshape([alpha.shape[0]*w.shape[1], possible_ws.shape[0]]))\
-            .reshape([alpha.shape[0], w.shape[1], possible_ws.shape[0]])  # (n_alpha, n_dim_out, n_possible_ws)
-
-    @symbolic_updater
-    def train(self, x, y):
-        p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)  # (n_alpha, n_dim_out, n_possible_ws)
-        w_sample = sample_categorical(self._rng, p_wa, values = self._possible_ws)
-        w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), self._get_alpha_update()]
-
-    @symbolic_stateless
-    def predict(self, x):
-        p_y = tt.nnet.sigmoid(x.dot(self._w))
-        return self._rng.binomial(p = p_y) if self._sample_y else p_y
-
-
-class HerdedGibbsRegressor(GibbsRegressor):
-
-    def __init__(self, n_dim_in, n_dim_out, possible_ws = (0, 1), **kwargs):
-        GibbsRegressor.__init__(self, n_dim_in, n_dim_out, possible_ws=possible_ws, **kwargs)
-        self._phi = theano.shared(np.zeros((n_dim_in, n_dim_out, len(possible_ws)), dtype = 'float'), name = 'phi')
-
-    @symbolic_updater
-    def train(self, x, y):
-        p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)
-        phi_alpha = self._phi[self._alpha] + p_wa  # (n_alpha, n_dim_out, n_possible_ws)
-
-        k_chosen = tt.argmax(phi_alpha, axis = 2)  # (n_alpha, n_dim_out)
-        selected_phi_indices = (tt.arange(self._alpha.shape[0])[:, None], tt.arange(y.shape[1])[None, :], k_chosen)
-        new_phi_alpha = tt.set_subtensor(phi_alpha[selected_phi_indices], phi_alpha[selected_phi_indices]-1)  # (n_alpha, n_dim_out, n_possible_ws)
-        w_sample = self._possible_ws[k_chosen]  # (n_alpha, n_dim_out)
-        new_phi = tt.set_subtensor(self._phi[self._alpha], new_phi_alpha)  # (n_dim_in, n_dim_out, n_possible_ws)
-        w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), (self._phi, new_phi), self._get_alpha_update()]
 
 
 def sample_categorical(rng, p, axis = -1, values = None):
@@ -100,7 +26,7 @@ def sample_categorical(rng, p, axis = -1, values = None):
     """
     # TODO: assert no negative values in p / assert p normalized along axis instead of dividing
     # TODO: assert len(values) == p.shape[axis]
-    assert axis==-1, 'Currenly you can only sample along the last axis.'
+    assert axis == -1, 'Currenly you can only sample along the last axis.'
     p = p/tt.sum(p, axis = axis, keepdims=True)
     # TODO: Check that differnt RNGs are doing the same thing!
 
@@ -130,3 +56,103 @@ def sample_categorical(rng, p, axis = -1, values = None):
     if values is not None:
         return values[indices]
     return indices
+
+
+bernoulli_likelihood = lambda k, p: tt.switch(k, p, 1-p)  # or (p**k)*((1-p)**(1-k))
+
+
+
+@symbolic_stateless
+def p_x_given(x, w, y, **p_w_given_kwargs):
+    """
+    Note that we can just switch around x and w if we want to sample x's.
+
+    If we swap the shapes in p_w_given:
+    x -> w.T (nY, nX)
+    w -> x.T (nX, nS)
+    y -> y.T (nY, nS)
+
+    A point (i, j) in alpha now indicates input-dimension-i, sample-j
+
+    We now interpret the result as an array of probabilities of x[alpha] taking on each value.
+    """
+
+    p_x = p_w_given(x=w.T, w=x.T, y=y.T, **p_w_given_kwargs)
+    return p_x  # (n_alpha, n_possible_ws) or (n_alpha, ) for boolean_ws
+
+
+
+@symbolic_stateless
+def p_w_given(x, w, y, alpha=None, possible_vals = (0, 1), binary = True, prior = None, input2prob = tt.nnet.sigmoid):
+    """
+    We have the following situation:
+    y ~ Bernoulli(sigm(x.dot(w)))
+    Where:
+        x is a matrix of size (nS, nX)
+        w is a booloean matrix of size (nX, nY)
+        Y is a matrix of size (nS, nY)
+
+    We want to find the probabilites of elements w[alpha] given X, Y, where
+    alpha is some set of indices in w.
+
+    :param x: A shape (nS, nX) tensor
+    :param y: A shape (nS, nY) tensor
+    :param alpha: Some indices that we will use to reference the elements of w that we want to modify.
+    :param possible_vals: Possible states of w.
+    :param binary: True if you want to treat your weights as Bernoulli variables.  False if, in the more general
+        case, you want to treat them as categorical variables.   This affects the shape of the output.
+    :return: An array of probabilities of w[alpha] taking on each value.  Its shape depends on boolean_ws:
+        If boolean_ws is True, the shape is (n_alpha, )
+        If boolean_ws is False, the shape is (n_alpha, len(possible_ws))
+    """
+    if binary: assert len(possible_vals) == 2, 'Come on.'
+    if prior is None:
+        prior = np.ones(len(possible_vals))/len(possible_vals)
+    else:
+        assert len(prior) == len(possible_vals)
+
+    v_alpha_wk = compute_hypothetical_vs(x, w, alpha, possible_vals=possible_vals)  # (nS, n_alpha, n_possible_ws)
+    y_alpha = y[:, alpha[1]] if alpha is not None else y[:, tt.arange(w.size) % y.shape[1]]
+    log_likelihood = tt.sum(tt.log(bernoulli_likelihood(y_alpha[:, :, None], input2prob(v_alpha_wk))), axis = 0) + tt.log(prior)  # (n_alpha, n_possible_ws)
+    if binary:
+        # Note: Possibly reformulating this would let theano do the log-sigmoid optimization.  Would be good to check.
+        p_w_alpha_w1 = tt.nnet.sigmoid(log_likelihood[:, 1] - log_likelihood[:, 0])  # (n_alpha, )
+        return p_w_alpha_w1
+    else:
+        p_w_alpha_wk = softmax(log_likelihood, axis = 1)
+        return p_w_alpha_wk
+
+
+@symbolic_stateless
+def compute_hypothetical_vs(x, w, alpha=None, possible_vals = (0, 1)):
+    """
+    We have v = x.dot(w)
+    Where w can take on a discrete set of states.  We want to ask:
+    "Suppose we change w[i, j], where (i, j) are indices in some set in alpha.  What is the value of v[j] for each of the
+    possible values of w that we could change it to?"
+
+    :param x: A shape (nS, nX) tensor
+    :param w: A shape (nX, nY) tensor
+    :param alpha: A 2-tuple of indices of w to reference.
+    :return: v_alpha_wk: An array of shape (nS, n_alpha, len(possible_ws)) of "would be" values of v[j] - that is, the
+        value v_alpha_wk[s, j, k] is what v[s, alpha[j]] WOULD be if we changed w[alpha_rows[j],alpha_cols[j]] to possible_ws[k]
+    """
+    v_current = x.dot(w)  # (nS, nY)
+    # Each potential change in w changes a column in v_current.  Lets get the set of vs that are affected by each
+    # selected weight w[alpha]
+    if alpha is not None:
+        alpha_rows, alpha_cols = alpha
+        v_current_alpha = v_current[:, alpha_cols]  # (nS, n_alpha)
+        x_alpha = x[:, alpha_rows]  # (n_S, n_alpha)
+        v_alpha_0 = v_current_alpha - x_alpha * w[alpha]  # (nS, n_alpha) - What v would be if the input x for each alpha were set to zero.
+        v_alpha_wk = v_alpha_0[:, :, None] + x_alpha[:, :, None] * possible_vals  # (nS, n_alpha, n_possible_ws) - What v would be if the input x for each alpha were set to each possible value of w.
+    else:
+        v_alpha_0 = v_current[:, None, :] - x[:, :, None] * w[None, :, :]  # (nS, nX, nY): Current with each weight zeroed
+        v_alpha_wk = (v_alpha_0[:, :, :, None] + x[:, :, None, None] * possible_vals).reshape((x.shape[0], -1, len(possible_vals)))  # (nS, w.size, n_possible_ws)
+    return v_alpha_wk  # (nS, n_alpha, n_possible_ws)
+
+
+def gibbs_sample(p_wa, rng):
+    return rng.choice(p_wa)
+
+
