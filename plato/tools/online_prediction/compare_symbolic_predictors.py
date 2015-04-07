@@ -9,6 +9,8 @@ class CompareOnlinePredictors(object):
     Compare symbolic predictors.  This is possibly a bit more efficient than compare_predictors, because the entire
     evaluation is done in one compiled function.  However, it only works with theano-based predictors, and probably
     doesn't speed things up that much, it may become depricated.
+
+    TODO: Refactor to be more like compare_predictors
     """
 
     def __init__(self, dataset, classifier_constructors, minibatch_size, test_points, evaluation_function):

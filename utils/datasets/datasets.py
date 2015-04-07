@@ -33,12 +33,20 @@ class DataSet(object):
         return self.training_set.input.shape[1:]
 
     @property
+    def input_size(self):
+        return np.prod(self.input_shape)
+
+    @property
     def target_shapes(self):
         return [x.shape[1:] for x in self.training_set.targets]
 
     @property
     def target_shape(self):
         return self.training_set.target.shape[1:]
+
+    @property
+    def target_size(self):
+        return np.prod(self.target_shape)
 
     @property
     def name(self):

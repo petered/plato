@@ -10,13 +10,13 @@ class Perceptron(IPredictor):
         self._alpha = alpha
 
     def train(self, x, target_data):
-        y = self.predict(x)
+        y = (self.predict(x) > 0).astype(int)
         self._w += self._alpha*x.T.dot(target_data-y)
         self._b += self._alpha*np.sum(target_data-y, axis = 0)
 
     def predict(self, x):
-        return (x.dot(self._w)+self._b > 0).astype(int)
+        return x.dot(self._w)+self._b
 
-    def to_categorical(self):
+    def to_categorical(self, **kwargs):
         from utils.predictors.i_predictor import CategoricalPredictor
-        return CategoricalPredictor(self)
+        return CategoricalPredictor(self, **kwargs)
