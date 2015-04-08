@@ -131,6 +131,12 @@ def test_p_x_given():
     assert np.all(0 <= p_x_alpha_xk) and np.all(p_x_alpha_xk <= 1)
 
 
+def test_index_generator():
+
+
+
+
+
 if __name__ == '__main__':
 
     test_p_x_given()

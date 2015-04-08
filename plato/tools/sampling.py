@@ -156,3 +156,50 @@ def gibbs_sample(p_wa, rng):
     return rng.choice(p_wa)
 
 
+
+@symbolic_standard
+class MatrixIndexGenerator(object):
+
+    def __init__(self, shape, frac, randomization = 'every', rng = None, np_rng = None):
+        n_total = np.prod(shape)
+        self._shape = shape
+        self._base_index_generator = IndexGenerator(n_total = n_total, n_indices=nix(n_total, frac), randomization=randomization, rng = rng, np_rng=np_rng)
+
+    def __call__(self):
+        base_indices, updates = self._base_index_generator()
+        return ind2sub(base_indices, self._shape), updates
+
+
+class IndexGenerator(object):
+    """
+    In Gibbs sampling, we rotate the indices that we update.  This is the guy who decides who gets updated when.
+    """
+
+    def __init__(self, n_total, n_indices, randomization = 'every', rng = None, np_rng = None):
+
+        assert randomization in ('once', 'every', None)
+        assert n_indices <= n_total, "Can't sample more indices than the total number available!"
+        self._randomization = randomization
+        self._n_indices = n_indices
+        self._n_total = n_total
+        np_rng = np.random.RandomState(None) if np_rng is None else np_rng
+
+        self._rng = rng if rng is not None else RandomStreams(np_rng.randint(1e9))
+        if randomization == 'once':
+            # Need to use the np_rng because theano rng automatically updates whether we want it or not.
+
+            self._update_order = np_rng.choice(size = self._n_total, a = self._n_total, replace = False)
+
+    def __call__(self):
+
+        if self._randomization == 'every':
+            ixs = self._rng.choice(size = self._n_indices, a = self._n_total, replace = False)
+            ix_updates = []
+        else:
+            base_ixs = tt.shared(np.arange(self._n_indices))
+            next_base_indices = (base_ixs+self._n_indices) % self._n_total
+            ixs = base_ixs if self._randomization is None else self._update_order[base_ixs]
+            ix_updates = [(base_ixs, next_base_indices)]
+        return ixs, ix_updates
+
+
