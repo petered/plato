@@ -47,7 +47,7 @@ def test_herded_logistic_regressor():
 
     assert_online_predictor_not_broken(
         predictor_constructor = lambda n_dim_in, n_dim_out:
-            HerdedGibbsRegressor(n_dim_in = n_dim_in,  n_dim_out = n_dim_out,
+            HerdedGibbsRegressor(n_dim_in = n_dim_in, n_dim_out = n_dim_out,
                 n_alpha = 1,
                 possible_ws= (-1, 1),
                 ).compile(),
@@ -56,12 +56,16 @@ def test_herded_logistic_regressor():
 
 
 def test_gibbs_logistic_regressor_full_update():
+    """
+    This test just demonstrates that you can't just go and update all the weights at once -
+    it won't work.
+    """
 
     with raises(AssertionError):
         assert_online_predictor_not_broken(
             predictor_constructor = lambda n_dim_in, n_dim_out:
                 GibbsRegressor(n_dim_in = n_dim_in, n_dim_out = n_dim_out,
-                    n_alpha = n_dim_in,
+                    n_alpha = n_dim_in,  # All weights updated in one go.
                     possible_ws= (-1, 1),
                     seed = 2143
                     ).compile(),
@@ -70,7 +74,7 @@ def test_gibbs_logistic_regressor_full_update():
 
 
 if __name__ == '__main__':
-    test_gibbs_logistic_regressor_full_update()
     test_herded_logistic_regressor()
     test_gibbs_logistic_regressor()
+    test_gibbs_logistic_regressor_full_update()
     test_mlp()

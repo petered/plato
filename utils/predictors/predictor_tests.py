@@ -33,11 +33,11 @@ def assert_online_predictor_not_broken(predictor_constructor, initial_score_unde
 
     if not categorical_target:
         dataset = dataset.process_with(targets_processor=multichannel(OneHotEncoding()))
-        out_shape = dataset.target_shape[0]
+        out_shape = dataset.target_size
     else:
         out_shape = dataset.n_categories
 
-    predictor = predictor_constructor(dataset.input_shape[0], out_shape)
+    predictor = predictor_constructor(dataset.input_size, out_shape)
     record = assess_online_predictor(predictor, dataset, evaluation_function=percent_argmax_correct,
         test_epochs=np.linspace(0, n_epochs, 2+n_extra_tests), minibatch_size=minibatch_size,
         accumulator = accumulator, test_on = 'test')

@@ -1,11 +1,12 @@
 import numpy as np
-from plato.interfaces.decorators import symbolic_stateless
+from abc import abstractmethod
+from plato.interfaces.decorators import symbolic_stateless, symbolic_standard
+from plato.interfaces.helpers import get_theano_rng
 from plato.tools.basic import softmax
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
 from theano.tensor.elemwise import TensorVariable
-from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
 
@@ -156,50 +157,138 @@ def gibbs_sample(p_wa, rng):
     return rng.choice(p_wa)
 
 
+class IIndexGenerator(object):
+
+    @abstractmethod
+    def __call__(self):
+        """
+        Returns the next set of indices, and whatever state updates may be required.
+
+        return: indices, updates   where:
+            indices is a tuple that will be used to dereference an array
+            updates contains whatever state updates are required.
+        """
 
 @symbolic_standard
-class MatrixIndexGenerator(object):
+class BaseIndexGenerator(IIndexGenerator):
 
-    def __init__(self, shape, frac, randomization = 'every', rng = None, np_rng = None):
-        n_total = np.prod(shape)
-        self._shape = shape
-        self._base_index_generator = IndexGenerator(n_total = n_total, n_indices=nix(n_total, frac), randomization=randomization, rng = rng, np_rng=np_rng)
+    def __init__(self, size):
+        self._size = size
+        self._n_total = size if isinstance(size, int) else np.prod(size)
 
     def __call__(self):
-        base_indices, updates = self._base_index_generator()
-        return ind2sub(base_indices, self._shape), updates
+        (vector_ixs, ), updates = self._get_vector_indices_and_updates()
+        full_indices = \
+            (vector_ixs, ) if isinstance(self._size, int) else \
+            ind2sub(vector_ixs, self._size)
+        return full_indices, updates
+
+    @abstractmethod
+    def _get_vector_indices_and_updates(self):
+        pass
 
 
-class IndexGenerator(object):
+class RandomIndexGenerator(BaseIndexGenerator):
     """
-    In Gibbs sampling, we rotate the indices that we update.  This is the guy who decides who gets updated when.
+    Randomly select some subset of the indices out of the full set.
     """
 
-    def __init__(self, n_total, n_indices, randomization = 'every', rng = None, np_rng = None):
-
-        assert randomization in ('once', 'every', None)
-        assert n_indices <= n_total, "Can't sample more indices than the total number available!"
-        self._randomization = randomization
+    def __init__(self, size, n_indices, seed = None):
+        BaseIndexGenerator.__init__(self, size)
         self._n_indices = n_indices
-        self._n_total = n_total
-        np_rng = np.random.RandomState(None) if np_rng is None else np_rng
+        self._rng = get_theano_rng(seed)
 
-        self._rng = rng if rng is not None else RandomStreams(np_rng.randint(1e9))
-        if randomization == 'once':
-            # Need to use the np_rng because theano rng automatically updates whether we want it or not.
+    def _get_vector_indices_and_updates(self):
+        ixs = self._rng.choice(size = self._n_indices, a = self._n_total, replace = False)
+        return (ixs, ), []
 
-            self._update_order = np_rng.choice(size = self._n_total, a = self._n_total, replace = False)
 
-    def __call__(self):
+class SequentialIndexGenerator(BaseIndexGenerator):
 
-        if self._randomization == 'every':
-            ixs = self._rng.choice(size = self._n_indices, a = self._n_total, replace = False)
-            ix_updates = []
-        else:
-            base_ixs = tt.shared(np.arange(self._n_indices))
-            next_base_indices = (base_ixs+self._n_indices) % self._n_total
-            ixs = base_ixs if self._randomization is None else self._update_order[base_ixs]
-            ix_updates = [(base_ixs, next_base_indices)]
-        return ixs, ix_updates
+    def __init__(self, size, n_indices):
+        BaseIndexGenerator.__init__(self, size)
+        self._n_indices = n_indices
 
+    def _get_vector_indices_and_updates(self):
+        ixs = tt.shared(np.arange(self._n_indices))
+        next_ixs = (ixs+self._n_indices) % self._n_total
+        return (ixs, ), [(ixs, next_ixs)]
+
+
+class OrderedIndexGenerator(BaseIndexGenerator):
+
+    def __init__(self, order, n_indices, size = None):
+        if size is None:
+            size = len(order)
+        BaseIndexGenerator.__init__(self, size)
+        assert n_indices <= len(order)
+        assert np.array_equal(np.sort(np.unique(order)), np.arange(len(order))), 'The order must be some permutation of indeces from 0 to max(order)'
+        self._order = tt.constant(order)
+        self._n_indices = n_indices
+
+    def _get_vector_indices_and_updates(self):
+        base_ixs = tt.shared(np.arange(self._n_indices))
+        next_base_ixs = (base_ixs+self._n_indices) % self._n_total
+        return (self._order[base_ixs], ), [(base_ixs, next_base_ixs)]
+
+
+# @symbolic_single_out_single_update
+# class IndexGenerator(object):
+#     """
+#     In Gibbs sampling, we rotate the indices that we update.  This is the guy who decides who gets updated when.
+#     """
+#
+#     def __init__(self, n_total, n_indices, randomization = 'every', rng = None, np_rng = None):
+#
+#         assert randomization in ('once', 'every', None)
+#         assert n_indices <= n_total, "Can't sample more indices than the total number available!"
+#         self._randomization = randomization
+#         self._n_indices = n_indices
+#         self._n_total = n_total
+#         np_rng = np.random.RandomState(None) if np_rng is None else np_rng
+#
+#         self._rng = rng if rng is not None else RandomStreams(np_rng.randint(1e9))
+#         if randomization == 'once':
+#             # Need to use the np_rng because theano rng automatically updates whether we want it or not.
+#
+#             self._update_order = np_rng.choice(size = self._n_total, a = self._n_total, replace = False)
+#
+#     def __call__(self):
+#
+#         if self._randomization == 'every':
+#             ixs = self._rng.choice(size = self._n_indices, a = self._n_total, replace = False)
+#             ix_updates = []
+#         else:
+#             base_ixs = tt.shared(np.arange(self._n_indices))
+#             next_base_indices = (base_ixs+self._n_indices) % self._n_total
+#             ixs = base_ixs if self._randomization is None else self._update_order[base_ixs]
+#             ix_updates = [(base_ixs, next_base_indices)]
+#         return ixs, ix_updates
+#
+#
+# @symbolic_standard
+# class MatrixIndexGenerator(IIndexGenerator):
+#
+#     def __init__(self, ):
+#         n_total = np.prod(shape)
+#         self._shape = shape
+#         self._base_index_generator = IndexGenerator(n_total = n_total, n_indices=nix(n_total, frac), randomization=randomization, rng = rng, np_rng=np_rng)
+#
+#     def __call__(self):
+#         base_indices, updates = self._base_index_generator()
+#         return ind2sub(base_indices, self._shape), updates
+
+
+def nix(total, frac):
+    """
+    Tells you the number of indeces to update.  The formula is just
+    """
+    assert 0 < frac <= 1
+    return int(np.ceil(float(frac) * total))
+
+
+def ind2sub(ind, shape):
+    assert len(shape) == 2, 'Only implemented for 2-d case, and only with pre-known shape'
+    n_rows, n_cols = shape
+    return ind / n_cols, ind % n_cols
 

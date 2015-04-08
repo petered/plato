@@ -1,5 +1,6 @@
-from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given
-from utils.tools.mymath import sigm
+from plato.interfaces.helpers import get_theano_rng
+from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given, SequentialIndexGenerator, \
+    RandomIndexGenerator, OrderedIndexGenerator
 
 __author__ = 'peter'
 import numpy as np
@@ -90,6 +91,7 @@ def _get_full_alpha(n_input_dims, n_output_dims):
     alpha = (flat_ix/n_output_dims, flat_ix % n_output_dims)
     return alpha
 
+
 def test_compute_hypothetical_vs():
     d = _get_test_data(seed = 45)
     # Note - assert fails with some seeds when floatX = float32
@@ -131,14 +133,55 @@ def test_p_x_given():
     assert np.all(0 <= p_x_alpha_xk) and np.all(p_x_alpha_xk <= 1)
 
 
-def test_index_generator():
+def test_sequential_index_generator():
+
+    igen = SequentialIndexGenerator(size = 5, n_indices=2).compile()
+    ixs1, = igen()
+    assert np.array_equal(ixs1, [0, 1])
+    ixs2, = igen()
+    assert np.array_equal(ixs2, [2, 3])
+    ixs3, = igen()
+    assert np.array_equal(ixs3, [4, 0])
 
 
+def test_random_index_generator():
 
+    igen = RandomIndexGenerator(size = 5, n_indices=3, seed = get_theano_rng(seed = 1234)).compile()
+    ixs1, = igen()
+    assert np.all(ixs1 < 5)
+    ixs2, = igen()
+    assert np.all(ixs2 < 5) and not np.array_equal(ixs1, ixs2)  # Seed ensures that this is the case.
+
+
+def test_ordered_index_generator():
+
+    igen = OrderedIndexGenerator(order = [4, 3, 2, 1, 0], n_indices=3).compile()
+    ixs1, = igen()
+    assert np.array_equal(ixs1, [4, 3, 2])
+    ixs2, = igen()
+    assert np.array_equal(ixs2, [1, 0, 4])
+
+
+def test_matrix_indices():
+
+    igen = RandomIndexGenerator(size = (5, 2), n_indices=3, seed = get_theano_rng(seed = 1234)).compile()
+    ixs1 = igen()
+    assert len(ixs1) == 2
+    rows, cols = ixs1
+    assert np.all(rows < 5)
+    assert np.all(cols < 2)
+    ixs2 = igen()
+    rows, cols = ixs2
+    assert np.all(rows < 5)
+    assert np.all(cols < 2)
 
 
 if __name__ == '__main__':
 
+    test_matrix_indices()
+    test_random_index_generator()
+    test_ordered_index_generator()
+    test_sequential_index_generator()
     test_p_x_given()
     test_p_w_given()
     test_compute_hypothetical_vs()
