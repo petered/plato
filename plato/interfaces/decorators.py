@@ -345,6 +345,127 @@ class SymbolicStandardFunction(BaseSymbolicFunction):
 # Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
 # or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
 
+
+class SymbolicFormat(object):
+    """
+    A class representing the format of data that can go into or be returned from a symbolic function.
+    """
+
+    def __init__(self, n_vars, n_updates):
+        """
+        :param n_vals: Number of symbolic variables.  Can be:
+            None - No variables in this (only updates)
+            'single' - Just one var
+            'multi' - A tuple of vars
+            Some integer - A tuple of exactly this many vars.
+        :param n_updates: Number of updates.  Same options as for vars.
+        """
+        assert n_vars in (None, 'single', 'multi') or isinstance(n_vars, int)
+        assert n_updates in (None, 'single', 'multi') or isinstance(n_updates, int)
+        assert not (n_vars is None and n_updates is None), 'A symbolic function must return SOMETHING.'
+        self.n_vars = n_vars
+        self.n_updates = n_updates
+
+    def assert_format(self, data):
+        """
+        Assert that the data obeys the format of this class.
+        """
+        sym_vars, updates = \
+            data, None if self.n_updates is None else \
+            None, data if self.n_vars is None else \
+            data
+
+        if self.n_vars == 'single':
+            assert_tensor(sym_vars)
+        elif self.n_vars == 'multi':
+            assert_tensor_collection(sym_vars)
+        elif self.n_vars is not None:
+            assert_tensor_collection(sym_vars)
+            assert len(sym_vars) == self.n_vars
+
+        if self.n_updates == 'single':
+            assert_update(updates)
+        elif self.n_updates == 'multi':
+            assert_update_collection(updates)
+        elif self.n_updates is not None:
+            assert_update_collection(updates)
+            assert len(sym_vars) == self.n_vars
+
+    def __eq__(self, other):
+        return isinstance(other, SymbolicFormat) and self.n_vars == other.n_vars and self.n_updates == other.n_updates
+
+    def convert_data_to(self, data, other_format):
+
+        if self == other_format:
+            converted_data = data
+        else:
+            sym_vars, updates = \
+                data, None if self.n_updates is None else \
+                None, data if self.n_vars is None else \
+                data
+            if self.n_vars == other_format.n_vars:
+                out_sym_vars = sym_vars
+            elif self.n_vars == 'single' and other_format.n_vars == 'multi':
+                out_sym_vars = (sym_vars, )
+            elif self.n_vars == 'multi' and other_format.n_vars == 'single':
+                assert len(sym_vars) == 1
+
+
+
+        return converted_data
+
+
+
+def assert_tensor(arg):
+    assert isinstance(arg, Variable)
+
+
+def assert_tensor_collection(args):
+    assert isinstance(args, (list, tuple))
+    for arg in args:
+        assert_tensor(arg)
+
+
+def assert_update(arg):
+    assert len(arg) == 2
+    old, new = arg
+    assert isinstance(old, SharedVariable) and isinstance(new, Variable)
+
+
+def assert_update_collection(args):
+    assert isinstance(args, list)
+    for arg in args:
+        assert_update(arg)
+
+
+# def is_standard_format(args):
+#
+#
+#
+#     if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
+#         raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
+#
+# def _assert_all_updates(self, updates):
+#     if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
+#             all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+#         raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
+#
+# def _assert_standard_return(self, return_val):
+#     if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
+#         return
+#     else:  # Possibly remove this entirely and only allow SymbolicReturn
+#         if not (isinstance(return_val, tuple) and len(return_val)==2):
+#             raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
+#         outputs, updates = return_val
+#         self._assert_all_tensors(outputs, 'Outputs')
+#         self._assert_all_updates(updates)
+
+# def _convert_formats(data, data_format, output_format):
+
+
+
+
+
 def symbolic_stateless(fcn):
     return _decorate_anything(SymbolicStatelessFunction, fcn)
 
