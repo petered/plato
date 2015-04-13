@@ -6,7 +6,7 @@ import pytest
 __author__ = 'peter'
 
 
-@pytest.mark.skipif(True, "Fails on pytest but not when run directly")
+@pytest.mark.skipif(True, reason="Fails on pytest but not when run directly")
 def test_mrg_choice():
 
     n_options = 10
