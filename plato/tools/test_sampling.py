@@ -1,6 +1,6 @@
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given, SequentialIndexGenerator, \
-    RandomIndexGenerator, OrderedIndexGenerator
+    RandomIndexGenerator, OrderedIndexGenerator, RowIndexGenerator
 
 __author__ = 'peter'
 import numpy as np
@@ -176,8 +176,19 @@ def test_matrix_indices():
     assert np.all(cols < 2)
 
 
+def test_row_indices():
+
+    a = np.random.randn(4, 6)
+    igen = RowIndexGenerator(size = a.shape, n_rows_per_iter=3).compile()
+    ixs1 = igen()
+    assert np.array_equal(a[[0, 1, 2], :].flatten(), a[ixs1])
+    ixs2 = igen()
+    assert np.array_equal(a[[3, 0, 1], :].flatten(), a[ixs2])
+
+
 if __name__ == '__main__':
 
+    test_row_indices()
     test_matrix_indices()
     test_random_index_generator()
     test_ordered_index_generator()

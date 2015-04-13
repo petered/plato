@@ -232,6 +232,28 @@ class OrderedIndexGenerator(BaseIndexGenerator):
         return (self._order[base_ixs], ), [(base_ixs, next_base_ixs)]
 
 
+class RowIndexGenerator(OrderedIndexGenerator):
+    """
+    Return indeces of all elements within a row in a matrix
+    """
+
+    def __init__(self, size, n_rows_per_iter=1):
+
+        assert len(size) == 2, 'This only works for 2-d indices'
+        n_rows, n_cols = size
+        order = np.arange(np.prod(size))
+        OrderedIndexGenerator.__init__(self, order=order, n_indices = n_rows_per_iter*n_cols, size = size)
+
+    #
+    # def __call__(self):
+    #
+    #     base_ixs = tt.shared(np.arange(self._n_indices))
+    #
+    #     row_ixs =
+    #
+    #
+
+
 # @symbolic_single_out_single_update
 # class IndexGenerator(object):
 #     """

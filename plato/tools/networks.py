@@ -17,7 +17,7 @@ class MultiLayerPerceptron(IParameterized):
     """
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
+            normalize_minibatch = False, scale_param = False, w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
@@ -30,7 +30,7 @@ class MultiLayerPerceptron(IParameterized):
         all_layer_sizes = [input_size]+layer_sizes
         all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
         processors = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size), normalize_minibatch=normalize_minibatch),
+             FullyConnectedBridge(w = w_init(pre_size, post_size), normalize_minibatch=normalize_minibatch, scale = scale_param),
              Layer(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
@@ -155,7 +155,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
     An element which multiplies the input by some weight matrix w and adds a bias.
     """
 
-    def __init__(self, w, b = 0, b_rev = None, normalize_minibatch = False):
+    def __init__(self, w, b = 0, b_rev = None, scale = False, normalize_minibatch = False):
         """
         :param w: Initial weight value.  Can be:
             - A numpy array, in which case a shared variable is instantiated from this data.
@@ -172,11 +172,15 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         self._w, w_params, w_shape = _initialize_param(w, shape = (None, None), name = 'w')
         self._b, b_params, b_shape = _initialize_param(b, shape = w_shape[1], name = 'b')
         self._b_rev, b_rev_params, b_rev_shape = _initialize_param(b_rev, shape = w_shape[0], name = 'b_rev')
-        self._params = w_params+b_params+b_rev_params
+        # self._log_scale, log_scale_params, log_scale_shape = _initialize_param(0 if scale else None, shape = w.shape[1], name = 'log_scale')
+        self._params = w_params+b_params+b_rev_params#+log_scale_params
         self._normalize_minibatch = normalize_minibatch
 
     def __call__(self, x):
         current = x.flatten(2).dot(self._w)
+
+        # if self._log_scale is not None:
+        #     current = current * self._log_scale
 
         if self._normalize_minibatch:
             current = (current - current.mean(axis = 0, keepdims = True)) / current.std(axis = 0, keepdims = True)

@@ -39,6 +39,7 @@ def test_gibbs_logistic_regressor():
                 possible_ws= (-1, 1),
                 seed = 2143
                 ).compile(),
+        n_extra_tests = 8,
         n_epochs=20
         )
 
@@ -74,7 +75,7 @@ def test_gibbs_logistic_regressor_full_update():
 
 
 if __name__ == '__main__':
-    test_herded_logistic_regressor()
     test_gibbs_logistic_regressor()
-    test_gibbs_logistic_regressor_full_update()
-    test_mlp()
+    # test_herded_logistic_regressor()
+    # test_gibbs_logistic_regressor_full_update()
+    # test_mlp()

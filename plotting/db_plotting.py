@@ -1,9 +1,10 @@
+from pip._vendor.distlib.compat import OrderedDict
 from plotting.live_plotting import LiveStream
 
 __author__ = 'peter'
 
 
-PLOT_DATA = {}
+PLOT_DATA = OrderedDict()
 STREAM = None
 
 
