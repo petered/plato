@@ -1,12 +1,11 @@
 from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
-from utils.benchmarks.train_and_test import evaluate_predictor, get_evaluation_function
+from utils.benchmarks.train_and_test import get_evaluation_function
 from collections import OrderedDict
 from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import sqrtspace
 import numpy as np
 from utils.tools.processors import RunningAverage
-from utils.tools.progress_indicator import ProgressIndicator
 
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
@@ -249,3 +248,5 @@ class LearningCurveData(object):
             assert which_test_set in results, 'You asked for results for the test set %s, but we only have test sets %s' \
                 % (which_test_set, results.keys())
             return results[which_test_set]
+
+

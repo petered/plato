@@ -432,12 +432,6 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
     assert hasattr(symbolic_function_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
         "be callable.  If there's a specific method you want to decorate, decorate that instead."
 
-    # print hasattr(callable_class.__call__, 'im_class')
-    # if hasattr(callable_class.__call__, 'im_class'):
-    #     assert callable_class.__call__.im_class is callable_class, 'If you decorate a class, the class itself must have ' \
-    #         "a __call__ method.  If it's just the base-class, then just decorate that.  Bottom line: remove the decorator " \
-    #         "from %s" % callable_class.__name__
-
     # Strategy 1: Return a new constructor that dynamically binds the function_type as a base-class when the object
     # is instantiated. (Now defunct - see git log if you want)
 

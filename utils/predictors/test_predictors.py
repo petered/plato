@@ -30,6 +30,27 @@ def test_mlp():
         )
 
 
+def test_mlp_with_scale_learning():
+
+    assert_online_predictor_not_broken(
+        predictor_constructor = lambda n_dim_in, n_dim_out:
+            GradientBasedPredictor(
+                function = MultiLayerPerceptron(
+                    layer_sizes = [100, n_dim_out],
+                    input_size = n_dim_in,
+                    output_activation='softmax',
+                    scale_param = True,
+                    w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
+                    ),
+                cost_function=negative_log_likelihood_dangerous,
+                optimizer=SimpleGradientDescent(eta = 0.1),
+                ).compile(),
+        categorical_target=True,
+        minibatch_size=10,
+        n_epochs=2
+        )
+
+
 def test_gibbs_logistic_regressor():
 
     assert_online_predictor_not_broken(
@@ -75,7 +96,8 @@ def test_gibbs_logistic_regressor_full_update():
 
 
 if __name__ == '__main__':
-    test_gibbs_logistic_regressor()
+    test_mlp_with_scale_learning()
+    # test_gibbs_logistic_regressor()
     # test_herded_logistic_regressor()
     # test_gibbs_logistic_regressor_full_update()
     # test_mlp()

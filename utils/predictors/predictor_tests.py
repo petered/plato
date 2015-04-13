@@ -42,5 +42,5 @@ def assert_online_predictor_not_broken(predictor_constructor, initial_score_unde
         test_epochs=np.linspace(0, n_epochs, 2+n_extra_tests), minibatch_size=minibatch_size,
         accumulator = accumulator, test_on = 'test')
     scores = record.get_scores()
-    assert scores[0] <= initial_score_under
-    assert scores[-1] >= final_score_over
+    assert scores[0] <= initial_score_under, "Initial score was %.2f%%, which was greater than expected (<%.2f%%).  That's odd." % (scores[0], initial_score_under)
+    assert scores[-1] >= final_score_over, 'Achieved a final score of %.2f%%, which was less than the threshold of %.2f%%' % (scores[-1], final_score_over)
