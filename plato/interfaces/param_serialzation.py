@@ -19,5 +19,5 @@ def loads_params(i_parameterized, serialized_params):
 
     for p, pv in zip(params, param_values):
         assert p.get_value().dtype == pv.dtype, 'DType mismatch for parameter %s: Param: %s, Value: %s' % (p, p.get_value().dtype, pv.dtype)
-        assert p.get_value().shape == p.shape, 'Shape mismatch for parameter %s: Param: %s, Value: %s' % (p, p.get_value().shape, pv.shape)
-        p.set_value(param_values)
+        assert p.get_value().shape == pv.shape, 'Shape mismatch for parameter %s: Param: %s, Value: %s' % (p, p.get_value().shape, pv.shape)
+        p.set_value(pv)
