@@ -53,12 +53,17 @@ def mnist_adamax_showdown(hidden_size = 300, n_epochs = 10, n_tests = 20):
 
 def mlp_normalization(hidden_size = 300, n_epochs = 30, n_tests = 50, minibatch_size=20):
     """
+    Compare mlps with different schemes for normalizing input.
 
-    :param hidden_size:
-    :param n_epochs:
-    :param n_tests:
-    :param minibatch_size:
-    :return:
+    regular: Regular vanilla MLP
+    normalize: Mean-subtract/normalize over minibatch
+    normalize and scale: Mean-subtract/normalize over minibatch AND multiply by a trainable
+        (per-unit) scale parameter.
+
+    Conclusions: No significant benefit to scale parameter.  Normalizing gives
+    a head start but incurs a small cost later on.  But really all classifiers are quite similar.
+
+    :param hidden_size: Size of hidden layer
     """
     dataset = get_mnist_dataset()
 

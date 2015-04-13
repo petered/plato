@@ -27,7 +27,9 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-ENABLE_OMNISCENCE = True
+ENABLE_OMNISCENCE = False
+# This is false by defaut, due to a potential error it can cause in theano.
+# See: https://groups.google.com/forum/#!topic/theano-users/tQC8UjiAwWY
 
 
 class ISymbolicFunction(object):
