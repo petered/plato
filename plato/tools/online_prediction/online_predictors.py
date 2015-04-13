@@ -78,7 +78,7 @@ class CompiledSymbolicPredictor(IPredictor, IParameterized):
     def __init__(self, symbolic_predictor, **kwargs):
         self.train_function = symbolic_predictor.train.compile(**kwargs)
         self.predict_function = symbolic_predictor.predict.compile(**kwargs)
-        self._params = symbolic_predictor.parameters
+        self._params = symbolic_predictor.parameters if isinstance(symbolic_predictor, IParameterized) else []
 
     def train(self, input_data, target_data):
         self.train_function(input_data, target_data)

@@ -97,7 +97,7 @@ def test_gibbs_logistic_regressor_full_update():
 
 if __name__ == '__main__':
     test_mlp_with_scale_learning()
-    # test_gibbs_logistic_regressor()
-    # test_herded_logistic_regressor()
-    # test_gibbs_logistic_regressor_full_update()
-    # test_mlp()
+    test_gibbs_logistic_regressor()
+    test_herded_logistic_regressor()
+    test_gibbs_logistic_regressor_full_update()
+    test_mlp()
