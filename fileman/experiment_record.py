@@ -156,7 +156,7 @@ def run_notebook_experiment(name, exp_dict, **experiment_record_kwargs):
     Run an experiment with settings more suited to an IPython notebook.  Here, we want to redirect all
     output to a log file, and not show the figures immediately.
     """
-    run_experiment(name, exp_dict, print_to_console = False, show_figs = False, **experiment_record_kwargs)
+    return run_experiment(name, exp_dict, print_to_console = False, show_figs = False, **experiment_record_kwargs)
 
 
 def get_local_experiment_path(identifier):
