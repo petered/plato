@@ -561,9 +561,15 @@ class AutoCompilingFunction(object):
                 if len(_TRACE_VARIABLES) > 0:
                     # Find all trace variables that are ancestors of the output/updates
                     out_and_up = outputs + tuple(new for old, new in updates)
-                    all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+                    # all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+                    all_leaves = set().union(*[find_leaf_ancestors(v) for v in out_and_up])
 
-                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_all_ancestors(var).isdisjoint(all_ancestors)}
+                    # Now we need to make sure the trace variables actually belong to this function.
+                    # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
+                    # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
+                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_leaf_ancestors(var).difference(find_shared_ancestors(var)).isdisjoint(all_leaves)}
+                    # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
+
                     # Maybe check for name conflicts here?
                     all_debug_variables.update(trace_variables)
                     for name in trace_variables:
@@ -731,14 +737,34 @@ def find_shared_ancestors(variable):
         return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
 
 
-def find_all_ancestors(variable):
+def find_all_ancestors(variable, memo = None):
     """
     Return a set including the all ancestors of the given variable
     :param variable: A Theano Tensor
     :return: A set containing all ancestors, including the given variable.
     """
 
-    return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
+    if memo is None:
+        memo = set()
+
+    memo.add(variable)
+
+    for p in variable.get_parents():
+        if p not in memo:
+            find_all_ancestors(p, memo = memo)
+
+    return memo
+
+
+
+    # print [find_all_ancestors(p) for p in variable.get_parents()]
+    # return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
+
+
+def find_leaf_ancestors(variable):
+    all_ancestors = find_all_ancestors(variable)
+    leaf_ancestors = {var for var in all_ancestors if len(var.get_parents()) == 0}
+    return leaf_ancestors
 
 
 class SymbolicReturn(object):
