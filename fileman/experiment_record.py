@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from datetime import datetime
 from general.test_mode import is_test_mode
 import os
@@ -113,7 +114,7 @@ def start_experiment(*args, **kwargs):
     return exp
 
 
-def run_experiment(name, exp_dict, **experiment_record_kwargs):
+def run_experiment(name, exp_dict, print_to_console = True, show_figs = True, **experiment_record_kwargs):
     """
     Run an experiment and save the results.  Return a string which uniquely identifies the experiment.
     You can run the experiment agin later by calling show_experiment(location_string):
@@ -132,10 +133,18 @@ def run_experiment(name, exp_dict, **experiment_record_kwargs):
         assert hasattr(exp_dict, '__call__')
         func = exp_dict
 
-    with ExperimentRecord(name = name, **experiment_record_kwargs) as exp_rec:
+    with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
         func()
 
     return exp_rec.get_identifier()
+
+
+def run_notebook_experiment(name, exp_dict, **experiment_record_kwargs):
+    """
+    Run an experiment with settings more suited to an IPython notebook.  Here, we want to redirect all
+    output to a log file, and not show the figures immediately.
+    """
+    run_experiment(name, exp_dict, print_to_console = False, show_figs = False, **experiment_record_kwargs)
 
 
 def get_local_experiment_path(identifier):
@@ -152,3 +161,14 @@ def show_experiment(identifier):
     with open(local_path) as f:
         exp_rec = pickle.load(f)
     exp_rec.show()
+
+
+def merge_experiment_dicts(*dicts):
+    """
+    Merge dictionaries of experiments, checking that names are unique.
+    """
+    merge_dict = OrderedDict()
+    for d in dicts:
+        assert not any(k in merge_dict for k in d), "Experiments %s has been defined twice." % ([k for k in d.keys() if k in merge_dict],)
+        merge_dict.update(d)
+    return merge_dict

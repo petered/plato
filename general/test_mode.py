@@ -11,7 +11,6 @@ everywhere.
 
 This is used in conjunction with conftest.py, which adds the _called_from_test flag.
 """
-# TODO: Make always true when run from pytest.
 
 _TEST_MODE = False
 

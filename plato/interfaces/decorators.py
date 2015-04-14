@@ -756,11 +756,6 @@ def find_all_ancestors(variable, memo = None):
     return memo
 
 
-
-    # print [find_all_ancestors(p) for p in variable.get_parents()]
-    # return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
-
-
 def find_leaf_ancestors(variable):
     all_ancestors = find_all_ancestors(variable)
     leaf_ancestors = {var for var in all_ancestors if len(var.get_parents()) == 0}
