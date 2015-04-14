@@ -28,17 +28,26 @@ class ExperimentRecord(object):
     VERSION = 0  # We keep this in case we want to change this class, and need record the fact that it is an old version
     # when unpickling.
 
-    def __init__(self, name = 'unnamed', filename = '%T-%N', print_to_console = False, save_result = None, show_figs = False):
+    def __init__(self, name = 'unnamed', filename = '%T-%N', print_to_console = False, save_result = None, show_figs = None):
         """
         :param name: Base-name of the experiment
         :param filename: Format of the filename (placeholders: %T is replaced by time, %N by name)
         :param experiment_dir: Relative directory (relative to data dir) to save this experiment when it closes
         :param print_to_console: If True, print statements still go to console - if False, they're just rerouted to file.
-        :param show_figs: Show figures when the experiment produces them
+        :param show_figs: Show figures when the experiment produces them.  Can be:
+            'hang': Show and hang
+            'draw': Show but keep on going
+            False: Don't show figures
+            None: 'draw' if in test mode, else 'hang'
         """
         now = datetime.now()
         if save_result is None:
             save_result = not is_test_mode()
+
+        if show_figs is None:
+            show_figs = 'draw' if is_test_mode() else 'hang'
+
+        assert show_figs in ('hang', 'draw', False)
 
         self._experiment_identifier = format_filename(file_string = filename, base_name=name, current_time = now)
         self._experiment_file_path = get_local_experiment_path(self._experiment_identifier)
@@ -50,7 +59,10 @@ class ExperimentRecord(object):
 
     def __enter__(self):
         clear_saved_figure_locs()
-        plt.ioff()
+        if self._show_figs == 'draw':
+            plt.ion()
+        else:
+            plt.ioff()
         self._log_file_path = capture_print(True, to_file = True, log_file_path = self._log_file_name, print_to_console = self._print_to_console)
         always_save_figures(show = self._show_figs, print_loc = False)
         return self
@@ -114,7 +126,7 @@ def start_experiment(*args, **kwargs):
     return exp
 
 
-def run_experiment(name, exp_dict, print_to_console = True, show_figs = True, **experiment_record_kwargs):
+def run_experiment(name, exp_dict, print_to_console = True, show_figs = None, **experiment_record_kwargs):
     """
     Run an experiment and save the results.  Return a string which uniquely identifies the experiment.
     You can run the experiment agin later by calling show_experiment(location_string):
