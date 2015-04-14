@@ -1,5 +1,8 @@
+from general.test_mode import set_test_mode
+import os
 import pickle
-from fileman.experiment_record import ExperimentRecord, start_experiment
+from fileman.experiment_record import ExperimentRecord, start_experiment, run_experiment, show_experiment, \
+    get_local_experiment_path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -48,12 +51,27 @@ def test_start_experiment():
     experiment.
     """
 
-    exp = start_experiment()
+    exp = start_experiment(save_result = False)
     _run_experiment()
     exp.end_and_show()
     assert len(exp.get_figure_locs()) == 2
 
 
+def test_run_and_show():
+    """
+    This is nice because it no longer required that an experiment be run and shown in a
+    single session - each experiment just has a unique identifier that can be used to show
+    its results whenevs.
+    """
+    identifier = run_experiment('the_exp', exp_dict = {'the_exp': _run_experiment}, save_result = True)
+    show_experiment(identifier)
+    os.remove(get_local_experiment_path(identifier))
+
+
 if __name__ == '__main__':
+
+    set_test_mode(True)
+
+    test_run_and_show()
     test_experiment_with()
     test_start_experiment()

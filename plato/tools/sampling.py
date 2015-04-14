@@ -1,11 +1,13 @@
 import numpy as np
-from plato.interfaces.decorators import symbolic_stateless
+from abc import abstractmethod
+from plato.interfaces.decorators import symbolic_stateless, symbolic_standard
+from plato.interfaces.helpers import get_theano_rng
 from plato.tools.basic import softmax
+import theano
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import theano.tensor as tt
 from theano.tensor.elemwise import TensorVariable
-from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
 
@@ -155,4 +157,105 @@ def compute_hypothetical_vs(x, w, alpha=None, possible_vals = (0, 1)):
 def gibbs_sample(p_wa, rng):
     return rng.choice(p_wa)
 
+
+class IIndexGenerator(object):
+
+    @abstractmethod
+    def __call__(self):
+        """
+        Returns the next set of indices, and whatever state updates may be required.
+
+        return: indices, updates   where:
+            indices is a tuple that will be used to dereference an array
+            updates contains whatever state updates are required.
+        """
+
+@symbolic_standard
+class BaseIndexGenerator(IIndexGenerator):
+
+    def __init__(self, size):
+        self._size = size
+        self._n_total = size if isinstance(size, int) else np.prod(size)
+
+    def __call__(self):
+        (vector_ixs, ), updates = self._get_vector_indices_and_updates()
+        full_indices = \
+            (vector_ixs, ) if isinstance(self._size, int) else \
+            ind2sub(vector_ixs, self._size)
+        return full_indices, updates
+
+    @abstractmethod
+    def _get_vector_indices_and_updates(self):
+        pass
+
+
+class RandomIndexGenerator(BaseIndexGenerator):
+    """
+    Randomly select some subset of the indices out of the full set.
+    """
+
+    def __init__(self, size, n_indices, seed = None):
+        BaseIndexGenerator.__init__(self, size)
+        self._n_indices = n_indices
+        self._rng = get_theano_rng(seed)
+
+    def _get_vector_indices_and_updates(self):
+        ixs = self._rng.choice(size = self._n_indices, a = self._n_total, replace = False)
+        return (ixs, ), []
+
+
+class SequentialIndexGenerator(BaseIndexGenerator):
+
+    def __init__(self, size, n_indices):
+        BaseIndexGenerator.__init__(self, size)
+        self._n_indices = n_indices
+
+    def _get_vector_indices_and_updates(self):
+        ixs = theano.shared(np.arange(self._n_indices))
+        next_ixs = (ixs+self._n_indices) % self._n_total
+        return (ixs, ), [(ixs, next_ixs)]
+
+
+class OrderedIndexGenerator(BaseIndexGenerator):
+
+    def __init__(self, order, n_indices, size = None):
+        if size is None:
+            size = len(order)
+        BaseIndexGenerator.__init__(self, size)
+        assert n_indices <= len(order)
+        assert np.array_equal(np.sort(np.unique(order)), np.arange(len(order))), 'The order must be some permutation of indeces from 0 to max(order)'
+        self._order = tt.constant(order)
+        self._n_indices = n_indices
+
+    def _get_vector_indices_and_updates(self):
+        base_ixs = theano.shared(np.arange(self._n_indices))
+        next_base_ixs = (base_ixs+self._n_indices) % self._n_total
+        return (self._order[base_ixs], ), [(base_ixs, next_base_ixs)]
+
+
+class RowIndexGenerator(OrderedIndexGenerator):
+    """
+    Return indeces of all elements within a row in a matrix
+    """
+
+    def __init__(self, size, n_rows_per_iter=1):
+
+        assert len(size) == 2, 'This only works for 2-d indices'
+        n_rows, n_cols = size
+        order = np.arange(np.prod(size))
+        OrderedIndexGenerator.__init__(self, order=order, n_indices = n_rows_per_iter*n_cols, size = size)
+
+
+def nix(total, frac):
+    """
+    Tells you the number of indeces to update.  The formula is just
+    """
+    assert 0 < frac <= 1
+    return int(np.ceil(float(frac) * total))
+
+
+def ind2sub(ind, shape):
+    assert len(shape) == 2, 'Only implemented for 2-d case, and only with pre-known shape'
+    n_rows, n_cols = shape
+    return ind / n_cols, ind % n_cols
 

@@ -83,7 +83,7 @@ def compare_predictors_old(dataset, online_predictor_constructors = {}, offline_
                 evaluation_function = evaluation_function,
                 report_test_scores = report_test_scores
                 ) if predictor_type == 'offline' else \
-            assess_online_predictor(
+            assess_online_predictor_old(
                 predictor=predictor,
                 dataset = dataset,
                 evaluation_function = evaluation_function,
@@ -91,7 +91,7 @@ def compare_predictors_old(dataset, online_predictor_constructors = {}, offline_
                 minibatch_size = minibatch_size[predictor_name],
                 report_test_scores = report_test_scores
                 ) if predictor_type == 'online' else \
-            assess_incremental_predictor(
+            assess_incremental_predictor_old(
                 predictor=predictor,
                 dataset = dataset,
                 evaluation_function = evaluation_function,
@@ -115,7 +115,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, report_tes
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :return: A  LearningCurveData containing the score on the test set
     """
-    record = LearningCurveData()
+    record = LearningCurveDataOld()
     predictor.train(dataset.training_set.input, dataset.training_set.target)
     training_cost = evaluate_predictor(predictor, test_set = dataset.training_set, evaluation_function=evaluation_function)
     test_cost = evaluate_predictor(predictor, test_set = dataset.test_set, evaluation_function=evaluation_function)
@@ -126,7 +126,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, report_tes
     return record
 
 
-def assess_online_predictor(predictor, dataset, evaluation_function, test_points, minibatch_size, report_test_scores=True):
+def assess_online_predictor_old(predictor, dataset, evaluation_function, test_points, minibatch_size, report_test_scores=True):
     """
     Train an online predictor and return the LearningCurveData.
 
@@ -139,7 +139,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
     :return: A  LearningCurveData containing the score on the test set
     """
 
-    record = LearningCurveData()
+    record = LearningCurveDataOld()
 
     def report_test(current_sample_number):
         current_epoch = float(current_sample_number)/dataset.training_set.n_samples
@@ -165,7 +165,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_points
     return record
 
 
-def assess_incremental_predictor(predictor, dataset, evaluation_function, sampling_points, accumulation_function='mean',
+def assess_incremental_predictor_old(predictor, dataset, evaluation_function, sampling_points, accumulation_function='mean',
         sampling_period = 1, report_test_scores=True, which_sets = 'training+test'):
     """
     Train an incremental predictor and return the LearningCurveData.
@@ -183,7 +183,7 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
 
     assert sampling_points.dtype == 'int' and np.all(sampling_points[:-1] <= sampling_points[1:])
     assert which_sets in ('training', 'test', 'training+test')
-    record = LearningCurveData()
+    record = LearningCurveDataOld()
     accumulators = {
         'mean': lambda: RunningAverage(),
         'latest': lambda: lambda x: x
@@ -217,7 +217,7 @@ def assess_incremental_predictor(predictor, dataset, evaluation_function, sampli
     return record
 
 
-class LearningCurveData(object):
+class LearningCurveDataOld(object):
     """
     A container for the learning curves resulting from running a predictor
     on a dataset.  Use this object to incrementally write results, and then

@@ -83,7 +83,7 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', 
     """
 
     if state:
-        log_file_path = format_filename(log_file_path, current_time = datetime.now(), local__dir=get_local_log_dir(), ext = 'txt')
+        log_file_path = format_filename(log_file_path, current_time = datetime.now(), directory=get_local_log_dir(), ext = 'txt')
         logger = PrintAndStoreLogger(log_file_path=log_file_path, **print_and_store_kwargs)
         if to_file:
             relative_link = get_relative_link_from_local_path(logger.get_log_file_path())

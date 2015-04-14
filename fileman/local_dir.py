@@ -23,9 +23,9 @@ def get_local_path(relative_path = ''):
     return os.path.join(LOCAL_DIR, relative_path)
 
 
-def get_relative_path(local_path):
-    assert local_path.startswith(LOCAL_DIR), '"%s" is not contained within the data directory "%s"' % (local_path, LOCAL_DIR)
-    relative_loc = local_path[len(LOCAL_DIR)+1:]
+def get_relative_path(local_path, base_path = LOCAL_DIR):
+    assert local_path.startswith(base_path), '"%s" is not contained within the data directory "%s"' % (local_path, base_path)
+    relative_loc = local_path[len(base_path)+1:]
     return relative_loc
 
 
@@ -43,7 +43,7 @@ def make_file_dir(full_file_path):
     return full_file_path
 
 
-def format_filename(file_string, current_time = None, base_name = None, rel_dir = None, local__dir = get_local_path(), ext = None, allow_partial_formatting = False):
+def format_filename(file_string, current_time = None, base_name = None, directory = None, ext = None, allow_partial_formatting = False):
     """
     Return a formatted string with placeholders in the filestring replaced by their provided values.
     :param file_string: A string, eg '%T-%N'.  The placeholders %T, %N indicate that they should be replaced
@@ -61,12 +61,8 @@ def format_filename(file_string, current_time = None, base_name = None, rel_dir 
     :return: The formatted filename.
     """
 
-
-    if rel_dir is not None:
-        file_string = os.path.join(rel_dir, file_string)
-
-    if local__dir is not None:
-        file_string = os.path.join(local__dir, file_string)
+    if directory is not None:
+        file_string = os.path.join(directory, file_string)
 
     if ext is not None:
         file_string += '.'+ext

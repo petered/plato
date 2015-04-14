@@ -1,4 +1,5 @@
 from itertools import cycle
+from general.test_mode import is_test_mode
 import matplotlib.pyplot as plt
 from matplotlib.scale import ScaleBase, register_scale
 from matplotlib.ticker import NullFormatter, AutoLocator, ScalarFormatter, NullLocator
@@ -52,7 +53,7 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
 
     if hang is True:
         plt.ioff()
-    elif hang is False:
+    elif hang is False or (hang is None and is_test_mode()):
         plt.ion()
     plt.show()
 

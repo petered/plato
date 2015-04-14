@@ -1,3 +1,4 @@
+from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.rbm import simple_rbm
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent
@@ -26,6 +27,7 @@ def demo_rbm_mnist(plot = True, test_mode = False):
 
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
+    set_enable_omniscence(True)
     minibatch_size = 9
     n_epochs = 0.01 if test_mode else 10
 
