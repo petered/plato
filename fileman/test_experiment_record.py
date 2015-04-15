@@ -3,7 +3,7 @@ from general.test_mode import set_test_mode
 import os
 import pickle
 from fileman.experiment_record import ExperimentRecord, start_experiment, run_experiment, show_experiment, \
-    get_latest_experiment_identifier
+    get_latest_experiment_identifier, get_or_run_notebook_experiment, get_local_experiment_path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -28,7 +28,7 @@ def _run_experiment():
 
 def test_experiment_with():
 
-    with ExperimentRecord(filename = 'test_exp') as exp_1:
+    with ExperimentRecord(filename = 'test_exp', save_result=True) as exp_1:
         _run_experiment()
 
     assert exp_1.get_logs() == 'aaa\nbbb\n'
@@ -82,15 +82,24 @@ def test_get_latest():
 
 def test_get_or_run_experiment():
 
+    name = 'test_get_or_run'
 
+    while get_latest_experiment_identifier(name) is not None:
+        ident = get_latest_experiment_identifier(name)
+        os.remove(get_local_experiment_path(ident))
 
-    experiment_1 = run_experiment('test_get_or_run', exp_dict = {'test_get_or_run': _run_experiment}, save_result = True)
+    counter = [0]
 
-    experiment_2 = run_experiment('test_get_or_run', exp_dict = {'test_get_or_run': _run_experiment}, save_result = True)
+    def add_one():
+        counter[0] += 1
 
-
+    experiment_1 = get_or_run_notebook_experiment('test_get_or_run', exp_dict = {'test_get_or_run': add_one}, save_result = True)
+    time.sleep(0.001)
+    experiment_2 = get_or_run_notebook_experiment('test_get_or_run', exp_dict = {'test_get_or_run': add_one}, save_result = True)
+    assert counter[0] == 1  # 0 in case this experiment existed before
+    assert experiment_1.get_file_path() == experiment_2.get_file_path()
     os.remove(experiment_1.get_file_path())
-    os.remove(experiment_2.get_file_path())
+
 
 if __name__ == '__main__':
 

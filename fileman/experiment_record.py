@@ -5,11 +5,12 @@ from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
-from fileman.local_dir import format_filename, make_file_dir, get_relative_path, get_local_path
+from fileman.local_dir import format_filename, make_file_dir, get_local_path, get_relative_path
 from fileman.notebook_plots import show_embedded_figure
-from fileman.notebook_utils import get_relative_link_from_local_path, get_server_relative_data_folder_name
+from fileman.notebook_utils import get_server_relative_data_folder_name, get_local_server_dir
+from fileman.notebook_utils import get_relative_link_from_relative_path
 from fileman.persistent_print import capture_print
-from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, FigureCollector, \
+from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, \
     set_show_callback, always_save_figures
 import matplotlib.pyplot as plt
 import re
@@ -52,7 +53,6 @@ class ExperimentRecord(object):
         assert show_figs in ('hang', 'draw', False)
 
         self._experiment_identifier = format_filename(file_string = filename, base_name=name, current_time = now)
-        self._experiment_file_path = get_local_experiment_path(self._experiment_identifier)
         self._log_file_name = format_filename('%T-%N', base_name = name, current_time = now)
         self._has_run = False
         self._print_to_console = print_to_console
@@ -73,7 +73,7 @@ class ExperimentRecord(object):
         # On exit, we read the log file.  After this, the log file is no longer associated with the experiment.
         capture_print(False)
 
-        with open(self._log_file_path) as f:
+        with open(get_local_path(self._log_file_path)) as f:
             self._captured_logs = f.read()
 
         set_show_callback(None)
@@ -82,19 +82,14 @@ class ExperimentRecord(object):
         self._has_run = True
 
         if self._save_result:
-            make_file_dir(self._experiment_file_path)
-            with open(self._experiment_file_path, 'w') as f:
+            file_path = get_local_experiment_path(self._experiment_identifier)
+            make_file_dir(file_path)
+            with open(file_path, 'w') as f:
                 pickle.dump(self, f)
                 print 'Saving Experiment "%s"' % (self._experiment_identifier, )
 
     def get_identifier(self):
-        path = get_relative_path(self.get_file_path(), base_path=get_local_path('experiments'))
-        assert path.endswith('.exp.pkl')
-        identifier = path[:-len('.exp.pkl')]
-        return identifier
-
-    def get_file_path(self):
-        return self._experiment_file_path
+        return self._experiment_identifier
 
     def get_logs(self):
         return self._captured_logs
@@ -104,17 +99,19 @@ class ExperimentRecord(object):
 
     def show_figures(self):
         for loc in self._captured_figure_locs:
-            rel_loc = get_relative_link_from_local_path(loc)
+            rel_loc = get_relative_link_from_relative_path(loc)
             show_embedded_figure(rel_loc)
 
     def show(self):
-        print 'Experiment %s' % (self._experiment_identifier)
         display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
-                     % get_relative_link_from_local_path(self._log_file_path)))
+                     % get_relative_link_from_relative_path(self._log_file_path)))
         self.show_figures()
 
     def print_logs(self):
         print self._captured_logs
+
+    def get_file_path(self):
+        return get_local_experiment_path(self._experiment_identifier)
 
     def end_and_show(self):
         if not self._has_run:
@@ -194,7 +191,7 @@ def merge_experiment_dicts(*dicts):
     return merge_dict
 
 
-def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **notebook_experiment_record_kwargs):
+def get_or_run_notebook_experiment(name, exp_dict, display_module = True, force_compute = False, **notebook_experiment_record_kwargs):
     """
     Get the latest experiment with the given name,
     :param name: Name of the experiment
@@ -205,14 +202,23 @@ def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **note
     """
     exp_id = get_latest_experiment_identifier(name=name)
 
-    func = exp_dict[name]
+    recompute = exp_id is None or force_compute
 
+    if display_module:
+        func = exp_dict[name]
+        if hasattr(inspect.getmodule(func), '__file__'):
+            module_rel_path = inspect.getmodule(func).__file__
+            if module_rel_path.endswith('.pyc'):
+                module_rel_path = module_rel_path[:-1]
+            module_name = inspect.getmodule(func).__name__
+            server_path = get_local_server_dir()
+            rel_path = get_relative_path(module_rel_path, server_path)
+            if recompute:
+                display(HTML("Running Experiment %s from module <a href = '/edit/%s' target='_blank'>%s</a>" % (name, rel_path, module_name)))
+            else:
+                display(HTML("Showing Completed Experiment %s from module <a href = '/edit/%s' target='_blank'>%s</a>" % (exp_id, rel_path, module_name)))
 
-    get_server_relative_data_folder_name()
-    module_rel_path = inspect.getmodule(func)
-    display(HTML())
-
-    if exp_id is None or force_compute:
+    if recompute:
         exp = run_notebook_experiment(name, exp_dict, **notebook_experiment_record_kwargs)
     else:
         exp = load_experiment(exp_id)

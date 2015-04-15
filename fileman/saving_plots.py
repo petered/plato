@@ -20,7 +20,7 @@ def get_local_figures_dir(subdir = None):
     return figures_dir
 
 
-def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = get_local_figures_dir(),
+def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = 'figures',
         subdir = 'dump', block = None, print_loc = True, show = True):
     """
     Save and show a figure.
@@ -50,13 +50,15 @@ def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = get_local_
     if block is None:
         block = not is_interactive
 
-    full_figure_loc = os.path.join(base_dir, subdir, name)
-    make_file_dir(full_figure_loc)
+    rel_figure_loc = os.path.join(base_dir, subdir, name)
+    local_figure_loc = get_local_path(rel_figure_loc)
 
-    fig.savefig(full_figure_loc)
+    make_file_dir(local_figure_loc)
+
+    fig.savefig(local_figure_loc)
     if print_loc:
-        print 'Saved figure to "%s"' % (full_figure_loc, )
-    _SAVED_FIGURES.append(full_figure_loc)  # Which is technically a memory leak, but you'd have to make a lot of figures.
+        print 'Saved figure to "%s"' % (local_figure_loc, )
+    _SAVED_FIGURES.append(rel_figure_loc)  # Which is technically a memory leak, but you'd have to make a lot of figures.
 
     if show:
         plt.interactive(not block)
@@ -65,7 +67,7 @@ def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = get_local_
     else:
         plt.close()
 
-    return full_figure_loc
+    return rel_figure_loc
 
 
 def get_saved_figure_locs():
