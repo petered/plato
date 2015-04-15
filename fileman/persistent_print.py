@@ -92,6 +92,8 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', 
         sys.stderr = _ORIGINAL_STDERR
 
 
+
+
 def new_log_file(log_file_path = 'dump/%T-log', print_to_console = False):
     """
     Just capture-print with different defaults - intended to be called from notebooks where
