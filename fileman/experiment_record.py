@@ -4,11 +4,11 @@ from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
-from fileman.local_dir import format_filename, make_file_dir, get_relative_path, get_local_path
+from fileman.local_dir import format_filename, make_file_dir, get_local_path
 from fileman.notebook_plots import show_embedded_figure
-from fileman.notebook_utils import get_relative_link_from_local_path
+from fileman.notebook_utils import get_relative_link_from_relative_path
 from fileman.persistent_print import capture_print
-from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, FigureCollector, \
+from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, \
     set_show_callback, always_save_figures
 import matplotlib.pyplot as plt
 import re
@@ -71,7 +71,7 @@ class ExperimentRecord(object):
         # On exit, we read the log file.  After this, the log file is no longer associated with the experiment.
         capture_print(False)
 
-        with open(self._log_file_path) as f:
+        with open(get_local_path(self._log_file_path)) as f:
             self._captured_logs = f.read()
 
         set_show_callback(None)
@@ -97,13 +97,13 @@ class ExperimentRecord(object):
 
     def show_figures(self):
         for loc in self._captured_figure_locs:
-            rel_loc = get_relative_link_from_local_path(loc)
+            rel_loc = get_relative_link_from_relative_path(loc)
             show_embedded_figure(rel_loc)
 
     def show(self):
-        print 'Experiment %s' % (self._experiment_identifier)
+        print 'Experiment %s' % (self._experiment_identifier, )
         display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
-                     % get_relative_link_from_local_path(self._log_file_path)))
+                     % get_relative_link_from_relative_path(self._log_file_path)))
         self.show_figures()
 
     def print_logs(self):
