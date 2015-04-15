@@ -1,12 +1,13 @@
 from collections import OrderedDict
 from datetime import datetime
+import inspect
 from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
 from fileman.local_dir import format_filename, make_file_dir, get_relative_path, get_local_path
 from fileman.notebook_plots import show_embedded_figure
-from fileman.notebook_utils import get_relative_link_from_local_path
+from fileman.notebook_utils import get_relative_link_from_local_path, get_server_relative_data_folder_name
 from fileman.persistent_print import capture_print
 from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, FigureCollector, \
     set_show_callback, always_save_figures
@@ -203,6 +204,14 @@ def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **note
     :return:
     """
     exp_id = get_latest_experiment_identifier(name=name)
+
+    func = exp_dict[name]
+
+
+    get_server_relative_data_folder_name()
+    module_rel_path = inspect.getmodule(func)
+    display(HTML())
+
     if exp_id is None or force_compute:
         exp = run_notebook_experiment(name, exp_dict, **notebook_experiment_record_kwargs)
     else:

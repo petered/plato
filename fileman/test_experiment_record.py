@@ -80,10 +80,23 @@ def test_get_latest():
     os.remove(experiment_2.get_file_path())
 
 
+def test_get_or_run_experiment():
+
+
+
+    experiment_1 = run_experiment('test_get_or_run', exp_dict = {'test_get_or_run': _run_experiment}, save_result = True)
+
+    experiment_2 = run_experiment('test_get_or_run', exp_dict = {'test_get_or_run': _run_experiment}, save_result = True)
+
+
+    os.remove(experiment_1.get_file_path())
+    os.remove(experiment_2.get_file_path())
+
 if __name__ == '__main__':
 
     set_test_mode(True)
 
+    test_get_or_run_experiment()
     test_get_latest()
     test_run_and_show()
     test_experiment_with()
