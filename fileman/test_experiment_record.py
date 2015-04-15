@@ -3,7 +3,7 @@ from general.test_mode import set_test_mode
 import os
 import pickle
 from fileman.experiment_record import ExperimentRecord, start_experiment, run_experiment, show_experiment, \
-    get_local_experiment_path, get_latest_experiment
+    get_latest_experiment_identifier
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -74,7 +74,7 @@ def test_get_latest():
     experiment_1 = run_experiment('test_get_latest', exp_dict = {'test_get_latest': _run_experiment}, save_result = True)
     time.sleep(0.01)
     experiment_2 = run_experiment('test_get_latest', exp_dict = {'test_get_latest': _run_experiment}, save_result = True)
-    identifier = get_latest_experiment('test_get_latest')
+    identifier = get_latest_experiment_identifier('test_get_latest')
     assert identifier == experiment_2.get_identifier()
     os.remove(experiment_1.get_file_path())
     os.remove(experiment_2.get_file_path())
