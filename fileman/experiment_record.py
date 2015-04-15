@@ -51,7 +51,6 @@ class ExperimentRecord(object):
         assert show_figs in ('hang', 'draw', False)
 
         self._experiment_identifier = format_filename(file_string = filename, base_name=name, current_time = now)
-        self._experiment_file_path = get_local_experiment_path(self._experiment_identifier)
         self._log_file_name = format_filename('%T-%N', base_name = name, current_time = now)
         self._has_run = False
         self._print_to_console = print_to_console
@@ -81,19 +80,14 @@ class ExperimentRecord(object):
         self._has_run = True
 
         if self._save_result:
-            make_file_dir(self._experiment_file_path)
-            with open(self._experiment_file_path, 'w') as f:
+            file_path = get_local_experiment_path(self._experiment_identifier)
+            make_file_dir(file_path)
+            with open(file_path, 'w') as f:
                 pickle.dump(self, f)
                 print 'Saving Experiment "%s"' % (self._experiment_identifier, )
 
     def get_identifier(self):
-        path = get_relative_path(self.get_file_path(), base_path=get_local_path('experiments'))
-        assert path.endswith('.exp.pkl')
-        identifier = path[:-len('.exp.pkl')]
-        return identifier
-
-    def get_file_path(self):
-        return self._experiment_file_path
+        return self._experiment_identifier
 
     def get_logs(self):
         return self._captured_logs
@@ -114,6 +108,9 @@ class ExperimentRecord(object):
 
     def print_logs(self):
         print self._captured_logs
+
+    def get_file_path(self):
+        return get_local_experiment_path(self._experiment_identifier)
 
     def end_and_show(self):
         if not self._has_run:
