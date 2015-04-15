@@ -1,4 +1,5 @@
 import shutil
+from fileman.local_dir import get_local_path
 
 import os
 from fileman.saving_plots import always_save_figures, get_saved_figure_locs, get_local_figures_dir, \
@@ -25,7 +26,7 @@ def test_save_figures():
     plt.plot(np.random.randn(100, 3))
     plt.show()
     figures = get_saved_figure_locs()
-    assert len(figures) == 1 and os.path.exists(figures[0]) and figures[0].endswith('testing/test_fig.pdf')
+    assert len(figures) == 1 and os.path.exists(get_local_path(figures[0])) and figures[0].endswith('testing/test_fig.pdf')
 
     try:  # Always good to clean up after yourself.
         shutil.rmtree(test_dir)

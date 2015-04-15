@@ -1,7 +1,6 @@
 from datetime import datetime
 import sys
 from StringIO import StringIO
-
 from IPython.core.display import display, HTML
 from fileman.local_dir import get_local_path, make_file_dir, format_filename
 from fileman.notebook_utils import get_relative_link_from_local_path, get_relative_link_from_relative_path
@@ -66,37 +65,33 @@ class PrintAndStoreLogger(object):
         return getattr(self.terminal, item)
 
 
-def get_local_log_dir(subdir = None):
-    figures_dir = get_local_path('logs')
-    if subdir is not None:
-        figures_dir = os.path.join(figures_dir, subdir)
-    return figures_dir
-
-
 def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', **print_and_store_kwargs):
     """
     :param state: True to caputure print, False to not capture print
     :param to_file: True to print to file
     :param log_file_path: Path of file to print to, if (state and to_file)
     :param print_and_store_kwargs: Passed to the PrintAndStoreLogger constructor.
-    :return: The path to the logger.
+    :return: The relative path to the logger.
     """
 
     if state:
-        log_file_path = format_filename(log_file_path, current_time = datetime.now(), directory=get_local_log_dir(), ext = 'txt')
-        logger = PrintAndStoreLogger(log_file_path=log_file_path, **print_and_store_kwargs)
+        rel_log_file_path = format_filename(log_file_path, current_time = datetime.now(), directory='logs', ext = 'txt')
+        local_log_file_path = get_local_path(rel_log_file_path)
+        logger = PrintAndStoreLogger(log_file_path=local_log_file_path, **print_and_store_kwargs)
         if to_file:
-            relative_link = get_relative_link_from_local_path(logger.get_log_file_path())
+            relative_link = get_relative_link_from_relative_path(rel_log_file_path)
             log_folder_link = get_relative_link_from_relative_path('logs')
             display(HTML("Writing to <a href='%s' target='_blank'>this log file</a>.  See <a href='%s' target='_blank'>all logs</a>"
                 % (relative_link, log_folder_link)))
         sys.stdout = logger
 
         sys.stderr = logger
-        return logger.get_log_file_path()
+        return rel_log_file_path
     else:
         sys.stdout = _ORIGINAL_STDOUT
         sys.stderr = _ORIGINAL_STDERR
+
+
 
 
 def new_log_file(log_file_path = 'dump/%T-log', print_to_console = False):
