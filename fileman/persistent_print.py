@@ -65,13 +65,6 @@ class PrintAndStoreLogger(object):
         return getattr(self.terminal, item)
 
 
-def get_local_log_dir(subdir = None):
-    figures_dir = get_local_path('logs')
-    if subdir is not None:
-        figures_dir = os.path.join(figures_dir, subdir)
-    return figures_dir
-
-
 def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', **print_and_store_kwargs):
     """
     :param state: True to caputure print, False to not capture print
@@ -86,7 +79,7 @@ def capture_print(state = True, to_file = False, log_file_path = 'dump/%T-log', 
         local_log_file_path = get_local_path(rel_log_file_path)
         logger = PrintAndStoreLogger(log_file_path=local_log_file_path, **print_and_store_kwargs)
         if to_file:
-            relative_link = get_relative_link_from_local_path(logger.get_log_file_path())
+            relative_link = get_relative_link_from_relative_path(rel_log_file_path)
             log_folder_link = get_relative_link_from_relative_path('logs')
             display(HTML("Writing to <a href='%s' target='_blank'>this log file</a>.  See <a href='%s' target='_blank'>all logs</a>"
                 % (relative_link, log_folder_link)))
