@@ -11,6 +11,7 @@ from fileman.persistent_print import capture_print
 from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, FigureCollector, \
     set_show_callback, always_save_figures
 import matplotlib.pyplot as plt
+import re
 
 __author__ = 'peter'
 
@@ -83,7 +84,7 @@ class ExperimentRecord(object):
             make_file_dir(self._experiment_file_path)
             with open(self._experiment_file_path, 'w') as f:
                 pickle.dump(self, f)
-                print 'Saving Experiment "%s" at "%s"' % (self._experiment_identifier, self._experiment_file_path)
+                print 'Saving Experiment "%s"' % (self._experiment_identifier, )
 
     def get_identifier(self):
         path = get_relative_path(self.get_file_path(), base_path=get_local_path('experiments'))
@@ -111,10 +112,16 @@ class ExperimentRecord(object):
                      % get_relative_link_from_local_path(self._log_file_path)))
         self.show_figures()
 
+    def print_logs(self):
+        print self._captured_logs
+
     def end_and_show(self):
         if not self._has_run:
             self.__exit__()
         self.show()
+
+    def __str__(self):
+        return '<ExperimentRecord object %s at %s>' % (self._experiment_identifier, hex(id(self)))
 
 
 _CURRENT_EXPERIMENT = None
@@ -148,15 +155,15 @@ def run_experiment(name, exp_dict, print_to_console = True, show_figs = None, **
     with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
         func()
 
-    return exp_rec.get_identifier()
+    return exp_rec
 
 
-def run_notebook_experiment(name, exp_dict, **experiment_record_kwargs):
+def run_notebook_experiment(name, exp_dict, print_to_console=False, show_figs=False, **experiment_record_kwargs):
     """
     Run an experiment with settings more suited to an IPython notebook.  Here, we want to redirect all
     output to a log file, and not show the figures immediately.
     """
-    run_experiment(name, exp_dict, print_to_console = False, show_figs = False, **experiment_record_kwargs)
+    return run_experiment(name, exp_dict, print_to_console = print_to_console, show_figs = show_figs, **experiment_record_kwargs)
 
 
 def get_local_experiment_path(identifier):
@@ -184,3 +191,63 @@ def merge_experiment_dicts(*dicts):
         assert not any(k in merge_dict for k in d), "Experiments %s has been defined twice." % ([k for k in d.keys() if k in merge_dict],)
         merge_dict.update(d)
     return merge_dict
+
+
+def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **notebook_experiment_record_kwargs):
+    """
+    Get the latest experiment with the given name,
+    :param name: Name of the experiment
+    :param exp_dict: Dictionary of experiments to chose from
+    :param force_compute: Recompute the experiment no matter what
+    :param notebook_experiment_record_kwargs:
+    :return:
+    """
+    exp_id = get_latest_experiment_identifier(name=name)
+    if exp_id is None or force_compute:
+        exp = run_notebook_experiment(name, exp_dict, **notebook_experiment_record_kwargs)
+    else:
+        exp = load_experiment(exp_id)
+    return exp
+
+
+def get_latest_experiment_identifier(name, template = '%T-%N'):
+    """
+    Show results of the latest experiment matching the given template.
+    :param name: The experiment name
+    :param template: The template which turns a name into an experiment identifier
+    :return: A string identifying the latest matching experiment, or None, if not found.
+    """
+    named_template = template.replace('%N', name)
+    expr = named_template.replace('%T', '\d\d\d\d\.\d\d\.\d\d\T\d\d\.\d\d\.\d\d\.\d\d\d\d\d\d')
+    matching_experiments = get_all_experiment_ids(expr)
+    if len(matching_experiments) == 0:
+        return None
+    else:
+        latest_experiment_id = sorted(matching_experiments)[-1]
+        return latest_experiment_id
+
+
+def load_experiment(experiment_identifier):
+    """
+    Load an ExperimentRecord based on the identifier
+    :param experiment_identifier: A string identifying the experiment
+    :return: An ExperimentRecord object
+    """
+    full_path = get_local_experiment_path(identifier=experiment_identifier)
+    with open(full_path) as f:
+        exp = pickle.load(f)
+    return exp
+
+
+def get_all_experiment_ids(expr = None):
+    """
+    :param expr: A regexp for matching experiments
+        None if you just want all of them
+    :return: A list of experiment identifiers.
+    """
+
+    expdir = get_local_path('experiments')
+    experiments = [e[:-len('.exp.pkl')] for e in os.listdir(expdir) if e.endswith('.exp.pkl')]
+    if expr is not None:
+        experiments = [e for e in experiments if re.match(expr, e)]
+    return experiments
