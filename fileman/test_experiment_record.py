@@ -28,7 +28,7 @@ def _run_experiment():
 
 def test_experiment_with():
 
-    with ExperimentRecord(filename = 'test_exp') as exp_1:
+    with ExperimentRecord(filename = 'test_exp', save_result=True) as exp_1:
         _run_experiment()
 
     assert exp_1.get_logs() == 'aaa\nbbb\n'
