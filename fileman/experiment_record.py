@@ -1,11 +1,13 @@
 from collections import OrderedDict
 from datetime import datetime
+import inspect
 from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
-from fileman.local_dir import format_filename, make_file_dir, get_local_path
+from fileman.local_dir import format_filename, make_file_dir, get_local_path, get_relative_path
 from fileman.notebook_plots import show_embedded_figure
+from fileman.notebook_utils import get_server_relative_data_folder_name, get_local_server_dir
 from fileman.notebook_utils import get_relative_link_from_relative_path
 from fileman.persistent_print import capture_print
 from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, \
@@ -101,7 +103,6 @@ class ExperimentRecord(object):
             show_embedded_figure(rel_loc)
 
     def show(self):
-        print 'Experiment %s' % (self._experiment_identifier, )
         display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
                      % get_relative_link_from_relative_path(self._log_file_path)))
         self.show_figures()
@@ -190,7 +191,7 @@ def merge_experiment_dicts(*dicts):
     return merge_dict
 
 
-def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **notebook_experiment_record_kwargs):
+def get_or_run_notebook_experiment(name, exp_dict, display_module = True, force_compute = False, **notebook_experiment_record_kwargs):
     """
     Get the latest experiment with the given name,
     :param name: Name of the experiment
@@ -200,7 +201,24 @@ def get_or_run_notebook_experiment(name, exp_dict, force_compute = False, **note
     :return:
     """
     exp_id = get_latest_experiment_identifier(name=name)
-    if exp_id is None or force_compute:
+
+    recompute = exp_id is None or force_compute
+
+    if display_module:
+        func = exp_dict[name]
+        if hasattr(inspect.getmodule(func), '__file__'):
+            module_rel_path = inspect.getmodule(func).__file__
+            if module_rel_path.endswith('.pyc'):
+                module_rel_path = module_rel_path[:-1]
+            module_name = inspect.getmodule(func).__name__
+            server_path = get_local_server_dir()
+            rel_path = get_relative_path(module_rel_path, server_path)
+            if recompute:
+                display(HTML("Running Experiment %s from module <a href = '/edit/%s' target='_blank'>%s</a>" % (name, rel_path, module_name)))
+            else:
+                display(HTML("Showing Completed Experiment %s from module <a href = '/edit/%s' target='_blank'>%s</a>" % (exp_id, rel_path, module_name)))
+
+    if recompute:
         exp = run_notebook_experiment(name, exp_dict, **notebook_experiment_record_kwargs)
     else:
         exp = load_experiment(exp_id)
