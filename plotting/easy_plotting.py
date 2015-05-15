@@ -2,6 +2,7 @@ from collections import OrderedDict
 from general.nested_structures import flatten_struct
 from plotting.data_conversion import vector_length_to_tile_dims
 import plotting.matplotlib_backend as eplt
+import numpy as np
 
 __author__ = 'peter'
 
@@ -47,3 +48,18 @@ def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, figure
     eplt.show()
 
     return figure, plots
+
+
+def funplot(func, xlims = None, n_points = 100):
+    """
+    Plot a function
+    :param func:
+    :param xlims:
+    :param n_points:
+    :return:
+    """
+    if xlims is None:
+        xlims = eplt.gca().get_xbound()
+    xs, xe = xlims
+    x = np.linspace(xs, xe, n_points)
+    eplt.plot(x, func(x))

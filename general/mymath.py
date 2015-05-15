@@ -10,19 +10,28 @@ sigm = lambda x: 1/(1+np.exp(-x))
 
 def cummean(x, axis = None):
     if axis is None:
-        
-    x=np.array(x)
-    normalized = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
-    return np.cumsum(x, axis)/normalized
+        assert isinstance(x, list) or x.ndim == 1, 'You must specify axis for a multi-dimensional array'
+        axis = 0
+    x = np.array(x)
+    normalizer = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
+    return np.cumsum(x, axis)/normalizer
 
 
-def cumvar(x, axis):
+def cumvar(x, axis = None, sample = True):
     """
     :return: Cumulative variance along axis
     """
+    if axis is None:
+        assert isinstance(x, list) or x.ndim == 1, 'You must specify axis for a multi-dimensional array'
+        axis = 0
+    if not isinstance(x, np.ndarray):
+        x = np.array(x)
     ex_2 = cummean(x, axis=axis)**2
     e_x2 = cummean(x**2, axis=axis)
-    return e_x2-ex_2
+    var = e_x2-ex_2
+    if sample and x.shape[axis] > 1:
+        var *= x.shape[axis]/float(x.shape[axis]-1)
+    return var
 
 
 def binary_permutations(n_bits):
@@ -50,7 +59,7 @@ def softmax(x, axis = None):
     return expx/np.sum(expx, axis=axis, keepdims=True)
 
 
-def expected_sigm_of_norm(mean, std, method = 'maclauren-2'):
+def expected_sigm_of_norm(mean, std, method = 'probit'):
     """
     Approximate the expected value of the sigmoid of a normal distribution.
 
@@ -76,3 +85,8 @@ def expected_sigm_of_norm(mean, std, method = 'maclauren-2'):
         return norm.cdf(mean/np.sqrt(2.892 + std**2))
     else:
         raise Exception('Method "%s" not known' % method)
+
+
+l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = 1)
+
+

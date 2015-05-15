@@ -28,4 +28,3 @@ class RunningAverage(object):
         frac = 1./self._n_samples_seen
         self._average = (1-frac)*self._average + frac*data
         return self._average
-

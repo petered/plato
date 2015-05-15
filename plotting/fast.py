@@ -43,7 +43,7 @@ def fastplot(line_data, xscale = 'linear', yscale = 'linear', resolution = 2000,
 
 
 def fastloglog(line_data, **kwargs):
-    return fastplot(line_data, xscale='log', yscale = 'log', **kwargs)
+    return fastplot(line_data, xscale='log', yscale = 'symlog', **kwargs)
 
 
 def find_interval_extremes(array, edges):
