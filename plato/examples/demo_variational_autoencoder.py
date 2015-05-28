@@ -1,4 +1,4 @@
-from plato.tools.optimizers import SimpleGradientDescent, AdaMax
+from plato.tools.optimizers import AdaMax
 from plato.tools.variational_autoencoder import VariationalAutoencoder, \
     EncoderDecoderNetworks
 from plotting.db_plotting import dbplot
@@ -16,7 +16,6 @@ def demo_variational_autoencoder(
         ):
 
     data = get_mnist_dataset(flat = True).training_set.input
-    # data = data - np.mean(data, axis = 0, keepdims=True)
 
     model = VariationalAutoencoder(
         pq_pair = EncoderDecoderNetworks(
@@ -45,8 +44,6 @@ def demo_variational_autoencoder(
             dbplot(samples, 'Samples from Model')
             dbplot(model.pq_pair.p_net.parameters[-2].get_value()[:25].reshape(-1, 28, 28), 'dec')
             dbplot(model.pq_pair.q_net.parameters[0].get_value().T[:25].reshape(-1, 28, 28), 'enc')
-
-            # print [(p.name, p.get_value().std()) for p in model.parameters]
 
 
 if __name__ == '__main__':

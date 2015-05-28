@@ -3,11 +3,9 @@ import numpy as np
 from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
 from plato.interfaces.helpers import get_theano_rng
 from plato.interfaces.interfaces import IParameterized
-from plato.tools import tdb_plotting
 from plato.tools.linking import Chain, Branch
 from plato.tools.networks import FullyConnectedBridge, Layer
 from plato.tools.optimizers import SimpleGradientDescent
-from plato.tools.tdb_plotting import tdbplot
 import theano.tensor as tt
 __author__ = 'peter'
 
@@ -69,9 +67,9 @@ class EncoderDecoderNetworks(object):
 
         self._n_observed_dim = x_dim
         self._n_latent_dim = z_dim
-        self.p_net = PredictionNetwork(input_size = z_dim, hidden_sizes = encoder_hidden_sizes,
+        self.p_net = DistributionMLP(input_size = z_dim, hidden_sizes = encoder_hidden_sizes,
             output_size=x_dim, hidden_activation=hidden_activation, w_init=w_init, distribution = x_distribution)
-        self.q_net = PredictionNetwork(input_size = x_dim, hidden_sizes = decoder_hidden_sizes,
+        self.q_net = DistributionMLP(input_size = x_dim, hidden_sizes = decoder_hidden_sizes,
             output_size=z_dim, hidden_activation=hidden_activation, w_init=w_init, distribution=z_distribution)
         self._prior = \
             UniformDistribution(z_dim) if z_distribution == 'bernoulli' else \
@@ -101,9 +99,9 @@ class EncoderDecoderNetworks(object):
         return self.p_net.parameters + self.q_net.parameters
 
 
-class PredictionNetwork(IParameterized):
+class DistributionMLP(IParameterized):
     """
-    A Multi-Layer Perceptron
+    A Multi-Layer Perceptron that outputs a distribution.
     """
 
     def __init__(self, input_size, hidden_sizes, output_size, distribution = 'gaussian', hidden_activation = 'sig', w_init = lambda n_in, n_out: 0.01*np.random.randn(n_in, n_out)):
