@@ -66,7 +66,8 @@ class Layer(object):
                 'lin': lambda x: x,
                 'tanh': tt.tanh,
                 'rect-lin': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x)
+                'softmax': lambda x: tt.nnet.softmax(x),
+                'exp': lambda x: tt.exp(x)
             }[activation_fcn]
         self._activation_fcn = activation_fcn
 

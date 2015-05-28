@@ -152,7 +152,7 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
 
     def _assert_all_updates(self, updates):
-        if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
+        if not (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
 
@@ -376,8 +376,8 @@ class SymbolicSingleOutputUpdater(BaseSymbolicFunction):
     def _check_outputs(self, out):
         assert len(out) == 2, 'Output must consist of tensor, update'
         var, up = out
-        self._assert_is_tensor(out)
-        self._assert_all_updates([up])
+        self._assert_is_tensor(var, 'Output')
+        self._assert_all_updates(up)
 
     @property
     def symbolic_standard(self):
