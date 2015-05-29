@@ -66,7 +66,8 @@ class Layer(object):
                 'lin': lambda x: x,
                 'tanh': tt.tanh,
                 'rect-lin': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x)
+                'softmax': lambda x: tt.nnet.softmax(x),
+                'exp': lambda x: tt.exp(x)
             }[activation_fcn]
         self._activation_fcn = activation_fcn
 
@@ -137,9 +138,9 @@ class StochasticLayer(IParameterized, IFreeEnergy):
             free_energy_fcn = None
             params.append(sigma)
         elif activation_type == 'rect-lin':
-            smooth_activation_fcn = lambda x: np.maximum(0, x)
-            stochastic_activation_fcn = lambda x: np.maximum(0, )
-            free_energy_fcn = None
+            smooth_activation_fcn = lambda x: tt.maximum(0, x)
+            stochastic_activation_fcn = lambda x: tt.maximum(0, x+rng.normal(avg=0, std=1))
+            free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 

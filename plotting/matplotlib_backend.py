@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('TkAgg')  # Makes windows pop up!
 from abc import ABCMeta, abstractmethod
 from general.should_be_builtins import bad_value
 from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit, data_to_image
