@@ -1,3 +1,4 @@
+from abc import abstractproperty, abstractmethod
 from general.should_be_builtins import bad_value
 import numpy as np
 from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
@@ -27,22 +28,14 @@ class VariationalAutoencoder(object):
     def __init__(self, pq_pair, optimizer = SimpleGradientDescent(eta = 0.1), rng = None):
         self.rng = get_theano_rng(rng)
         self.pq_pair = pq_pair
-
-        # self.prior = UniformDistribution(pq_pair.n_latent_dim)
-        # self.prior = StandardNormalDistribution(pq_pair.n_latent_dim)
         self.optimizer = optimizer
 
     @symbolic_updater
     def train(self, data_minibatch):
         posterior_dist = self.pq_pair.p_z_given_x(data_minibatch)
         posterior_sample = posterior_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
-        # tdbplot(posterior_sample, 'Z')
         data_dist = self.pq_pair.p_x_given_z(posterior_sample)
         lower_bound = -posterior_dist.kl_divergence(self.pq_pair.prior) + data_dist.log_prob(data_minibatch) # (minibatch_size, )
-
-        # tdbplot(data_dist.means, 'means')
-        # tdbplot(data_dist.log_prob(data_minibatch).sum(), 'p(x|z)')
-
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
         return updates
 
@@ -58,7 +51,41 @@ class VariationalAutoencoder(object):
         return self.pq_pair.parameters
 
 
-class EncoderDecoderNetworks(object):
+class IVariationalPair(object):
+
+    @abstractproperty
+    def prior(self):
+        """ The prior - an IDistribution object """
+
+    @abstractproperty
+    def n_observed_dim(self):
+        """ Number of observed dimensions """
+
+    @abstractproperty
+    def n_latent_dim(self):
+        """ Number of latent dimensions """
+
+    @abstractmethod
+    def p_z_given_x(self, x):
+        """
+        Given a sample x, return an IDistribution object defining the distribution over Z
+        """
+
+    @abstractmethod
+    def p_x_given_z(self, z):
+        """
+        Given a sample z, return an IDistribution object defining the distribution over X
+        """
+
+    @abstractproperty
+    def parameters(self):
+        pass
+
+
+class EncoderDecoderNetworks(IVariationalPair):
+    """
+    An encoder/decoder pair that uses neural networks to encode the distribution of Z given X and vice versa.
+    """
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],
                  hidden_activation = 'tanh', w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out),
@@ -72,7 +99,7 @@ class EncoderDecoderNetworks(object):
         self.q_net = DistributionMLP(input_size = x_dim, hidden_sizes = decoder_hidden_sizes,
             output_size=z_dim, hidden_activation=hidden_activation, w_init=w_init, distribution=z_distribution)
         self._prior = \
-            UniformDistribution(z_dim) if z_distribution == 'bernoulli' else \
+            StandardUniformDistribution(z_dim) if z_distribution == 'bernoulli' else \
             StandardNormalDistribution(z_dim) if z_distribution == 'gaussian' else \
             bad_value(z_distribution)
 
@@ -156,6 +183,9 @@ class DistributionMLP(IParameterized):
 
 
 class IDistribution(object):
+    """
+    An object representing a probability distribution.
+    """
 
     def sample(self, n, rng):
         """
@@ -201,14 +231,9 @@ class MultipleDiagonalGaussianDistribution(IDistribution):
         self.mu = mu
         self.sigma_sq = sigma_sq
 
-        # tdbplot(sigma_sq.min(), 'sigma_sq %s' % (self, ))
-
     def sample(self, n, rng):
         mu_shape = self.mu.tag.test_value.shape
-
         return rng.normal(size = (n, )+mu_shape) * tt.sqrt(self.sigma_sq) + self.mu
-
-        # return rng.normal(avg = self.mu.reshape(('x', )+mu_shape), std = tt.sqrt(self.sigma_sq.reshape(('x', )+mu_shape)), size = (n, )+mu_shape)
 
     def kl_divergence(self, other):
 
@@ -222,13 +247,10 @@ class MultipleDiagonalGaussianDistribution(IDistribution):
         :param x: Data is a (n_samples, n_dims) array of data
         :return: A length n_dims vector containing the log-probability of each data point given this distribution.
         """
-
         return tt.sum(-0.5*tt.log(2*np.pi*self.sigma_sq)-0.5*(x-self.mu)**2/self.sigma_sq, axis = 1)
 
-        # return tt.sum(-(0.5 * (np.log(2 * np.pi) + tt.log(self.sigma_sq))) - 0.5 * (x - self.mu)**2 / self.sigma_sq, axis = 1)
 
-
-class UniformDistribution(IDistribution):
+class StandardUniformDistribution(IDistribution):
 
     def __init__(self, n_dims):
         self.n_dims = n_dims
@@ -241,7 +263,6 @@ class MultipleBernoulliDistribution(IDistribution):
 
     def __init__(self, means):
         self.means = means
-        # tdbplot(self.means, 'Means')
 
     def sample(self, n, rng):
         shape = self.means.tag.test_value.shape
@@ -249,10 +270,9 @@ class MultipleBernoulliDistribution(IDistribution):
 
     def log_prob(self, x):
         return tt.sum(x*tt.log(self.means) + (1-x)*tt.log(1-self.means), axis = 1)
-        # return -tt.nnet.binary_crossentropy(self.means, x).sum(axis = 1)
 
     def kl_divergence(self, other):
-        if isinstance(other, UniformDistribution):
+        if isinstance(other, StandardUniformDistribution):
             return tt.sum(self.means*(tt.log(self.means) - tt.log(0.5)), axis = 1)
         else:
             raise NotImplementedError()

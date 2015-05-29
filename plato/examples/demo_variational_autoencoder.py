@@ -14,7 +14,12 @@ def demo_variational_autoencoder(
         n_epochs = 2000,
         plot_interval = 100,
         ):
-
+    """
+    Train a Variational Autoencoder on MNIST and look at the samples it generates.
+    :param minibatch_size: Number of elements in the minibatch
+    :param n_epochs: Number of passes through dataset
+    :param plot_interval: Plot every x iterations
+    """
     data = get_mnist_dataset(flat = True).training_set.input
 
     model = VariationalAutoencoder(

@@ -49,6 +49,10 @@ class Chain(IParameterized):
 
 @symbolic_standard
 class Branch(IParameterized):
+    """
+    Given a set of N One-in-one-out processors, make a composite processor
+    that takes one in and N out.
+    """
 
     def __init__(self, *processors):
         self._processors = processors

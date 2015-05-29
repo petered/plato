@@ -9,6 +9,12 @@ sigm = lambda x: 1/(1+np.exp(-x))
 
 
 def cummean(x, axis = None):
+    """
+    Cumulative mean along axis
+    :param x: An array
+    :param axis: The axis
+    :return: An array of the same shape
+    """
     if axis is None:
         assert isinstance(x, list) or x.ndim == 1, 'You must specify axis for a multi-dimensional array'
         axis = 0

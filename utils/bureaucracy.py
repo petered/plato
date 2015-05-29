@@ -18,6 +18,13 @@ def multichannel(fcn):
 
 
 def minibatch_iterate(data, minibatch_size, n_epochs):
+    """
+    Yields minibatches in sequence.
+    :param data: A (n_samples, ...) data array
+    :param minibatch_size: The number of samples per minibatch
+    :param n_epochs: The number of epochs to run for
+    :yield: (minibatch_size, ...) data arrays.
+    """
     i = 0
     end = len(data)*n_epochs
 
