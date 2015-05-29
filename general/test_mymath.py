@@ -22,7 +22,7 @@ def test_cummean():
 def test_cumvar():
 
     arr = np.random.randn(3, 4)
-    cum_arr = cumvar(arr, axis = 1)
+    cum_arr = cumvar(arr, axis = 1, sample = False)
     assert np.allclose(cum_arr[:, 0], 0)
     assert np.allclose(cum_arr[:, 1], np.var(arr[:, :2], axis = 1))
     assert np.allclose(cum_arr[:, 2], np.var(arr[:, :3], axis = 1))
