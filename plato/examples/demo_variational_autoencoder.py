@@ -37,7 +37,7 @@ def demo_variational_autoencoder(
             z_distribution='gaussian',
             hidden_activation = 'rect-lin'
             ),
-        optimizer=AdaMax(alpha = 0.001),
+        optimizer=AdaMax(alpha = 0.01),
         rng = rng
         )
 

@@ -6,8 +6,7 @@ from plato.interfaces.helpers import get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.linking import Chain, Branch
 from plato.tools.networks import FullyConnectedBridge, Layer
-from plato.tools.optimizers import SimpleGradientDescent
-import theano
+from plato.tools.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'
 
@@ -26,7 +25,7 @@ class VariationalAutoencoder(object):
     http://arxiv.org/pdf/1312.6114v10.pdf
     """
 
-    def __init__(self, pq_pair, optimizer = SimpleGradientDescent(eta = 0.1), rng = None):
+    def __init__(self, pq_pair, optimizer = AdaMax(alpha = 0.01), rng = None):
         self.rng = get_theano_rng(rng)
         self.pq_pair = pq_pair
         self.optimizer = optimizer
@@ -39,23 +38,6 @@ class VariationalAutoencoder(object):
         lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
         return updates
-
-
-    # def unlearning_func(self, initial_x):
-    #
-    #     x_samples = theano.shared(initial_x)
-    #     # x_sample = tt.sum(x_sample_var, 0)
-    #
-    #     @symbolic_updater
-    #     def unlearn():
-    #         z_dist = self.pq_pair.p_z_given_x(x_samples)
-    #         z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
-    #         x_dist = self.pq_pair.p_x_given_z(z_samples)
-    #         lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
-    #         updates = self.optimizer(cost = lower_bound.mean(), parameters = self.pq_pair.p_net.parameters)
-    #         new_x_samples = x_dist.sample(1, self.rng)[0].astype(theano.config.floatX)
-    #         return updates + [(x_samples, new_x_samples)]
-    #     return unlearn
 
     @symbolic_stateless
     def sample(self, n_samples):
@@ -80,6 +62,9 @@ class VariationalAutoencoder(object):
 
 
 class IVariationalPair(object):
+    """
+    THe interface for a model which defines the distributions p(X|Z), p(Z), and P(Z|X)
+    """
 
     @abstractproperty
     def prior(self):
@@ -249,8 +234,8 @@ class StandardNormalDistribution(IDistribution):
 class MultipleDiagonalGaussianDistribution(IDistribution):
     """
     A collection of diagonal gaussian distributions
-
     """
+    
     def __init__(self, mu, sigma_sq):
         """
         :param mu: An (n_samples, n_dims) vector of means
