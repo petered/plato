@@ -7,6 +7,7 @@ from plato.interfaces.interfaces import IParameterized
 from plato.tools.linking import Chain, Branch
 from plato.tools.networks import FullyConnectedBridge, Layer
 from plato.tools.optimizers import SimpleGradientDescent
+import theano
 import theano.tensor as tt
 __author__ = 'peter'
 
@@ -31,20 +32,47 @@ class VariationalAutoencoder(object):
         self.optimizer = optimizer
 
     @symbolic_updater
-    def train(self, data_minibatch):
-        posterior_dist = self.pq_pair.p_z_given_x(data_minibatch)
-        posterior_sample = posterior_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
-        data_dist = self.pq_pair.p_x_given_z(posterior_sample)
-        lower_bound = -posterior_dist.kl_divergence(self.pq_pair.prior) + data_dist.log_prob(data_minibatch) # (minibatch_size, )
+    def train(self, x_samples):
+        z_dist = self.pq_pair.p_z_given_x(x_samples)
+        z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
+        x_dist = self.pq_pair.p_x_given_z(z_samples)
+        lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
         return updates
+
+
+    # def unlearning_func(self, initial_x):
+    #
+    #     x_samples = theano.shared(initial_x)
+    #     # x_sample = tt.sum(x_sample_var, 0)
+    #
+    #     @symbolic_updater
+    #     def unlearn():
+    #         z_dist = self.pq_pair.p_z_given_x(x_samples)
+    #         z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
+    #         x_dist = self.pq_pair.p_x_given_z(z_samples)
+    #         lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
+    #         updates = self.optimizer(cost = lower_bound.mean(), parameters = self.pq_pair.p_net.parameters)
+    #         new_x_samples = x_dist.sample(1, self.rng)[0].astype(theano.config.floatX)
+    #         return updates + [(x_samples, new_x_samples)]
+    #     return unlearn
 
     @symbolic_stateless
     def sample(self, n_samples):
         z_samples = self.pq_pair.prior.sample(n_samples, self.rng)
+        return self.sample_x_given_z(z_samples)
+
+    @symbolic_stateless
+    def sample_x_given_z(self, z_samples):
         x_dist = self.pq_pair.p_x_given_z(z_samples)
         x_samples = x_dist.sample(1, self.rng)[0]
         return x_samples
+
+    @symbolic_stateless
+    def sample_z_given_x(self, x_samples):
+        z_dist = self.pq_pair.p_z_given_x(x_samples)
+        z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
+        return z_samples
 
     @property
     def parameters(self):

@@ -141,6 +141,10 @@ class StochasticLayer(IParameterized, IFreeEnergy):
             smooth_activation_fcn = lambda x: tt.maximum(0, x)
             stochastic_activation_fcn = lambda x: tt.maximum(0, x+rng.normal(avg=0, std=1))
             free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
+        elif activation_type == 'herded-bernoulli':
+            smooth_activation_fcn = lambda x: tt.nnet.sigmoid(x)
+            stochastic_activation_fcn = lambda x: rng.binomial(p=tt.nnet.sigmoid(x), dtype = theano.config.floatX)
+            free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 
@@ -177,6 +181,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self._w)
+        # current = tt.dot(x.dot(self._w)
 
         if self._normalize_minibatch:
             current = (current - current.mean(axis = 0, keepdims = True)) / (current.std(axis = 0, keepdims = True) + 1e-9)

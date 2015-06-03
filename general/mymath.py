@@ -1,4 +1,5 @@
 import numpy as np
+from plotting.data_conversion import memoize
 from scipy.stats import norm
 __author__ = 'peter'
 
@@ -18,6 +19,8 @@ def cummean(x, axis = None):
     if axis is None:
         assert isinstance(x, list) or x.ndim == 1, 'You must specify axis for a multi-dimensional array'
         axis = 0
+    elif axis < 0:
+        axis = x.ndim+axis
     x = np.array(x)
     normalizer = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
     return np.cumsum(x, axis)/normalizer
@@ -40,6 +43,7 @@ def cumvar(x, axis = None, sample = True):
     return var
 
 
+@memoize
 def binary_permutations(n_bits):
     """
     Given some number of bits, return a shape (2**n_bits, n_bits) boolean array containing every permoutation

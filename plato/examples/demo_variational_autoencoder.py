@@ -1,3 +1,4 @@
+from argmaxlab.spiking_experiments.spike_sampling import get_rng
 from plato.tools.optimizers import AdaMax
 from plato.tools.variational_autoencoder import VariationalAutoencoder, \
     EncoderDecoderNetworks
@@ -13,6 +14,7 @@ def demo_variational_autoencoder(
         minibatch_size = 100,
         n_epochs = 2000,
         plot_interval = 100,
+        seed = None
         ):
     """
     Train a Variational Autoencoder on MNIST and look at the samples it generates.
@@ -21,6 +23,8 @@ def demo_variational_autoencoder(
     :param plot_interval: Plot every x iterations
     """
     data = get_mnist_dataset(flat = True).training_set.input
+
+    rng = get_rng(seed)
 
     model = VariationalAutoencoder(
         pq_pair = EncoderDecoderNetworks(
@@ -33,16 +37,21 @@ def demo_variational_autoencoder(
             z_distribution='gaussian',
             hidden_activation = 'rect-lin'
             ),
-        optimizer=AdaMax(alpha = 0.01)
+        optimizer=AdaMax(alpha = 0.001),
+        rng = rng
         )
 
     training_fcn = model.train.compile(mode = 'tr')
+
+    # untraining_fcn = model.unlearning_func(initial_x=rng.rand(minibatch_size, data.shape[1])).compile()
 
     sampling_fcn = model.sample.compile()
 
     for i, minibatch in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
 
         training_fcn(minibatch)
+
+        # untraining_fcn()
 
         if i % plot_interval == 0:
             samples = sampling_fcn(25).reshape(5, 5, 28, 28)
