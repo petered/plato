@@ -26,6 +26,11 @@ class VariationalAutoencoder(object):
     """
 
     def __init__(self, pq_pair, optimizer = AdaMax(alpha = 0.01), rng = None):
+        """
+        :param pq_pair: An IVeriationalPair object
+        :param optimizer: An IGradientOptimizer object
+        :param rng: A random number generator, or seed.
+        """
         self.rng = get_theano_rng(rng)
         self.pq_pair = pq_pair
         self.optimizer = optimizer
@@ -60,10 +65,15 @@ class VariationalAutoencoder(object):
     def parameters(self):
         return self.pq_pair.parameters
 
+    def log_prob_data(self, data, n_samples):
+        z_dist = self.pq_pair.p_z_given_x(data)
+        z_samples = z_dist.sample(n_samples=n_samples)
+        raise NotImplementedError()
+
 
 class IVariationalPair(object):
     """
-    THe interface for a model which defines the distributions p(X|Z), p(Z), and P(Z|X)
+    A model defining the distributions p(X|Z), p(Z), and P(Z|X) should fulfill this interace.
     """
 
     @abstractproperty
@@ -81,13 +91,13 @@ class IVariationalPair(object):
     @abstractmethod
     def p_z_given_x(self, x):
         """
-        Given a sample x, return an IDistribution object defining the distribution over Z
+        Given a batch of samples x, return an IDistribution object defining the distribution over Z
         """
 
     @abstractmethod
     def p_x_given_z(self, z):
         """
-        Given a sample z, return an IDistribution object defining the distribution over X
+        Given a batch of samples z, return an IDistribution object defining the distribution over X
         """
 
     @abstractproperty
@@ -97,7 +107,7 @@ class IVariationalPair(object):
 
 class EncoderDecoderNetworks(IVariationalPair):
     """
-    An encoder/decoder pair that uses neural networks to encode the distribution of Z given X and vice versa.
+    An encoder/decoder pair that uses neural networks to encode the distributions p(Z|X) and p(X|Z).
     """
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],
@@ -146,12 +156,13 @@ class DistributionMLP(IParameterized):
 
     def __init__(self, input_size, hidden_sizes, output_size, distribution = 'gaussian', hidden_activation = 'sig', w_init = lambda n_in, n_out: 0.01*np.random.randn(n_in, n_out)):
         """
-        :param layer_sizes: A list indicating the sizes of each layer.
-        :param input_size: An integer indicating the size of the input layer
-        :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
+        :param input_size: The dimensionality of the input
+        :param hidden_sizes: A list indicating the sizes of each hidden layer.
+        :param output_size: The dimensionality of the output
+        :param distribution: The form of the output distribution (currently 'gaussian' or 'bernoulli')
+        :param hidden_activation: A string indicating the type of each hidden layer.
             {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
-        :param output_activation: A string (see above) identifying the activation function for the output layer
-        :param w_init: A function which, given input dims, output dims, return
+        :param w_init: A function which, given input dims, output dims, returns an initial weight matrix
         """
 
         all_layer_sizes = [input_size]+hidden_sizes
@@ -164,7 +175,7 @@ class DistributionMLP(IParameterized):
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
 
-        distribution_funcion = \
+        distribution_function = \
             Branch(
                  FullyConnectedBridge(w = w_init(hidden_sizes[-1], output_size)),
                  FullyConnectedBridge(w_init(hidden_sizes[-1], output_size))) \
@@ -174,16 +185,13 @@ class DistributionMLP(IParameterized):
             bad_value(distribution)
 
         self.distribution = distribution
-        self.chain = Chain(*processing_chain+[distribution_funcion])
+        self.chain = Chain(*processing_chain+[distribution_function])
 
     def __call__(self, x):
 
         if self.distribution == 'gaussian':
             (mu, log_sigma), _ = self.chain(x)
             dist = MultipleDiagonalGaussianDistribution(mu, sigma_sq = tt.exp(log_sigma)**2)
-
-            # tdbplot(mu, 'mu')
-            # tdbplot(tt.exp(log_sigma), 'sigma')
 
         elif self.distribution == 'bernoulli':
             (p, ), _ = self.chain(x)
@@ -235,7 +243,7 @@ class MultipleDiagonalGaussianDistribution(IDistribution):
     """
     A collection of diagonal gaussian distributions
     """
-    
+
     def __init__(self, mu, sigma_sq):
         """
         :param mu: An (n_samples, n_dims) vector of means

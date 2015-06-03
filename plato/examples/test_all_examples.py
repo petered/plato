@@ -1,4 +1,5 @@
 from general.test_mode import set_test_mode
+from plato.examples.demo_variational_autoencoder import demo_variational_autoencoder
 from plato.examples.demo_compare_optimizers import get_experiments
 from plato.examples.demo_prediction_example import compare_example_predictors
 from plato.examples.demo_mnist_mlp import demo_mnist_mlp
@@ -30,9 +31,14 @@ def test_demo_prediction_example():
     compare_example_predictors(test_mode = True)
 
 
+def test_demo_variational_autoencoder():
+    demo_variational_autoencoder()
+
+
 if __name__ == '__main__':
     set_test_mode(True)
 
+    test_demo_variational_autoencoder()
     test_demo_compare_optimizers()
     test_demo_prediction_example()
     test_demo_mnist_mlp()

@@ -141,10 +141,6 @@ class StochasticLayer(IParameterized, IFreeEnergy):
             smooth_activation_fcn = lambda x: tt.maximum(0, x)
             stochastic_activation_fcn = lambda x: tt.maximum(0, x+rng.normal(avg=0, std=1))
             free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
-        elif activation_type == 'herded-bernoulli':
-            smooth_activation_fcn = lambda x: tt.nnet.sigmoid(x)
-            stochastic_activation_fcn = lambda x: rng.binomial(p=tt.nnet.sigmoid(x), dtype = theano.config.floatX)
-            free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 

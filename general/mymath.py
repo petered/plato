@@ -1,5 +1,5 @@
+from general.should_be_builtins import memoize
 import numpy as np
-from plotting.data_conversion import memoize
 from scipy.stats import norm
 __author__ = 'peter'
 
