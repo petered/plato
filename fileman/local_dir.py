@@ -43,6 +43,14 @@ def make_file_dir(full_file_path):
     return full_file_path
 
 
+def make_dir(full_dir):
+
+    try:
+        os.makedirs(full_dir)
+    except OSError:
+        pass
+
+
 def format_filename(file_string, current_time = None, base_name = None, directory = None, ext = None, allow_partial_formatting = False):
     """
     Return a formatted string with placeholders in the filestring replaced by their provided values.

@@ -30,6 +30,5 @@ def minibatch_iterate(data, minibatch_size, n_epochs):
 
     ixs = np.arange(minibatch_size)
     while ixs[0] < end:
-        yield data[ixs]
+        yield data[ixs % len(data)]
         ixs+=minibatch_size
-        ixs%=len(data)
