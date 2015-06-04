@@ -302,6 +302,19 @@ def test_debug_trace():
     assert get_tdb_traces()['sum_a_b'] == 8
 
 
+
+@symbolic_standard
+def accumulate(x):
+    z = theano.shared(0)
+    new_z = z+x
+    return (new_z, ), [(z, new_z)]
+
+f = accumulate.compile()
+assert f(1) == [1]
+assert f(1) == [2]
+assert f(3) == [5]
+
+
 if __name__ == '__main__':
     test_debug_trace()
     test_method_caching_bug()
