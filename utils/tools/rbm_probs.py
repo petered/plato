@@ -232,6 +232,8 @@ def indirect_sampling_likelihood(model_samples, test_samples, n_beta = 100, max_
     :param n_beta: Number of betas (see paper) to try.  Beta defined the smoothness of the density function.
     :return: A (n_chains, n_samples) array log_p.  log_p[i,j] is the average log-probability of the test-samples given
         the density function derived from the first j model samples from chain i
+        
+    TODO: Test me!
     """
 
     assert model_samples.ndim == 3
