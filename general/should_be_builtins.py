@@ -13,7 +13,10 @@ def bad_value(value, explanation = None):
 
 
 def memoize(fcn):
-
+    """
+    Use this to decorate a function whose results you want to cache.
+    Currently, you cannot use keyword-args with this.  This can probably be fixed.
+    """
     lookup = {}
 
     def memoization_wrapper(*args):

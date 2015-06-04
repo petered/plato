@@ -177,7 +177,6 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self._w)
-        # current = tt.dot(x.dot(self._w)
 
         if self._normalize_minibatch:
             current = (current - current.mean(axis = 0, keepdims = True)) / (current.std(axis = 0, keepdims = True) + 1e-9)
