@@ -65,11 +65,6 @@ class VariationalAutoencoder(object):
     def parameters(self):
         return self.pq_pair.parameters
 
-    def log_prob_data(self, data, n_samples):
-        z_dist = self.pq_pair.p_z_given_x(data)
-        z_samples = z_dist.sample(n_samples=n_samples)
-        raise NotImplementedError()
-
 
 class IVariationalPair(object):
     """
@@ -177,10 +172,10 @@ class DistributionMLP(IParameterized):
 
         distribution_function = \
             Branch(
-                 FullyConnectedBridge(w = w_init(hidden_sizes[-1], output_size)),
-                 FullyConnectedBridge(w_init(hidden_sizes[-1], output_size))) \
+                 FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)),
+                 FullyConnectedBridge(w_init(all_layer_sizes[-1], output_size))) \
                  if distribution == 'gaussian' else \
-            Chain(FullyConnectedBridge(w = w_init(hidden_sizes[-1], output_size)), Layer('sig')) \
+            Chain(FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)), Layer('sig')) \
                  if distribution=='bernoulli' else \
             bad_value(distribution)
 
