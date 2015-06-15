@@ -44,7 +44,7 @@ def demo_variational_autoencoder(
             z_distribution='gaussian',
             hidden_activation = 'rect-lin'
             ),
-        optimizer=AdaMax(alpha = 0.01),
+        optimizer=AdaMax(alpha = 0.003),
         rng = rng
         )
 
@@ -55,6 +55,8 @@ def demo_variational_autoencoder(
     for i, minibatch in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
 
         training_fcn(minibatch)
+
+        print i*minibatch_size/50000.
 
         if i % plot_interval == 0:
             samples = sampling_fcn(25).reshape(5, 5, 28, 28)

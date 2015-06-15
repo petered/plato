@@ -1,16 +1,31 @@
+from general.should_be_builtins import bad_value
+from general.test_mode import is_test_mode
 from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.rbm import simple_rbm
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
-from plato.tools.optimizers import SimpleGradientDescent
+from plato.tools.optimizers import SimpleGradientDescent, AdaMax
 from plotting.live_plotting import LiveStream
 import theano
+from utils.bureaucracy import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
 
 __author__ = 'peter'
 
 
-def demo_rbm_mnist(plot = True, test_mode = False):
+def demo_rbm_mnist(
+        vis_activation = 'bernoulli',
+        hid_activation = 'bernoulli',
+        n_hidden = 500,
+        plot = True,
+        eta = 0.01,
+        optimizer = 'sgd',
+        w_init_mag = 0.001,
+        minibatch_size = 9,
+        persistent = False,
+        n_epochs = 100,
+        plot_interval = 100,
+        ):
     """
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
@@ -28,19 +43,25 @@ def demo_rbm_mnist(plot = True, test_mode = False):
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
     set_enable_omniscence(True)
-    minibatch_size = 9
-    n_epochs = 0.01 if test_mode else 10
 
-    dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1), ))
+    if is_test_mode():
+        n_epochs = 0.01
+
+    data = get_mnist_dataset(flat = True).training_set.input
 
     rbm = simple_rbm(
-        visible_layer = StochasticLayer('bernoulli'),
-        bridge=FullyConnectedBridge(w = 0.001*np.random.randn(28*28, 500).astype(theano.config.floatX), b=0, b_rev = 0),
-        hidden_layer = StochasticLayer('bernoulli')
+        visible_layer = StochasticLayer(vis_activation),
+        bridge=FullyConnectedBridge(w = w_init_mag*np.random.randn(28*28, n_hidden).astype(theano.config.floatX), b=0, b_rev = 0),
+        hidden_layer = StochasticLayer(hid_activation)
         )
+    
+    optimizer = \
+        SimpleGradientDescent(eta = eta) if optimizer == 'sgd' else \
+        AdaMax(alpha=eta) if optimizer == 'adamax' else \
+        bad_value(optimizer)
 
-    train_function = rbm.get_training_fcn(n_gibbs = 4, persistent = True, optimizer = SimpleGradientDescent(eta = 0.01)).compile()
-    sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
+    train_function = rbm.get_training_fcn(n_gibbs = 1, persistent = persistent, optimizer = optimizer).compile()
+    # sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
 
     if plot:
         def debug_variable_setter():
@@ -54,14 +75,24 @@ def demo_rbm_mnist(plot = True, test_mode = False):
                 }
         train_function.set_debug_variables(debug_variable_setter)
 
-    stream = LiveStream(lambda: dict(train_function.get_debug_values().items()+[('visible-sample', visible_samples.reshape((-1, 28, 28)))]), update_every=10)
-    for _, visible_data, _ in dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = n_epochs, single_channel = True):
-        visible_samples, _ = sampling_function()
+    stream = LiveStream(lambda: train_function.get_debug_values())
+
+    for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
+        # visible_samples, _ = sampling_function()
         train_function(visible_data)
-        if plot:
+        if plot and i % plot_interval == 0:
             stream.update()
+
+
+EXPERIMENTS = {}
+
+EXPERIMENTS['standard'] = lambda: demo_rbm_mnist(vis_activation='bernoulli', hid_activation='bernoulli', n_hidden=500, w_init_mag=0.01, eta = 0.01)
+
+EXPERIMENTS['relu'] = lambda: demo_rbm_mnist(vis_activation='relu', hid_activation='relu', persistent = True, n_hidden=500, optimizer = 'adamax', w_init_mag=0.01, eta = 0.0001)
 
 
 if __name__ == '__main__':
 
-    demo_rbm_mnist()
+    experiment = 'relu'
+
+    EXPERIMENTS[experiment]()
