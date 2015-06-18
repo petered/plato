@@ -1,4 +1,5 @@
 from general.test_mode import set_test_mode
+from plato.examples.demo_lstm import demo_lstm
 from plato.examples.demo_variational_autoencoder import demo_variational_autoencoder
 from plato.examples.demo_compare_optimizers import get_experiments
 from plato.examples.demo_prediction_example import compare_example_predictors
@@ -24,7 +25,7 @@ def test_demo_dbn_mnist():
 
 
 def test_demo_rbm_mnist():
-    demo_rbm_mnist(plot = True, test_mode = True)
+    demo_rbm_mnist(plot = True)
 
 
 def test_demo_prediction_example():
@@ -35,9 +36,13 @@ def test_demo_variational_autoencoder():
     demo_variational_autoencoder()
 
 
+def test_demo_lstm():
+    demo_lstm()
+
+
 if __name__ == '__main__':
     set_test_mode(True)
-
+    test_demo_lstm()
     test_demo_variational_autoencoder()
     test_demo_compare_optimizers()
     test_demo_prediction_example()
