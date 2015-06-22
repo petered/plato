@@ -49,7 +49,7 @@ def demo_lstm(
 
     for i, verse in enumerate(minibatch_iterate(onehot_text, minibatch_size=verse_duration, n_epochs=n_epochs)):
         if i % generate_every == 0:
-            random_verses, _, _ = generating_fcn(generation_duration)
+            random_verses, = generating_fcn(generation_duration)
             display_generated('Iteration %s' % i, onehot_to_text(random_verses, decode_key))
         training_fcn(verse)
 

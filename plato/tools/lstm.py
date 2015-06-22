@@ -155,12 +155,13 @@ class AutoencodingLSTM(object):
 
         @symbolic_standard
         def generate(n_steps):
-            outputs, updates = theano.scan(
+            (xs, hs, vs), updates = theano.scan(
                 step_fcn,
                 outputs_info = [{'initial': x}, {'initial': h}, {'initial': c}],
                 n_steps=n_steps
                 )
-            return outputs, updates
+
+            return (xs, ), updates
         return generate
 
     def get_training_function(self, cost_func = mean_xe, optimizer = AdaMax(alpha = 1e-3), update_states = False):
