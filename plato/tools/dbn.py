@@ -1,6 +1,8 @@
+from general.should_be_builtins import bad_value
 from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_stateless, SymbolicReturn
 from plato.tools.optimizers import SimpleGradientDescent
 import theano
+import theano.tensor as tt
 from utils.graph_utils import FactorGraph, InferencePath
 import numpy as np
 
@@ -51,7 +53,7 @@ class DeepBeliefNet(object):
         return inference_fcn
 
     def get_constrastive_divergence_function(self, visible_layers, hidden_layers, input_layers = None, up_path = None, n_gibbs = 1, persistent = False,
-            optimizer = SimpleGradientDescent(eta = 0.1)):
+            method = 'free_energy', optimizer = SimpleGradientDescent(eta = 0.1)):
         """
         Make a symbolic function that does one step of contrastive divergence given a minibatch of input data.
         :param visible_layers: The visible layers of the RBM to be trained
@@ -99,12 +101,17 @@ class DeepBeliefNet(object):
             sleep_visible, _ = self.get_inference_function(hidden_layers, visible_layers, gibbs_path)(*initial_hidden)
             sleep_hidden, _ = propup(*sleep_visible)
 
-            free_energy_difference = free_energy(*wake_visible).mean() - free_energy(*sleep_visible).mean()
-
             all_params = sum([x.parameters for x in ([self._layers[i] for i in visible_layers]
                 +[self._layers[i] for i in hidden_layers]+[self._bridges[i, j] for i in visible_layers for j in hidden_layers])], [])
 
-            updates = optimizer(cost = free_energy_difference, parameters = all_params, constants = wake_visible+sleep_visible)
+            if method == 'free_energy':
+                cost = free_energy(*wake_visible).mean() - free_energy(*sleep_visible).mean()
+            elif method == 'energy':
+                cost = tt.mean(wake_visible.T.dot(wake_hidden) - sleep_visible.T.dot(sleep_hidden))
+            else:
+                bad_value(method)
+
+            updates = optimizer(cost = cost, parameters = all_params, constants = wake_visible+sleep_visible)
 
             if persistent:
                 updates += [(p, s) for p, s in zip(initial_hidden, sleep_hidden)]
@@ -112,6 +119,15 @@ class DeepBeliefNet(object):
             return updates
 
         return cd_function
+
+    def get_mean_sample_energies(self, visible_layers, hid_layers):
+
+
+        def energy()
+
+        n_samples = vis_samples.shape[0]
+        return sum(v.T.dot(h))
+
 
     def get_free_energy_function(self, visible_layers, hidden_layers):
         """

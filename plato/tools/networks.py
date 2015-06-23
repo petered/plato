@@ -1,4 +1,5 @@
 from plato.interfaces.decorators import symbolic_stateless, find_shared_ancestors
+from plato.interfaces.helpers import get_theano_rng
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 from theano.gof.graph import Variable
 import theano.tensor as tt
@@ -92,7 +93,7 @@ class StochasticLayer(IParameterized, IFreeEnergy):
         :param shape: Optionally, reshape the output to this shape.
         """
         rng = RandomStreams(rng.randint(1e9) if rng is not None else None)
-        self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._params = \
+        self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._energy_fcn, self._params = \
             self._stochastic_layer_name_to_functions(activation_fcn, rng)
         self._shape = shape
 
@@ -144,9 +145,14 @@ class StochasticLayer(IParameterized, IFreeEnergy):
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 
-        return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, params
+        return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, energy_fcn, params
 
 
+class LinearGaussianLayer(StochasticLayer(IParameterized)):
+
+    def __init__(self, rng = None, shape = None):
+        rng = get_theano_rng(rng)
+        self.mu = create_shared
 
 @symbolic_stateless
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
