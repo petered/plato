@@ -42,7 +42,7 @@ def read_fifty_shades_of_grey(max_characters = None):
 
     filename = get_file(
         relative_name = 'data/fifty_shades_of_grey.txt',
-        url = None,
+        url = None
         )
 
     with open(filename) as f:
@@ -57,7 +57,7 @@ def read_fifty_shades_of_grey(max_characters = None):
 
 if __name__ == '__main__':
 
-    book = 'bible'
+    book = 'fifty_shades_of_grey'
     n_characters = 10000
 
     print read_book(book, n_characters)

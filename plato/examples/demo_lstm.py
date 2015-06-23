@@ -10,7 +10,7 @@ from utils.tools.processors import OneHotEncoding
 def demo_lstm_novelist(
         book = 'bible',
         n_hidden = 400,
-        verse_duration = 40,
+        verse_duration = 20,
         generation_duration = 200,
         generate_every = 200,
         max_len = None,
@@ -100,4 +100,4 @@ EXPERIMENTS['learn_fifty_shades'] = lambda: demo_lstm_novelist(book = 'fifty_sha
 
 if __name__ == '__main__':
 
-    EXPERIMENTS['learn_fifty_shades']
+    EXPERIMENTS['learn_fifty_shades']()
