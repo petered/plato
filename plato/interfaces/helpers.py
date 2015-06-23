@@ -25,9 +25,9 @@ class MRG_RandomStreams_ext(MRG_RandomStreams):
             options=a
 
         if replace is False:
-            assert p is None, 'Only support uniform distributions right now'
-            assert isinstance(size, int), 'Only support vectors right now'
-            assert options.ndim == 1, 'Only suport vector values'
+            assert p is None, 'Only supports uniform distributions right now'
+            assert isinstance(size, int), 'Only supports vectors right now'
+            assert options.ndim == 1, 'Only supports vector values'
             ixs = tt.argsort(self.uniform(size = options.shape))
             return options[ixs[:size]]
         else:

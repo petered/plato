@@ -8,7 +8,7 @@ import os
 __author__ = 'peter'
 
 
-def get_file(relative_name, url = None, data_transformation = None):
+def get_file(relative_name, url = None, data_transformation = None, read_mode = 'response'):
 
     relative_folder, file_name = os.path.split(relative_name)
     local_folder = get_local_path(relative_folder)
@@ -24,9 +24,17 @@ def get_file(relative_name, url = None, data_transformation = None):
         assert url is not None, "No local copy of '%s' was found, and you didn't provide a URL to fetch it from" % (full_filename, )
 
         print 'Downloading file from url: "%s"...' % (url, )
-        response = urllib2.urlopen(url)
-        data = response.read()
+        if read_mode == 'response:'
+            response = urllib2.urlopen(url)
+            data = response.read()
+
+        elif read_mode == 'download':
+            download_file = urllib2.URLopener()
+            download_file.retrieve(url, full_filename)
+            with open(full_filename) as f:
+                data = f.read()
         print '...Done.'
+
         if data_transformation is not None:
             data = data_transformation(data)
         with open(full_filename, 'w') as f:

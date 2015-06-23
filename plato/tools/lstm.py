@@ -1,14 +1,11 @@
 from plato.interfaces.decorators import symbolic_updater, symbolic_standard
-from plato.interfaces.helpers import initialize_param, create_shared_variable, get_theano_rng
+from plato.interfaces.helpers import create_shared_variable, get_theano_rng
 from plato.tools.basic import softmax
-from plato.tools.cost import negative_log_likelihood_dangerous, mean_xe
-from plato.tools.linking import Chain
-from plato.tools.networks import FullyConnectedBridge, Layer
+from plato.tools.cost import mean_xe
 from plato.tools.optimizers import AdaMax
-import numpy as np
-from plato.tools.tdb_plotting import tdbplot
 import theano
 import theano.tensor as tt
+from theano.ifelse import ifelse
 __author__ = 'peter'
 
 
@@ -139,37 +136,56 @@ class AutoencodingLSTM(object):
         out = self.output_activation(h_next.dot(self.w_hz)+self.b_z)  # Deref by zero just because annoyting softmax implementation.
         return out, h_next, c_next
 
-    def get_generation_function(self, maintain_state = False, primer = None, stochastic = True, seed = None):
-
-        x = tt.zeros(self.lstm.n_inputs)
-        h, c = self.lstm.get_initial_state()
-
-        rng = get_theano_rng(seed)
-
-        def do_step(x_, h_, c_):
-            y, h, c = self.step(x_, h_, c_)
-            x = rng.multinomial(n=1, pvals=y[None, :])[0].astype(theano.config.floatX)  # Weird indexing is to get around weird restriction with multinomial.
-            return x, h, c
-
-        step_fcn = do_step if stochastic else self.step
+    def get_generation_function(self, maintain_state = True, stochastic = True, rng = None):
+        """
+        Return a symbolic function that generates a sequence (and updates its internal state).
+        :param stochastic: True to sample a onehot-vector from the output.  False to simply reinsert the
+            distribution vector.
+        :param rng: A seed, numpy or theano random number generator
+        :return: A symbolic function of the form:
+            (outputs, updates) = generate(primer, n_steps)
+        """
+        h_init, c_init = self.lstm.get_initial_state()
+        x_init = create_shared_variable(0, shape = self.lstm.n_inputs)
+        rng = get_theano_rng(rng)
 
         @symbolic_standard
-        def generate(n_steps):
-            (xs, hs, vs), updates = theano.scan(
-                step_fcn,
-                outputs_info = [{'initial': x}, {'initial': h}, {'initial': c}],
-                n_steps=n_steps
-                )
+        def generate(primer, n_steps):
+            """
+            Generate a sequence of outputs, and update the internal state.
 
-            return (xs, ), updates
+            primer: A sequence to prime on.  This will overwrite the OUTPUT at
+                each time step.  Note: this means the first iteration will run
+                off the last output from the previous call to generate.
+            n_steps: Number of steps (after the primer) to run.
+            return: A sequence of length n_steps.
+            """
+            n_primer_steps = primer.shape[0]
+            n_total_steps = n_primer_steps+n_steps
+
+            def do_step(i, x_, h_, c_):
+                y_prob, h, c = self.step(x_, h_, c_)
+                y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX), y_prob)
+                y = ifelse(i < n_primer_steps, primer[i], y_candidate)
+                return y, h, c
+            (x_gen, h_gen, c_gen), updates = theano.scan(
+                do_step,
+                sequences = [tt.arange(n_total_steps)],
+                outputs_info = [x_init, h_init, c_init],
+                )
+            if maintain_state:
+                updates += [(x_init, x_gen[-1]), (h_init, h_gen[-1]), (c_init, c_gen[-1])]
+            return (x_gen[n_primer_steps:], ), updates
+
         return generate
 
-    def get_training_function(self, cost_func = mean_xe, optimizer = AdaMax(alpha = 1e-3), update_states = False):
+    def get_training_function(self, cost_func = mean_xe, optimizer = AdaMax(alpha = 1e-3), update_states = True):
         """
         Get the symbolic function that will be used to train the AutoEncodingLSTM.
         :param cost_func: Function that takes actual outputs, target outputs and returns a cost.
         :param optimizer: Optimizer: takes cost, parameters, returns updates.
-        :param update_states:
+        :param update_states: If true, the hidden state is maintained between calls to the training
+            function.  This makes sense if your data is coming in sequentially.
         :return:
         """
         @symbolic_updater

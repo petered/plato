@@ -2,15 +2,16 @@ from general.test_mode import is_test_mode
 from plato.tools.lstm import AutoencodingLSTM
 from plato.tools.optimizers import AdaMax
 from utils.bureaucracy import minibatch_iterate
-from utils.datasets.bible import read_the_bible
+from utils.datasets.books import read_the_bible, read_book
 import numpy as np
 from utils.tools.processors import OneHotEncoding
 
 
-def demo_lstm(
-        n_hidden = 300,
-        verse_duration = 20,
-        generation_duration = 100,
+def demo_lstm_novelist(
+        book = 'bible',
+        n_hidden = 400,
+        verse_duration = 40,
+        generation_duration = 200,
         generate_every = 200,
         max_len = None,
         n_epochs = 1,
@@ -36,7 +37,7 @@ def demo_lstm(
         max_len = 40
 
     rng = np.random.RandomState(seed)
-    text = read_the_bible(max_characters = max_len)
+    text = read_book(book, max_characters=max_len)
 
     onehot_text, decode_key = text_to_onehot(text)
     n_char = onehot_text.shape[1]
@@ -47,10 +48,17 @@ def demo_lstm(
     training_fcn = the_prophet.get_training_function(optimizer=AdaMax(alpha = 0.01), update_states=True).compile()
     generating_fcn = the_prophet.get_generation_function(stochastic=True).compile()
 
+    def prime_and_generate(n_steps, primer = ''):
+        onehot_primer, _ = text_to_onehot(primer, decode_key)
+        onehot_gen, = generating_fcn(onehot_primer, n_steps)
+        gen = onehot_to_text(onehot_gen, decode_key)
+        return '%s%s' % (primer, gen)
+
+    print prime_and_generate(primer = 'In the beginning, ', n_steps = 100)
+
     for i, verse in enumerate(minibatch_iterate(onehot_text, minibatch_size=verse_duration, n_epochs=n_epochs)):
         if i % generate_every == 0:
-            random_verses, = generating_fcn(generation_duration)
-            display_generated('Iteration %s' % i, onehot_to_text(random_verses, decode_key))
+            print 'Iteration %s:\n  ' % i + prime_and_generate(n_steps = 100)
         training_fcn(verse)
 
     trained_verses, _, _ = generating_fcn(generation_duration)
@@ -61,16 +69,19 @@ def display_generated(title, text):
     print '%s %s %s\n%s\n%s' % ('='*10, title, '='*10, text, '='*30)
 
 
-def text_to_onehot(text):
+def text_to_onehot(text, decode_key = None):
     """
     :param text: A string of length N
     :return: (onehot, decode_key)
         onehot: A shape (N, n_unique_characters) array representing the one-hot encoding of each character.
         decode_key: The key translating columns of the onehot matrix back to characters.
     """
-    test_array = np.array(text, 'c')
-    decode_key, assignments = np.unique(test_array, return_inverse=True)
-    onehot = OneHotEncoding(n_classes=len(decode_key))(assignments)
+    text_array = np.array(text, 'c')
+    if decode_key is None:
+        decode_key, assignments = np.unique(text_array, return_inverse=True)
+    else:
+        assignments = np.searchsorted(decode_key, text_array)
+    onehot = OneHotEncoding(n_classes=len(decode_key), dtype = np.float32)(assignments)
     return onehot, decode_key
 
 
@@ -80,6 +91,13 @@ def onehot_to_text(onehot, decode_key):
     return text
 
 
+EXPERIMENTS = dict()
+
+EXPERIMENTS['learn_bible'] = lambda: demo_lstm_novelist(book = 'bible')
+
+EXPERIMENTS['learn_fifty_shades'] = lambda: demo_lstm_novelist(book = 'fifty_shades_of_grey')
+
+
 if __name__ == '__main__':
 
-    demo_lstm()
+    EXPERIMENTS['learn_fifty_shades']
