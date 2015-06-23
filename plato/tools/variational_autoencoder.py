@@ -42,9 +42,6 @@ class VariationalAutoencoder(object):
         z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
         x_dist = self.pq_pair.p_x_given_z(z_samples)
         lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
-
-        # tdbplot(lower_bound.mean(), 'lower bound')
-
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
         return updates
 

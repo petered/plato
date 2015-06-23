@@ -140,7 +140,7 @@ class StochasticLayer(IParameterized, IFreeEnergy):
         elif activation_type in ('rect-lin', 'relu'):
             smooth_activation_fcn = lambda x: tt.maximum(0, x)
             stochastic_activation_fcn = lambda x: tt.maximum(0, x+rng.normal(avg=0, std=tt.sqrt(tt.nnet.sigmoid(x)), size = x.tag.test_value.shape))
-            free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)#-tt.maximum(0, x).sum(axis = 1)
+            free_energy_fcn = lambda x: -tt.nnet.softplus(x).sum(axis = 1)
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 

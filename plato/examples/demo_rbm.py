@@ -61,7 +61,6 @@ def demo_rbm_mnist(
         bad_value(optimizer)
 
     train_function = rbm.get_training_fcn(n_gibbs = 1, persistent = persistent, optimizer = optimizer).compile()
-    # sampling_function = rbm.get_free_sampling_fcn(init_visible_state = np.random.randn(9, 28*28), return_smooth_visible = True).compile()
 
     if plot:
         def debug_variable_setter():
@@ -78,7 +77,6 @@ def demo_rbm_mnist(
     stream = LiveStream(lambda: train_function.get_debug_values())
 
     for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
-        # visible_samples, _ = sampling_function()
         train_function(visible_data)
         if plot and i % plot_interval == 0:
             stream.update()

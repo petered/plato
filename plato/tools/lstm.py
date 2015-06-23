@@ -1,6 +1,5 @@
 from plato.interfaces.decorators import symbolic_updater, symbolic_standard
-from plato.interfaces.helpers import create_shared_variable, get_theano_rng
-from plato.tools.basic import softmax
+from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function
 from plato.tools.cost import mean_xe
 from plato.tools.optimizers import AdaMax
 import theano
@@ -11,7 +10,8 @@ __author__ = 'peter'
 
 class LSTMLayer(object):
 
-    def __init__(self, w_xi, w_xf, w_xc, w_xo, w_hi, w_hf, w_hc, w_ho, w_co, b_i, b_f, b_c, b_o):
+    def __init__(self, w_xi, w_xf, w_xc, w_xo, w_hi, w_hf, w_hc, w_ho, w_co, b_i, b_f, b_c, b_o,
+                 hidden_layer_type = 'tanh'):
         """
         :param w_xi:
         :param w_xf:
@@ -43,6 +43,7 @@ class LSTMLayer(object):
         self.b_f = b_f
         self.b_c = b_c
         self.b_o = b_o
+        self._hidden_activation = get_named_activation_function(hidden_layer_type)
 
     def get_initial_state(self, h_init = None, c_init = None):
         if h_init is None:
@@ -64,11 +65,11 @@ class LSTMLayer(object):
 
         h, c = self.get_initial_state(h, c)
         i = tt.nnet.sigmoid(x.dot(self.w_xi) + h.dot(self.w_hi) + self.b_i)
-        c_can = tt.tanh(x.dot(self.w_xc) + h.dot(self.w_hc) + self.b_c)
+        c_can = self._hidden_activation(x.dot(self.w_xc) + h.dot(self.w_hc) + self.b_c)
         f = tt.nnet.sigmoid(x.dot(self.w_xf) + h.dot(self.w_hf) + self.b_f)
         c_next = i * c_can + f * c
         o = tt.nnet.sigmoid(x.dot(self.w_xo) + h.dot(self.w_ho) + c_next.dot(self.w_co) + self.b_o)
-        h_next = o*tt.tanh(c_next)
+        h_next = o*self._hidden_activation(c_next)
         return h_next, c_next
 
     @symbolic_standard
@@ -93,7 +94,7 @@ class LSTMLayer(object):
             self.w_ho, self.w_co, self.b_i, self.b_f, self.b_c, self.b_o]
     
     @classmethod
-    def from_initializer(cls, n_input, n_hidden, initializer_fcn):
+    def from_initializer(cls, n_input, n_hidden, initializer_fcn, hidden_layer_type='tanh'):
         """
         :param n_input: Number of inputs
         :param n_hidden: Number of hiddens
@@ -115,20 +116,21 @@ class LSTMLayer(object):
             b_f = create_shared_variable(0, shape = n_hidden),
             b_c = create_shared_variable(0, shape = n_hidden),
             b_o = create_shared_variable(0, shape = n_hidden),
+            hidden_layer_type = hidden_layer_type
             )
 
 
 class AutoencodingLSTM(object):
+    """
+    An LSTM that learns to predict the next element in a sequence.
+    """
+    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax', hidden_layer_type = 'tanh'):
 
-    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax'):
-
-        self.lstm = LSTMLayer.from_initializer(n_input=n_input, n_hidden=n_hidden, initializer_fcn=initializer_fcn)
+        self.lstm = LSTMLayer.from_initializer(n_input=n_input, n_hidden=n_hidden, initializer_fcn=initializer_fcn,
+            hidden_layer_type = hidden_layer_type)
         self.w_hz = create_shared_variable(initializer_fcn, (n_hidden, n_input))
         self.b_z = create_shared_variable(0, n_input)
-        self.output_activation = {
-            'softmax': lambda x: softmax(x, axis = -1),
-            'sigm': tt.nnet.sigmoid
-            }[input_layer_type]
+        self.output_activation = get_named_activation_function(input_layer_type)
 
     def step(self, x, h = None, c = None):
 
@@ -166,7 +168,7 @@ class AutoencodingLSTM(object):
             def do_step(i, x_, h_, c_):
                 y_prob, h, c = self.step(x_, h_, c_)
                 y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX), y_prob)
-                y = ifelse(i < n_primer_steps, primer[i], y_candidate)
+                y = ifelse(i < n_primer_steps, primer[i], y_candidate)  # Note: If you get error here, you just need to prime with something on first call.
                 return y, h, c
             (x_gen, h_gen, c_gen), updates = theano.scan(
                 do_step,

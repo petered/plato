@@ -1,5 +1,6 @@
 import numpy as np
 from plato.interfaces.decorators import find_shared_ancestors
+from plato.tools.basic import softmax
 import theano
 from theano import Variable
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
@@ -160,3 +161,12 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
     """
     return desired_shape is None or len(actual_shape) == len(desired_shape) and all(ds is None or s==ds for s, ds in zip(actual_shape, desired_shape)), \
         "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
+
+
+def get_named_activation_function(activation_name):
+    return {
+            'softmax': lambda x: softmax(x, axis = -1),
+            'sigm': tt.nnet.sigmoid,
+            'tanh': tt.tanh,
+            'relu': lambda x: tt.maximum(x, 0),
+            }[activation_name]

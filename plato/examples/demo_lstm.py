@@ -1,3 +1,4 @@
+from general.newline_writer import TextWrappingPrinter
 from general.test_mode import is_test_mode
 from plato.tools.lstm import AutoencodingLSTM
 from plato.tools.optimizers import AdaMax
@@ -5,7 +6,7 @@ from utils.bureaucracy import minibatch_iterate
 from utils.datasets.books import read_the_bible, read_book
 import numpy as np
 from utils.tools.processors import OneHotEncoding
-
+import sys
 
 def demo_lstm_novelist(
         book = 'bible',
@@ -14,6 +15,7 @@ def demo_lstm_novelist(
         generation_duration = 200,
         generate_every = 200,
         max_len = None,
+        hidden_layer_type = 'tanh',
         n_epochs = 1,
         seed = None,
         ):
@@ -26,7 +28,7 @@ def demo_lstm_novelist(
     :param generate_every: Generate every N training iterations
     :param max_len: Truncate the text to this length.
     :param n_epochs: Number of passes through the bible to make.
-    :param seed: Random Seed (None to use God's chosen seed).
+    :param seed: Random Seed
     :return:
     """
 
@@ -43,10 +45,12 @@ def demo_lstm_novelist(
     n_char = onehot_text.shape[1]
 
     the_prophet = AutoencodingLSTM(n_input=n_char, n_hidden=n_hidden,
-        initializer_fcn=lambda shape: 0.01*rng.randn(*shape))
+        initializer_fcn=lambda shape: 0.01*rng.randn(*shape), hidden_layer_type = hidden_layer_type)
 
     training_fcn = the_prophet.get_training_function(optimizer=AdaMax(alpha = 0.01), update_states=True).compile()
     generating_fcn = the_prophet.get_generation_function(stochastic=True).compile()
+
+    printer = TextWrappingPrinter(newline_every=100)
 
     def prime_and_generate(n_steps, primer = ''):
         onehot_primer, _ = text_to_onehot(primer, decode_key)
@@ -54,11 +58,11 @@ def demo_lstm_novelist(
         gen = onehot_to_text(onehot_gen, decode_key)
         return '%s%s' % (primer, gen)
 
-    print prime_and_generate(primer = 'In the beginning, ', n_steps = 100)
+    prime_and_generate(100, 'In the beginning, ')
 
     for i, verse in enumerate(minibatch_iterate(onehot_text, minibatch_size=verse_duration, n_epochs=n_epochs)):
         if i % generate_every == 0:
-            print 'Iteration %s:\n  ' % i + prime_and_generate(n_steps = 100)
+            printer.write('[iter %s]%s' % (i, prime_and_generate(n_steps = 100), ))
         training_fcn(verse)
 
     trained_verses, _, _ = generating_fcn(generation_duration)
@@ -100,4 +104,4 @@ EXPERIMENTS['learn_fifty_shades'] = lambda: demo_lstm_novelist(book = 'fifty_sha
 
 if __name__ == '__main__':
 
-    EXPERIMENTS['learn_fifty_shades']()
+    EXPERIMENTS['learn_bible']()
