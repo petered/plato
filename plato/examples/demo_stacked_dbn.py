@@ -10,12 +10,12 @@ from utils.tools.stacked_dbn import StackedDeepBeliefNet, BernoulliBernoulliRBM,
 def demo_simple_dbn(
         minibatch_size = 10,
         n_training_epochs_1 = 5,
-        n_training_epochs_2 = 10,
+        n_training_epochs_2 = 50,
         n_hidden_1 = 500,
         n_hidden_2 = 10,
         plot_period = 100,
         eta1 = 0.01,
-        eta2 = 0.00001,
+        eta2 = 0.0001,
         w_init_mag_1 = 0.01,
         w_init_mag_2 = 0.5,
         seed = None
@@ -47,7 +47,7 @@ def demo_simple_dbn(
     train_first_layer = dbn1.get_training_fcn(optimizer=SimpleGradientDescent(eta = eta1), n_gibbs = 1, persistent=True).compile()
     sample_first_layer = dbn1.get_sampling_fcn(initial_vis=dataset.training_set.input[:minibatch_size], n_steps = 10).compile()
     for i, vis_data in enumerate(minibatch_iterate(dataset.training_set.input, minibatch_size=minibatch_size, n_epochs=n_training_epochs_1)):
-        if i % plot_period == 0:
+        if i % plot_period == plot_period-1:
             dbplot(dbn1.rbms[0].w.get_value().T[:100].reshape([-1, 28, 28]), 'weights1')
             dbplot(sample_first_layer()[0].reshape(-1, 28, 28), 'samples1')
         train_first_layer(vis_data)
@@ -61,6 +61,7 @@ def demo_simple_dbn(
             dbplot(dbn2.rbms[1].w.get_value(), 'weights2')
             dbplot(sample_second_layer()[0].reshape(-1, 28, 28), 'samples2')
         train_second_layer(vis_data)
+        # dbn2.rbms[1].b_hid.set_value(np.zeros(n_hidden_2))
 
     # Project data to latent space.
     project_to_latent = dbn2.propup.compile(fixed_args = dict(stochastic = False))
