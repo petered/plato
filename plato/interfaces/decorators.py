@@ -9,6 +9,7 @@ import theano.tensor as ts
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
+from theano.updates import OrderedUpdates
 
 """
 It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
@@ -152,8 +153,8 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
 
     def _assert_all_updates(self, updates):
-        if not (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
-                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+        if not (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates))):
             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
 
     def _assert_standard_return(self, return_val):

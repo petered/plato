@@ -120,10 +120,23 @@ class DeepBeliefNet(object):
 
         return cd_function
 
-    def get_mean_sample_energies(self, visible_layers, hid_layers):
+    def get_mean_sample_energies(self, visible_layers, hidden_layers):
+
+        assert len(visible_layers)==1 and visible_layers[0].activation_fcn == 'bernoulli'
+        assert len(hidden_layers)==2 and hidden_layers[0].activation_fcn == 'gaussian'
+
+        vis_layer, = visible_layers
+        hid_layer, = hidden_layers
+
+        w = self._bridges[vis_layer, hid_layer]
 
 
-        def energy()
+        @symbolic_stateless
+        def energy(visibles, hiddens):
+            vis, = visibles
+            hid, = hiddens
+
+
 
         n_samples = vis_samples.shape[0]
         return sum(v.T.dot(h))
