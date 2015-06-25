@@ -68,8 +68,12 @@ def demo_simple_dbn(
     latent_test_data = project_to_latent(dataset.test_set.input)
     print 'Projected the test data to a latent space.  Shape: %s' % (latent_test_data.shape, )
 
+    decode = dbn2.propdown.compile(fixed_args = dict(stochastic = False))
+    recon_test_data = decode(latent_test_data)
+    print 'Reconstructed the test data.  Shape: %s' % (recon_test_data.shape, )
+
 
 if __name__ == '__main__':
 
-    set_test_mode(False)
+    set_test_mode(True)
     demo_simple_dbn()

@@ -155,6 +155,7 @@ class StackedDeepBeliefNet(IGenerativeNet):
             data = rbm.propup(data, stochastic = stochastic)
         return data
 
+    @symbolic_stateless
     def propdown(self, hidden, stochastic, from_layer = -1):
         data = hidden
         for rbm in self.rbms[from_layer::-1]:
