@@ -15,10 +15,13 @@ MEMO_DIR = get_local_path('memoize_to_disk')
 def memoize_to_disk(fcn):
     """
     Save (memoize) computed results to disk, so that the same function, called with the
-    same arguments, does not need to be recomputed.
+    same arguments, does not need to be recomputed.  Note: this does NOT check for the state
+    of Global variables/time/whatever else the function may use, so you need to make sure your
+    function is truly a function in that outputs only depend on inputs.  Otherwise, this will
+    give you misleading results.
 
-    :param fcn:
-    :return:
+    :param fcn: The function you're decorating
+    :return: A wrapper around the function that checks for memos and loads old results if they exist.
     """
 
     def check_memos(*args, **kwargs):
@@ -63,9 +66,6 @@ def clear_memo_files_for_function(fcn):
         os.remove(m)
 
 
-CLOSE_CODE = 'dasbbniubykuavsytkevgkhvcutyykesu'  # Just has to be unique.
-
-
 def compute_fixed_hash(obj, hasher = None):
     """
     Given an object, return a hash that will always be the same (not just for the lifetime of the
@@ -83,19 +83,19 @@ def compute_fixed_hash(obj, hasher = None):
     if isinstance(obj, (int, str, float, bool) or obj is None):
         hasher.update(pickle.dumps(obj))
     elif isinstance(obj, (list, tuple)):
+        hasher.update(str(len(obj)))  # Necessary to distinguish ([a, b], c) from ([a, b, c])
         for el in obj:
             compute_fixed_hash(el, hasher=hasher)
-        hasher.update(CLOSE_CODE)  # Necessary to distinguish ([a, b], c) from ([a, b, c])
     elif isinstance(obj, np.ndarray):
         hasher.update(pickle.dumps(obj.dtype))
         hasher.update(pickle.dumps(obj.shape))
         hasher.update(obj.tostring())
     elif isinstance(obj, dict):
+        hasher.update(str(len(obj)))  # Necessary to distinguish ([a, b], c) from ([a, b, c])
         keys = obj.keys() if isinstance(obj, OrderedDict) else sorted(obj.keys())
         for k in keys:
             compute_fixed_hash(k, hasher=hasher)
             compute_fixed_hash(obj[k], hasher=hasher)
-        hasher.update(CLOSE_CODE)
     else:
         raise NotImplementedError("Don't have a method for hashing this %s" % (obj, ))
 
