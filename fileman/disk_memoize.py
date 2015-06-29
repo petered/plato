@@ -15,10 +15,24 @@ MEMO_DIR = get_local_path('memoize_to_disk')
 def memoize_to_disk(fcn):
     """
     Save (memoize) computed results to disk, so that the same function, called with the
-    same arguments, does not need to be recomputed.  Note: this does NOT check for the state
+    same arguments, does not need to be recomputed.  This is useful if you have a long-running
+    function that is often being given the same arguments.  Note: this does NOT check for the state
     of Global variables/time/whatever else the function may use, so you need to make sure your
     function is truly a function in that outputs only depend on inputs.  Otherwise, this will
     give you misleading results.
+    e.g.
+        @memoize_to_disk
+        def fcn(a, b, c = None):
+            results = ...
+            return results
+
+    You can also use this without the decorator.
+    e.g.
+        result = memoize_to_disk(fcn)(a, b, c=3)
+
+    This is useful if:
+    a) The decorator can/should not be visible from where the function is defined.
+    b) You only want to memoize the function in one use-case, but not all.
 
     :param fcn: The function you're decorating
     :return: A wrapper around the function that checks for memos and loads old results if they exist.
@@ -128,7 +142,11 @@ class DisableMemoWriting(object):
 
 class DisableMemos(object):
     """
-    You can disable memoization with
+    You can disable memoization with a with.
+
+    with DisableMemos():
+        # call memoized function, but disable reading/writing.
+        my_memoized_function()
     """
 
     def __enter__(self):
