@@ -2,7 +2,7 @@ import hashlib
 from collections import OrderedDict
 from fileman.local_dir import get_local_path, make_file_dir
 import numpy as np
-import cPickle as pickle
+import pickle
 import os
 
 __author__ = 'peter'
