@@ -17,7 +17,7 @@ def test_difference_target_mlp():
             rng = 1234
         ).compile(),
         minibatch_size=10,
-        n_epochs=5,
+        n_epochs=10,
         )
 
 
