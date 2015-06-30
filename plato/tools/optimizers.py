@@ -27,7 +27,7 @@ class UniformParameterOptimizer(IGradientOptimizer):
         return sum([self._update_param(p, g) for p, g in zip(parameters, grads)], [])
 
     @abstractmethod
-    def _update_param(self, cost, param, gradient):
+    def _update_param(self, param, gradient):
         pass
 
 
