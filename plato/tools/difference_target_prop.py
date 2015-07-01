@@ -59,10 +59,12 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         return x
 
     @classmethod
-    def from_initializer(cls, input_size, output_size, hidden_sizes = [], w_init_mag = 0.01, rng = None, **kwargs):
+    def from_initializer(cls, input_size, output_size, hidden_sizes = [], w_init_mag = 0.01, rng = None,
+            input_activation = 'linear', hidden_activation = 'tanh', output_activation = 'softmax', **kwargs):
 
         rng = get_rng(rng)
         all_layer_sizes = [input_size]+hidden_sizes+[output_size]
+        all_layer_activations = [input_activation] + [hidden_activation]*len(hidden_sizes) + [output_activation]
 
         return cls([
             DifferenceTargetLayer(
@@ -70,17 +72,20 @@ class DifferenceTargetMLP(ISymbolicPredictor):
                 b = w_init_mag*rng.randn(n_out),
                 w_rev = w_init_mag*rng.randn(n_out, n_in),
                 b_rev = w_init_mag*rng.randn(n_in),
+                input_activation = act_in,
+                output_activation = act_out,
                 rng = rng,
                 **kwargs
                 )
-            for n_in, n_out in zip(all_layer_sizes[:-1], all_layer_sizes[1:])
+            for n_in, n_out, act_in, act_out in zip(all_layer_sizes[:-1], all_layer_sizes[1:],
+                all_layer_activations[:-1], all_layer_activations[1:])
             ]
         )
 
 
 class DifferenceTargetLayer(ISymbolicPredictor):
 
-    def __init__(self, w, b, w_rev, b_rev, activation = 'tanh', rng = None, noise = 1,
+    def __init__(self, w, b, w_rev, b_rev, input_activation = 'tanh', output_activation = 'tanh', rng = None, noise = 1,
                  optimizer_constructor = lambda: SimpleGradientDescent(0.01), cost_function = mean_squared_error):
 
         self.noise = noise
@@ -89,18 +94,19 @@ class DifferenceTargetLayer(ISymbolicPredictor):
         self.b = theano.shared(b, name = 'b')
         self.w_rev = theano.shared(w_rev, name = 'w_rev')
         self.b_rev = theano.shared(b_rev, name = 'b_rev')
-        self.activation = get_named_activation_function(activation)
+        self.input_activation = get_named_activation_function(input_activation)
+        self.hidden_activation = get_named_activation_function(output_activation)
         self.forward_optimizer = optimizer_constructor()
         self.backward_optimizer = optimizer_constructor()
         self.cost_function = cost_function
 
     @symbolic_stateless
     def predict(self, x):
-        return self.activation(x.dot(self.w)+self.b)
+        return self.hidden_activation(x.dot(self.w)+self.b)
 
     @symbolic_stateless
     def backward(self, y):
-        return y.dot(self.w_rev) + self.b_rev
+        return self.input_activation(y.dot(self.w_rev) + self.b_rev)
 
     @symbolic_updater
     def train(self, x, target):
