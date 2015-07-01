@@ -26,9 +26,53 @@ class DifferenceTargetMLP(ISymbolicPredictor):
     """
 
     def __init__(self, layers, optimizer = SimpleGradientDescent(0.01), cost_function = mean_squared_error):
+        """
+        (Use from_initializer constructor for more direct parametrization)
+        :param layers: A list of DifferenceTargetLayers
+        :param optimizer: An IGradientOptimizer object
+        :param cost_function: A cost function of the form cost=cost_fcn(actual, target)
+        """
         self.layers = layers
         self.optimizer = optimizer
         self.cost_function = cost_function
+
+    @classmethod
+    def from_initializer(cls, input_size, output_size, hidden_sizes = [], w_init_mag = 0.01, rng = None,
+            input_activation = 'linear', hidden_activation = 'tanh', output_activation = 'softmax', **kwargs):
+        """
+        Create a Difference Target MLP.
+
+        :param input_size: Size of the input
+        :param output_size: Size of the output
+        :param hidden_sizes: List of integers indicating the sizes of hidden layers
+        :param w_init_mag: Magnitude of initial weights
+        :param rng: Random number generator/seed (for weight initialization and noise injection)
+        :param input_activation: Activation function for the input layer
+        :param hidden_activation: Activation function for the hidden layers
+        :param output_activation: Activation function for the output layer.
+        :param kwargs: See __init__ constructor
+        :return: A DifferenceTargetMLP
+        """
+
+        rng = get_rng(rng)
+        all_layer_sizes = [input_size]+hidden_sizes+[output_size]
+        all_layer_activations = [input_activation] + [hidden_activation]*len(hidden_sizes) + [output_activation]
+
+        return cls([
+            DifferenceTargetLayer(
+                w = w_init_mag*rng.randn(n_in, n_out),
+                b = w_init_mag*rng.randn(n_out),
+                w_rev = w_init_mag*rng.randn(n_out, n_in),
+                b_rev = w_init_mag*rng.randn(n_in),
+                input_activation = act_in,
+                output_activation = act_out,
+                rng = rng,
+                **kwargs
+                )
+            for n_in, n_out, act_in, act_out in zip(all_layer_sizes[:-1], all_layer_sizes[1:],
+                all_layer_activations[:-1], all_layer_activations[1:])
+            ]
+        )
 
     @symbolic_updater
     def train(self, x, target):
@@ -57,30 +101,6 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         for l in self.layers:
             x = l.predict(x)
         return x
-
-    @classmethod
-    def from_initializer(cls, input_size, output_size, hidden_sizes = [], w_init_mag = 0.01, rng = None,
-            input_activation = 'linear', hidden_activation = 'tanh', output_activation = 'softmax', **kwargs):
-
-        rng = get_rng(rng)
-        all_layer_sizes = [input_size]+hidden_sizes+[output_size]
-        all_layer_activations = [input_activation] + [hidden_activation]*len(hidden_sizes) + [output_activation]
-
-        return cls([
-            DifferenceTargetLayer(
-                w = w_init_mag*rng.randn(n_in, n_out),
-                b = w_init_mag*rng.randn(n_out),
-                w_rev = w_init_mag*rng.randn(n_out, n_in),
-                b_rev = w_init_mag*rng.randn(n_in),
-                input_activation = act_in,
-                output_activation = act_out,
-                rng = rng,
-                **kwargs
-                )
-            for n_in, n_out, act_in, act_out in zip(all_layer_sizes[:-1], all_layer_sizes[1:],
-                all_layer_activations[:-1], all_layer_activations[1:])
-            ]
-        )
 
 
 class DifferenceTargetLayer(ISymbolicPredictor):
