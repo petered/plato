@@ -126,17 +126,17 @@ def backprop_vs_difference_target_prop(
     return compare_predictors(
         dataset=dataset,
         online_predictors = {
-            # 'backprop-mlp': GradientBasedPredictor(
-            #     function = MultiLayerPerceptron(
-            #         layer_sizes = hidden_sizes + [dataset.target_size],
-            #         input_size = dataset.input_size,
-            #         hidden_activation='tanh',
-            #         output_activation='sig',
-            #         w_init = normal_w_init(mag = 0.01, seed = 5)
-            #         ),
-            #     cost_function = mean_squared_error,
-            #     optimizer = AdaMax(0.01),
-            #     ).compile(),
+            'backprop-mlp': GradientBasedPredictor(
+                function = MultiLayerPerceptron(
+                    layer_sizes = hidden_sizes + [dataset.target_size],
+                    input_size = dataset.input_size,
+                    hidden_activation='tanh',
+                    output_activation='sig',
+                    w_init = normal_w_init(mag = 0.01, seed = 5)
+                    ),
+                cost_function = mean_squared_error,
+                optimizer = AdaMax(0.01),
+                ).compile(),
             'difference-target-prop-mlp': DifferenceTargetMLP.from_initializer(
                 input_size = dataset.input_size,
                 output_size = dataset.target_size,
