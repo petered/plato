@@ -1,4 +1,4 @@
-from plato.tools.difference_target_prop import DifferenceTargetMLP
+from plato.tools.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.optimizers import SimpleGradientDescent
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
 

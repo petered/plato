@@ -104,54 +104,6 @@ def mlp_normalization(hidden_size = 300, n_epochs = 30, n_tests = 50, minibatch_
         )
 
 
-def backprop_vs_difference_target_prop(
-        hidden_sizes = [240],
-        n_epochs = 10,
-        minibatch_size = 20,
-        n_tests = 20
-        ):
-
-    set_enable_omniscence(True)
-
-    dataset = get_mnist_dataset(flat = True)
-    dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
-
-    if is_test_mode():
-        dataset.shorten(200)
-        n_epochs = 0.1
-        n_tests = 3
-
-    set_default_figure_size(12, 9)
-
-    return compare_predictors(
-        dataset=dataset,
-        online_predictors = {
-            'backprop-mlp': GradientBasedPredictor(
-                function = MultiLayerPerceptron(
-                    layer_sizes = hidden_sizes + [dataset.target_size],
-                    input_size = dataset.input_size,
-                    hidden_activation='tanh',
-                    output_activation='sig',
-                    w_init = normal_w_init(mag = 0.01, seed = 5)
-                    ),
-                cost_function = mean_squared_error,
-                optimizer = AdaMax(0.01),
-                ).compile(),
-            'difference-target-prop-mlp': DifferenceTargetMLP.from_initializer(
-                input_size = dataset.input_size,
-                output_size = dataset.target_size,
-                hidden_sizes = hidden_sizes,
-                optimizer_constructor = lambda: AdaMax(0.01),
-                w_init_mag=0.01,
-                noise = 1,
-            ).compile()
-            },
-        minibatch_size = minibatch_size,
-        test_epochs = sqrtspace(0, n_epochs, n_tests),
-        evaluation_function = percent_argmax_correct,
-        )
-
-
 def run_and_plot(training_scheme):
     learning_curves = training_scheme()
     plot_learning_curves(learning_curves)
@@ -161,7 +113,6 @@ def get_experiments():
     training_schemes = {
         'adamax-showdown': mnist_adamax_showdown,
         'mlp-normalization': mlp_normalization,
-        'backprop-vs-dtp': backprop_vs_difference_target_prop,
         }
     experiments = {name: lambda sc=scheme: run_and_plot(sc) for name, scheme in training_schemes.iteritems()}
     return experiments
@@ -170,7 +121,7 @@ def get_experiments():
 if __name__ == '__main__':
 
     test_mode = False
-    experiment = 'backprop-vs-dtp'
+    experiment = 'adamax-showdown'
 
     set_test_mode(test_mode)
     run_experiment(experiment, exp_dict=get_experiments(), show_figs = None, print_to_console=True)

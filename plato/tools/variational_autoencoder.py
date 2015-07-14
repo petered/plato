@@ -5,7 +5,7 @@ from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
 from plato.interfaces.helpers import get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.linking import Chain, Branch
-from plato.tools.networks import FullyConnectedBridge, Layer
+from plato.tools.networks import FullyConnectedBridge, Nonlinearity
 from plato.tools.optimizers import AdaMax
 from plato.tools.tdb_plotting import tdbplot
 import theano.tensor as tt
@@ -167,7 +167,7 @@ class DistributionMLP(IParameterized):
 
         processing_chain = sum([[
              FullyConnectedBridge(w = w_init(pre_size, post_size)),
-             Layer(activation_fcn)
+             Nonlinearity(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
 
@@ -176,7 +176,7 @@ class DistributionMLP(IParameterized):
                  FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)),
                  FullyConnectedBridge(w_init(all_layer_sizes[-1], output_size))) \
                  if distribution == 'gaussian' else \
-            Chain(FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)), Layer('sig')) \
+            Chain(FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)), Nonlinearity('sig')) \
                  if distribution=='bernoulli' else \
             bad_value(distribution)
 

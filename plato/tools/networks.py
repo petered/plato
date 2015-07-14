@@ -4,7 +4,6 @@ from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt
 import theano
 import numpy as np
-from plato.tools.linking import Chain
 from theano.tensor.shared_randomstreams import RandomStreams
 
 
@@ -24,23 +23,28 @@ class MultiLayerPerceptron(IParameterized):
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
-
-        all_layer_sizes = [input_size]+layer_sizes
-        all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
-        processors = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size), normalize_minibatch=normalize_minibatch, scale = scale_param),
-             Layer(activation_fcn)
-             ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
-             ], [])
-
-        self._chain = Chain(*processors)
+        self.layers = [
+            Layer(
+                linear_transform = FullyConnectedBridge(
+                    w = w_init(pre_size, post_size),
+                    normalize_minibatch=normalize_minibatch,
+                    scale = scale_param),
+                nonlinearity = nonlinearity
+                )
+            for pre_size, post_size, nonlinearity in zip(
+                [input_size]+layer_sizes[:-1],
+                layer_sizes,
+                [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
+            )]
 
     def __call__(self, x):
-        return self._chain.symbolic_stateless(x)
+        for lay in self.layers:
+            x = lay(x)
+        return x
 
     @property
     def parameters(self):
-        return self._chain.parameters
+        return sum([l.parameters for l in self.layers], [])
 
 
 def normal_w_init(mag, seed = None):
@@ -49,7 +53,33 @@ def normal_w_init(mag, seed = None):
 
 
 @symbolic_stateless
-class Layer(object):
+class Layer(IParameterized):
+
+    def __init__(self, linear_transform, nonlinearity):
+        if isinstance(nonlinearity, str):
+            nonlinearity = {
+                'sig': tt.nnet.sigmoid,
+                'lin': lambda x: x,
+                'tanh': tt.tanh,
+                'rect-lin': lambda x: tt.maximum(0, x),
+                'relu': lambda x: tt.maximum(0, x),
+                'softmax': lambda x: tt.nnet.softmax(x),
+                'exp': lambda x: tt.exp(x)
+            }[nonlinearity]
+        self.linear_transform = linear_transform
+        self.nonlinearity = nonlinearity
+
+    def __call__(self, x):
+        pre_sig = self.linear_transform(x)
+        return self.nonlinearity(pre_sig)
+
+    @property
+    def parameters(self):
+        return self.linear_transform.parameters
+
+
+@symbolic_stateless
+class Nonlinearity(object):
     """
     An element that applies a nonlinearity to its inputs.  If multiple vectors
     of input feed into a layer, they are summed before the nonlinearity.
@@ -66,6 +96,7 @@ class Layer(object):
                 'lin': lambda x: x,
                 'tanh': tt.tanh,
                 'rect-lin': lambda x: tt.maximum(0, x),
+                'relu': lambda x: tt.maximum(0, x),
                 'softmax': lambda x: tt.nnet.softmax(x),
                 'exp': lambda x: tt.exp(x)
             }[activation_fcn]
@@ -78,7 +109,7 @@ class Layer(object):
 
 
 @symbolic_stateless
-class StochasticLayer(IParameterized, IFreeEnergy):
+class StochasticNonlinearity(IParameterized, IFreeEnergy):
     """
     A stochastic layer, which can also be called without the stochastic component
     (see smooth method).  These are building blocks in RBMs.

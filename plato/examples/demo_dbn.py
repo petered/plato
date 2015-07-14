@@ -1,6 +1,7 @@
+from general.test_mode import is_test_mode
 from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.dbn import DeepBeliefNet
-from plato.tools.networks import StochasticLayer, FullyConnectedBridge
+from plato.tools.networks import StochasticNonlinearity, FullyConnectedBridge
 import numpy as np
 from plato.tools.optimizers import SimpleGradientDescent
 from plotting.live_plotting import LiveStream
@@ -11,7 +12,7 @@ from utils.tools.processors import OneHotEncoding
 __author__ = 'peter'
 
 
-def demo_dbn_mnist(plot = True, test_mode = False):
+def demo_dbn_mnist(plot = True):
     """
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
@@ -25,17 +26,17 @@ def demo_dbn_mnist(plot = True, test_mode = False):
     n_training_epochs_2 = 20
     check_period = 300
 
-    if test_mode:
+    if is_test_mode():
         n_training_epochs_1 = 0.01
         n_training_epochs_2 = 0.01
         check_period=100
 
     dbn = DeepBeliefNet(
         layers = {
-            'vis': StochasticLayer('bernoulli'),
-            'hid': StochasticLayer('bernoulli'),
-            'ass': StochasticLayer('bernoulli'),
-            'lab': StochasticLayer('bernoulli'),
+            'vis': StochasticNonlinearity('bernoulli'),
+            'hid': StochasticNonlinearity('bernoulli'),
+            'ass': StochasticNonlinearity('bernoulli'),
+            'lab': StochasticNonlinearity('bernoulli'),
             },
         bridges = {
             ('vis', 'hid'): FullyConnectedBridge(w = w_init(784, 500), b_rev = 0),

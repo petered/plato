@@ -169,4 +169,5 @@ def get_named_activation_function(activation_name):
             'sigm': tt.nnet.sigmoid,
             'tanh': tt.tanh,
             'relu': lambda x: tt.maximum(x, 0),
+            'linear': lambda x: x
             }[activation_name]
