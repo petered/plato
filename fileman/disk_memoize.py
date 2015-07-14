@@ -100,16 +100,16 @@ def compute_fixed_hash(obj, hasher = None):
 
     hasher.update(obj.__class__.__name__)
 
-    if isinstance(obj, (int, str, float, bool)) or (obj is None) or (obj in (int, str, float, bool)):
+    if isinstance(obj, np.ndarray):
+        hasher.update(pickle.dumps(obj.dtype))
+        hasher.update(pickle.dumps(obj.shape))
+        hasher.update(obj.tostring())
+    elif isinstance(obj, (int, str, float, bool)) or (obj is None) or (obj in (int, str, float, bool)):
         hasher.update(pickle.dumps(obj))
     elif isinstance(obj, (list, tuple)):
         hasher.update(str(len(obj)))  # Necessary to distinguish ([a, b], c) from ([a, b, c])
         for el in obj:
             compute_fixed_hash(el, hasher=hasher)
-    elif isinstance(obj, np.ndarray):
-        hasher.update(pickle.dumps(obj.dtype))
-        hasher.update(pickle.dumps(obj.shape))
-        hasher.update(obj.tostring())
     elif isinstance(obj, dict):
         hasher.update(str(len(obj)))  # Necessary to distinguish ([a, b], c) from ([a, b, c])
         keys = obj.keys() if isinstance(obj, OrderedDict) else sorted(obj.keys())

@@ -1,7 +1,6 @@
 from abc import abstractmethod
-import logging
 from argmaxlab.spiking_experiments.spike_sampling import get_rng
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless, tdb_trace, tdb_print
+from plato.interfaces.decorators import symbolic_updater, symbolic_stateless, tdb_print
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.cost import mean_squared_error
 from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
@@ -9,6 +8,7 @@ from plato.tools.optimizers import SimpleGradientDescent
 import theano
 import theano.tensor as tt
 import numpy as np
+from utils.bureaucracy import kwarg_map
 
 __author__ = 'peter'
 
@@ -119,6 +119,18 @@ class DifferenceTargetLayer(ISymbolicPredictor):
     def backpropagate_target(self, x, target):
         return x - self.backward(self.predict(x)) + self.backward(target)
 
+    @classmethod
+    def from_initializer(cls, n_in, n_out, w_init_mag = 0.01, rng = None, **kwargs):
+        rng = get_rng(rng)
+        return cls(
+            w = w_init_mag*rng.randn(n_in, n_out),
+            b = np.zeros(n_out),
+            w_rev = w_init_mag*rng.randn(n_out, n_in),
+            b_rev = np.zeros(n_in),
+            rng = rng,
+            **kwargs
+        )
+
 
 class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
     """
@@ -224,19 +236,28 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         self.output_cost_function = output_cost_function
 
     @classmethod
-    def from_initializer(cls, layer_constructor, input_size, output_size, hidden_sizes = []):
+    def from_initializer(cls, input_size, output_size, layer_constructor = DifferenceTargetLayer.from_initializer,
+            hidden_sizes = [], input_activation = 'linear', hidden_activation = 'tanh', output_activation = 'softmax',
+            **kwargs):
         """
         :param layer_constructor: A function of the form:
             ITargetPropLayer = fcn(n_in, n_out)
-        :param input_size: Size of the inpuyt
+        :param input_size: Size of the input
         :param hidden_sizes: List of sizes of hidden layers
         :param output_size: Size of the output
         :return:
         """
-        return cls([
-            layer_constructor(n_in, n_out)
-            for n_in, n_out in zip([input_size]+hidden_sizes, hidden_sizes+[output_size])]
-            )
+
+        hidden_activations = [hidden_activation]*len(hidden_sizes)
+
+        return cls(kwarg_map(
+            lambda n_in, n_out, input_activation, output_activation: layer_constructor(n_in=n_in, n_out=n_out,
+                input_activation=input_activation, output_activation=output_activation, **kwargs),
+            n_in = [input_size] + hidden_sizes,
+            n_out = hidden_sizes + [output_size],
+            input_activation = [input_activation]+hidden_activations,
+            output_activation = hidden_activations + [output_activation],
+            ))
 
     @symbolic_updater
     def train(self, x, target):
@@ -245,13 +266,14 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         for l in self.layers:
             xs.append(l.predict(xs[-1]))
 
-        global_loss = self.output_cost_function(xs[-1], target)
-
-        # Note: This 0.5 thing is not always the way it should be done.
-        # 0.5 is chosen because this makes it equivalent to the regular loss with MSE,
-        # but it's unknown whether this is the best way to go.
-        # top_target = xs[-1] - 0.5 * tt.grad(global_loss, xs[-1])
-        top_target = target
+        if self.output_cost_function is None:
+            top_target = target
+        else:
+            global_loss = self.output_cost_function(xs[-1], target)
+            top_target = xs[-1] - 0.5 * tt.grad(global_loss, xs[-1])
+            # Note: This 0.5 thing is not always the way it should be done.
+            # 0.5 is chosen because this makes it equivalent to the regular loss with MSE,
+            # but it's unknown whether this is the best way to go.
 
         updates = []
         for i, l in reversed(list(enumerate(self.layers))):

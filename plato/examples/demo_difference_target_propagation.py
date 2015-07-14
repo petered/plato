@@ -47,45 +47,44 @@ def demo_backprop_vs_difference_target_prop(
     set_default_figure_size(12, 9)
 
     all_predictors = {
-            # 'backprop-MLP': GradientBasedPredictor(
-            #     function = MultiLayerPerceptron(
-            #         layer_sizes = hidden_sizes + [dataset.target_size],
-            #         input_size = dataset.input_size,
-            #         hidden_activation='tanh',
-            #         output_activation='sig',
-            #         w_init = normal_w_init(mag = 0.01, seed = 5)
-            #         ),
-            #     cost_function = mean_squared_error,
-            #     optimizer = AdaMax(0.01),
-            #     ).compile(),
-            # 'DTP-MLP': DifferenceTargetMLP.from_initializer(
-            #     input_size = dataset.input_size,
-            #     output_size = dataset.target_size,
-            #     hidden_sizes = hidden_sizes,
-            #     optimizer_constructor = lambda: AdaMax(0.01),
-            #     input_activation='sigm',
-            #     hidden_activation='tanh',
-            #     output_activation='softmax',
-            #     w_init_mag=0.01,
-            #     noise = 1,
-            #     ).compile(),
-            # 'RevDTP-MLP': DifferenceTargetMLP.from_initializer(
-            #     input_size = dataset.input_size,
-            #     output_size = dataset.target_size,
-            #     hidden_sizes = hidden_sizes,
-            #     optimizer_constructor = lambda: AdaMax(0.01),
-            #     input_activation='sigm',
-            #     hidden_activation='tanh',
-            #     output_activation='softmax',
-            #     w_init_mag=0.01,
-            #     noise = 1,
-            #     layer_constructor = ReversedDifferenceTargetLayer
-            #     ).compile(),
-            'perceptron': DifferenceTargetMLP.from_initializer(
-                layer_constructor=lambda n_in, n_out: PerceptronLayer.from_initializer(n_in, n_out, initial_mag=2),
-                input_size=dataset.input_size,
+            'backprop-MLP': GradientBasedPredictor(
+                function = MultiLayerPerceptron(
+                    layer_sizes = hidden_sizes + [dataset.target_size],
+                    input_size = dataset.input_size,
+                    hidden_activation='tanh',
+                    output_activation='sig',
+                    w_init = normal_w_init(mag = 0.01, seed = 5)
+                    ),
+                cost_function = mean_squared_error,
+                optimizer = AdaMax(0.01),
+                ).compile(),
+            'DTP-MLP': DifferenceTargetMLP.from_initializer(
+                input_size = dataset.input_size,
+                output_size = dataset.target_size,
                 hidden_sizes = hidden_sizes,
-                output_size=dataset.target_size
+                optimizer_constructor = lambda: AdaMax(0.01),
+                input_activation='sigm',
+                hidden_activation='tanh',
+                output_activation='softmax',
+                w_init_mag=0.01,
+                noise = 1,
+                ).compile(),
+            'RevDTP-MLP': DifferenceTargetMLP.from_initializer(
+                input_size = dataset.input_size,
+                output_size = dataset.target_size,
+                hidden_sizes = hidden_sizes,
+                optimizer_constructor = lambda: AdaMax(0.01),
+                input_activation='sigm',
+                hidden_activation='tanh',
+                output_activation='softmax',
+                w_init_mag=0.01,
+                noise = 1,
+                layer_constructor = ReversedDifferenceTargetLayer.from_initializer
+                ).compile(),
+            'perceptron': DifferenceTargetMLP(
+                layers=[PerceptronLayer.from_initializer(n_in, n_out, initial_mag=2)
+                        for n_in, n_out in zip([dataset.input_size]+hidden_sizes, hidden_sizes+[dataset.target_size])],
+                output_cost_function = None
                 ).compile()
         }
 
