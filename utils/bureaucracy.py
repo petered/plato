@@ -77,40 +77,40 @@ def kwarg_map(element_constructor, **kwarg_lists):
     assert all(n_elements == le for le in all_lens), 'Inconsistent lengths: %s' % (all_lens, )
     return [element_constructor(**{k: v[i] for k, v in kwarg_lists.iteritems()}) for i in xrange(n_elements)]
 
-#
-# def create_object_chain_complex(element_constructor, shared_args = {}, each_args = {}, paired_args = {}, n_elements = None):
-#     """
-#     * Slated for deletion unless we have use case.  See kwarg_map and see if that doesn't cover your needs.
-#
-#     A helper function for when you want to construct a chain of objects.  Objects in the chain can either get
-#     the same arguments or individual arguments.
-#
-#     :param element_constructor: A function of the form object = fcn(**kwargs)
-#     :param shared_args: A dict of kwargs that will be passed to all objects
-#     :param each_args: A dict of lists, where the index identifies two which element its corresponding value will go.
-#     :param paired_args: A dist of form {(arg_name_1, arg_name_2): [v1, v2, ...]}.  The length of the lists in this dictionary
-#         is one greater than the number of elements.  See example below for how this is used.
-#     :return: A list of objects.
-#
-#     e.g. Initializing a chain of layers.
-#
-#     layers = kwarg_map(
-#         element_constructor = lambda n_in, n_out, activation: Layer(n_in, n_out, activation, rng),
-#         shared_args = dict(rng = np.random.RandomState(1234)),
-#         each_args = dict(activation = ['tanh', 'tanh', 'softmax'],
-#         paired_args = dict(('n_in', 'n_out'): [784, 240, 240, 10])
-#         )
-#     """
-#
-#     all_lens = [len(v) for v in each_args.values()]+[len(v)-1 for v in paired_args.values()]
-#     assert len(all_lens)>0, 'You need to specify at least one "each_args" or "paired args'
-#     if n_elements is None:
-#         n_elements = all_lens[0]
-#     assert all(n_elements == le for le in all_lens), 'Inconsistent lengths: %s' % (all_lens)
-#     return [element_constructor(
-#             **dict(
-#                 shared_args.items() +
-#                 {k: v[i] for k, v in each_args.iteritems()}.items() +
-#                 {k0: v[i] for (k0, k1), v in paired_args.iteritems()}.items() +
-#                 {k1: v[i+1] for (k0, k1), v in paired_args.iteritems()}.items())
-#             ) for i in xrange(n_elements)]
+
+def create_object_chain_complex(element_constructor, shared_args = {}, each_args = {}, paired_args = {}, n_elements = None):
+    """
+    * Slated for deletion unless we have use case.  See kwarg_map and see if that doesn't cover your needs.
+
+    A helper function for when you want to construct a chain of objects.  Objects in the chain can either get
+    the same arguments or individual arguments.
+
+    :param element_constructor: A function of the form object = fcn(**kwargs)
+    :param shared_args: A dict of kwargs that will be passed to all objects
+    :param each_args: A dict of lists, where the index identifies two which element its corresponding value will go.
+    :param paired_args: A dist of form {(arg_name_1, arg_name_2): [v1, v2, ...]}.  The length of the lists in this dictionary
+        is one greater than the number of elements.  See example below for how this is used.
+    :return: A list of objects.
+
+    e.g. Initializing a chain of layers.
+
+    layers = kwarg_map(
+        element_constructor = lambda n_in, n_out, activation: Layer(n_in, n_out, activation, rng),
+        shared_args = dict(rng = np.random.RandomState(1234)),
+        each_args = dict(activation = ['tanh', 'tanh', 'softmax'],
+        paired_args = dict(('n_in', 'n_out'): [784, 240, 240, 10])
+        )
+    """
+
+    all_lens = [len(v) for v in each_args.values()]+[len(v)-1 for v in paired_args.values()]
+    assert len(all_lens)>0, 'You need to specify at least one "each_args" or "paired args'
+    if n_elements is None:
+        n_elements = all_lens[0]
+    assert all(n_elements == le for le in all_lens), 'Inconsistent lengths: %s' % (all_lens)
+    return [element_constructor(
+            **dict(
+                shared_args.items() +
+                {k: v[i] for k, v in each_args.iteritems()}.items() +
+                {k0: v[i] for (k0, k1), v in paired_args.iteritems()}.items() +
+                {k1: v[i+1] for (k0, k1), v in paired_args.iteritems()}.items())
+            ) for i in xrange(n_elements)]

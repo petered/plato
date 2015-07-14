@@ -157,7 +157,6 @@ class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
         return self.input_activation(x.pre_sigmoid - back_output_pre_sigmoid + back_target_pre_sigmoid)
 
 
-
 class PerceptronLayer(object):
 
     def __init__(self, w, b, w_rev, b_rev):

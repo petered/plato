@@ -23,13 +23,14 @@ class MultiLayerPerceptron(IParameterized):
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
-        self.layers = [Layer(
-            linear_transform = FullyConnectedBridge(
-                w = w_init(pre_size, post_size),
-                normalize_minibatch=normalize_minibatch,
-                scale = scale_param),
-            nonlinearity = nonlinearity
-            )
+        self.layers = [
+            Layer(
+                linear_transform = FullyConnectedBridge(
+                    w = w_init(pre_size, post_size),
+                    normalize_minibatch=normalize_minibatch,
+                    scale = scale_param),
+                nonlinearity = nonlinearity
+                )
             for pre_size, post_size, nonlinearity in zip(
                 [input_size]+layer_sizes[:-1],
                 layer_sizes,

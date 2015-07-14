@@ -96,11 +96,6 @@ def demo_backprop_vs_difference_target_prop(
         minibatch_size = minibatch_size,
         test_epochs = sqrtspace(0, n_epochs, n_tests),
         evaluation_function = percent_argmax_correct,
-        # online_test_callbacks={
-        #     'perceptron': lambda p: dbplot({
-        #         'w': p.symbolic_predictor.layers[0].w.get_value().T.reshape(-1, 28, 28),
-        #         })
-        #     },
         accumulators='avg'
         )
 
