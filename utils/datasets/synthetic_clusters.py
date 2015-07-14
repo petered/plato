@@ -25,7 +25,7 @@ def get_synthetic_clusters_dataset(n_clusters = 4, n_dims = 20, n_training = 100
     labels = rng.randint(n_clusters, size = n_training+n_test)  # (n_samples, )
     centers = rng.rand(n_clusters, n_dims) < sparsity  # (n_samples, n_dims)
     input_data = centers[labels]
-    input_data = np.bitwise_xor(input_data, rng.rand(*input_data.shape) < flip_noise)
+    input_data = np.bitwise_xor(input_data, rng.rand(*input_data.shape) < flip_noise).astype('int32')
 
     return DataSet(
         training_set = DataCollection(input_data[:n_training], labels[:n_training]),

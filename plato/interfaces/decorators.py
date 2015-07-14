@@ -787,6 +787,10 @@ def get_tdb_traces():
     return _TRACE_VALUES
 
 
+def printit(var_name, var_val):
+    print '%s: %s' % (var_name, var_val)
+
+
 def tdb_trace(var, name = None, callback = None):
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
@@ -794,6 +798,10 @@ def tdb_trace(var, name = None, callback = None):
     _TRACE_VARIABLES[name] = var
     if callback is not None:
         _TRACE_CALLBACKS[name] = callback
+
+
+def tdb_print(var, name):
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VARIABLES[name]))
 
 
 def set_enable_omniscence(state):

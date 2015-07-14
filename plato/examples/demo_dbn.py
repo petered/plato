@@ -1,6 +1,6 @@
 from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.dbn import DeepBeliefNet
-from plato.tools.networks import StochasticLayer, FullyConnectedBridge
+from plato.tools.networks import StochasticNonlinearity, FullyConnectedBridge
 import numpy as np
 from plato.tools.optimizers import SimpleGradientDescent
 from plotting.live_plotting import LiveStream
@@ -32,10 +32,10 @@ def demo_dbn_mnist(plot = True, test_mode = False):
 
     dbn = DeepBeliefNet(
         layers = {
-            'vis': StochasticLayer('bernoulli'),
-            'hid': StochasticLayer('bernoulli'),
-            'ass': StochasticLayer('bernoulli'),
-            'lab': StochasticLayer('bernoulli'),
+            'vis': StochasticNonlinearity('bernoulli'),
+            'hid': StochasticNonlinearity('bernoulli'),
+            'ass': StochasticNonlinearity('bernoulli'),
+            'lab': StochasticNonlinearity('bernoulli'),
             },
         bridges = {
             ('vis', 'hid'): FullyConnectedBridge(w = w_init(784, 500), b_rev = 0),

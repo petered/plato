@@ -2,7 +2,7 @@ from general.should_be_builtins import bad_value
 from general.test_mode import is_test_mode
 from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.rbm import simple_rbm
-from plato.tools.networks import StochasticLayer, FullyConnectedBridge
+from plato.tools.networks import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent, AdaMax
 from plotting.live_plotting import LiveStream
 import theano
@@ -50,9 +50,9 @@ def demo_rbm_mnist(
     data = get_mnist_dataset(flat = True).training_set.input
 
     rbm = simple_rbm(
-        visible_layer = StochasticLayer(vis_activation),
+        visible_layer = StochasticNonlinearity(vis_activation),
         bridge=FullyConnectedBridge(w = w_init_mag*np.random.randn(28*28, n_hidden).astype(theano.config.floatX), b=0, b_rev = 0),
-        hidden_layer = StochasticLayer(hid_activation)
+        hidden_layer = StochasticNonlinearity(hid_activation)
         )
     
     optimizer = \

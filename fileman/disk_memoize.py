@@ -1,5 +1,6 @@
 import hashlib
 from collections import OrderedDict
+import logging
 from fileman.local_dir import get_local_path, make_file_dir
 import numpy as np
 import pickle
@@ -45,7 +46,12 @@ def memoize_to_disk(fcn):
             file_found = os.path.exists(filepath)
             if file_found:
                 with open(filepath) as f:
-                    result = pickle.load(f)
+                    try:
+                        result = pickle.load(f)
+                    except ValueError as err:
+                        logging.warn('Memo-file "%s" was corrupt.  (%s: %s).  Recomputing.' % (filepath, err.__class__.__name__, err.message))
+                        file_found = False
+                        result = fcn(*args, **kwargs)
             else:
                 result = fcn(*args, **kwargs)
         else:
@@ -94,7 +100,7 @@ def compute_fixed_hash(obj, hasher = None):
 
     hasher.update(obj.__class__.__name__)
 
-    if isinstance(obj, (int, str, float, bool) or obj is None):
+    if isinstance(obj, (int, str, float, bool)) or (obj is None) or (obj in (int, str, float, bool)):
         hasher.update(pickle.dumps(obj))
     elif isinstance(obj, (list, tuple)):
         hasher.update(str(len(obj)))  # Necessary to distinguish ([a, b], c) from ([a, b, c])
