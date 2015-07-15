@@ -163,11 +163,18 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
         "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
 
 
+normalize= lambda x, axis = None: x/x.sum(axis=axis, keepdims = True)
+
+normalize_safely= lambda x, axis = None: x/(x.sum(axis=axis, keepdims = True) + 1)
+
 def get_named_activation_function(activation_name):
     return {
             'softmax': lambda x: softmax(x, axis = -1),
             'sigm': tt.nnet.sigmoid,
             'tanh': tt.tanh,
             'relu': lambda x: tt.maximum(x, 0),
-            'linear': lambda x: x
+            'linear': lambda x: x,
+            'softplus': lambda x: tt.nnet.softplus(x),
+            'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1)
+
             }[activation_name]

@@ -1,5 +1,6 @@
 from general.should_be_builtins import all_equal, bad_value
 import numpy as np
+from utils.tools.processors import OneHotEncoding
 
 __author__ = 'peter'
 
@@ -94,6 +95,11 @@ class DataSet(object):
         """
         return DataSet(training_set=self.training_set.shorten(n_samples), test_set=self.test_set.shorten(n_samples),
             validation_set=self._validation_set.shorten(n_samples) if self._validation_set is not None else None)
+
+    def to_onehot(self, form = 'bin'):
+        n_categories = self.n_categories  # Will throw an exception if not a categorical target
+        encoder = OneHotEncoding(n_categories, form=form)
+        return self.process_with(targets_processor=lambda (t, ): (encoder(t), ))
 
 
 class DataCollection(object):

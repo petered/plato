@@ -167,11 +167,14 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     if accumulator is None:
         prediction_functions = {k: predictor.predict for k in testing_sets}
     else:
-        accum_constructor = {'avg': RunningAverage}[accumulator]
+        accum_constructor = {'avg': RunningAverage}[accumulator] \
+            if isinstance(accumulator, str) else accumulator
         accumulators = {k: accum_constructor() for k in testing_sets}
-
         prediction_functions = {k: lambda inp, kp=k: accumulators[kp](predictor.predict(inp)) for k in testing_sets}
         # Bewate the in-loop lambda - but I think we're ok here.
+
+    if isinstance(evaluation_function, str):
+        evaluation_function = get_evaluation_function(evaluation_function)
 
     checker = CheckPointCounter(test_epochs)
 

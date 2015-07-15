@@ -1,21 +1,33 @@
 from collections import OrderedDict
 from datetime import datetime
 import inspect
+import shlex
 from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
 from fileman.local_dir import format_filename, make_file_dir, get_local_path, get_relative_path
 from fileman.notebook_plots import show_embedded_figure
-from fileman.notebook_utils import get_server_relative_data_folder_name, get_local_server_dir
+from fileman.notebook_utils import get_local_server_dir
 from fileman.notebook_utils import get_relative_link_from_relative_path
 from fileman.persistent_print import capture_print
 from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, \
-    set_show_callback, always_save_figures
+    set_show_callback, always_save_figures, show_saved_figure
 import matplotlib.pyplot as plt
 import re
 
 __author__ = 'peter'
+
+
+GLOBAL_EXPERIMENT_LIBRARY = {}
+
+
+def _am_in_ipython():
+    try:
+        __IPYTHON__
+        return True
+    except NameError:
+        return False
 
 
 class ExperimentRecord(object):
@@ -99,12 +111,18 @@ class ExperimentRecord(object):
 
     def show_figures(self):
         for loc in self._captured_figure_locs:
-            rel_loc = get_relative_link_from_relative_path(loc)
-            show_embedded_figure(rel_loc)
+            if _am_in_ipython():
+                rel_loc = get_relative_link_from_relative_path(loc)
+                show_embedded_figure(rel_loc)
+            else:
+                show_saved_figure(loc)
 
     def show(self):
-        display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
-                     % get_relative_link_from_relative_path(self._log_file_path)))
+        if _am_in_ipython():
+            display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
+                         % get_relative_link_from_relative_path(self._log_file_path)))
+        else:
+            self.print_logs()
         self.show_figures()
 
     def print_logs(self):
@@ -131,7 +149,7 @@ def start_experiment(*args, **kwargs):
     return exp
 
 
-def run_experiment(name, exp_dict, print_to_console = True, show_figs = None, **experiment_record_kwargs):
+def run_experiment(name, exp_dict = GLOBAL_EXPERIMENT_LIBRARY, print_to_console = True, show_figs = None, **experiment_record_kwargs):
     """
     Run an experiment and save the results.  Return a string which uniquely identifies the experiment.
     You can run the experiment agin later by calling show_experiment(location_string):
@@ -168,15 +186,20 @@ def get_local_experiment_path(identifier):
     return format_filename(identifier, directory = get_local_path('experiments'), ext = 'exp.pkl')
 
 
+def get_experiment_record(identifier):
+    local_path = get_local_experiment_path(identifier)
+    assert os.path.exists(local_path), "Couldn't find experiment '%s' at '%s'" % (identifier, local_path)
+    with open(local_path) as f:
+        exp_rec = pickle.load(f)
+    return exp_rec
+
+
 def show_experiment(identifier):
     """
     Show the results of an experiment (plots and logs)
     :param identifier: A string uniquely identifying the experiment
     """
-    local_path = get_local_experiment_path(identifier)
-    assert os.path.exists(local_path), "Couldn't find experiment '%s' at '%s'" % (identifier, local_path)
-    with open(local_path) as f:
-        exp_rec = pickle.load(f)
+    exp_rec = get_experiment_record(identifier)
     exp_rec.show()
 
 
@@ -266,3 +289,53 @@ def get_all_experiment_ids(expr = None):
     if expr is not None:
         experiments = [e for e in experiments if re.match(expr, e)]
     return experiments
+
+
+def register_experiment(name, function, description = ''):
+    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
+    GLOBAL_EXPERIMENT_LIBRARY[name] = function
+
+
+def browse_experiment_records():
+
+    ids = get_all_experiment_ids()
+    while True:
+        print '\n'.join(['%s: %s' % (i, exp_id) for i, exp_id in enumerate(ids)])
+
+        user_input = raw_input('Enter Command (or h for help) >>')
+        parts = shlex.split(user_input)
+
+        cmd = parts[0]
+        args = parts[1:]
+
+        try:
+            if cmd == 'q':
+                break
+            elif cmd == 'h':
+                print 'q: Quit\nfilter <text>: filter experiments\brmfilters: Remove all filters\nshow <number> show experiment with number'
+            elif cmd == 'filter':
+                filter_text, = args
+                ids = get_all_experiment_ids(filter_text)
+            elif cmd == 'rmfilters':
+                ids = get_all_experiment_ids()
+            elif cmd == 'show':
+                index, = args
+                exp_id = ids[int(index)]
+                show_experiment(exp_id)
+                wait_for_continue()
+            else:
+                print 'Bad Command: %s.' % cmd
+                wait_for_continue()
+        except Exception as e:
+            res = raw_input('%s: %s\nEnter "e" to view the message, or anything else to continue.' % (e.__class__.__name__, e.message))
+            if res == 'e':
+                raise
+
+
+def wait_for_continue():
+    raw_input('<Press Enter to Continue>')
+
+
+if __name__ == '__main__':
+
+    browse_experiment_records()

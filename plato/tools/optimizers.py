@@ -23,8 +23,17 @@ class UniformParameterOptimizer(IGradientOptimizer):
     """
 
     def __call__(self, cost, parameters, constants = []):
-        grads = theano.grad(cost, parameters, consider_constant = constants)  # Can be faster than [theano.grad(p) for p in parameters]
-        return sum([self._update_param(p, g) for p, g in zip(parameters, grads)], [])
+        gradients = theano.grad(cost, parameters, consider_constant = constants)  # Can be faster than [theano.grad(p) for p in parameters]
+        return self.update_from_gradients(parameters, gradients)
+
+    @symbolic_updater
+    def update_from_gradients(self, parameters, gradients):
+        """
+        A secondary entry point (if for whatever reason you want to get the gradients yourself (e.g. if it's some kind
+        of pseudo-gradient) use this.
+        """
+        assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
+        return sum([self._update_param(p, g) for p, g in zip(parameters, gradients)], [])
 
     @abstractmethod
     def _update_param(self, param, gradient):
@@ -66,6 +75,20 @@ class AdaMax(UniformParameterOptimizer):
         return updates
 
 
+class RMSProp(UniformParameterOptimizer):
+
+    def __init__(self, learning_rate = 0.1, decay = 0.9, max_scaling = 1e5):
+        self.decay = decay
+        self.epsilon = 1./max_scaling
+        self.learning_rate = learning_rate
+
+    def _update_param(self, param, gradient):
+        mean_squared_grad = theano.shared(np.zeros_like(param.get_value()))
+        new_mean_squared_grad = self.decay * mean_squared_grad + (1-self.decay) * gradient**2
+        delta_p = - self.learning_rate * gradient / tt.maximum(tt.sqrt(new_mean_squared_grad), self.epsilon)
+        return [(param, param + delta_p), (mean_squared_grad, new_mean_squared_grad)]
+
+
 class AdaGrad(UniformParameterOptimizer):
     """
     Adaptive Learning Rate Method
@@ -89,5 +112,26 @@ class AdaGrad(UniformParameterOptimizer):
         return [(param, new_param), (sum_squared_grad, new_ssg)]
 
 
-class GradientDescent(object):
+class GradientDescent(UniformParameterOptimizer):
     """ Gradient descent, with all bells and whistles"""
+
+    def __init__(self, eta, momentum = 0, decay = 0):
+        """
+        :param eta: The learning rate
+        """
+        self.eta = eta
+        self.momentum = momentum
+        self.decay = decay
+
+    def _update_param(self, param, gradient):
+
+        if self.momentum != 0:
+            mom = theano.shared(np.zeros_like(param))
+            new_mom = mom*self.momentum + gradient
+            momentum_updates = [(mom, new_mom)]
+            direction = new_mom  # Or mom, something about Nesterov...
+        else:
+            direction = gradient
+            momentum_updates = []
+
+        return [(param, param - self.eta*direction - self.decay*param)] + momentum_updates

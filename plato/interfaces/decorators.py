@@ -5,7 +5,7 @@ from abc import abstractproperty, abstractmethod
 from general.local_capture import CaptureLocals, LocalsNotCapturedError
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
-import theano.tensor as ts
+import theano.tensor as tt
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
@@ -568,7 +568,15 @@ class AutoCompilingFunction(object):
                     # Now we need to make sure the trace variables actually belong to this function.
                     # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
                     # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
-                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_leaf_ancestors(var).difference(find_shared_ancestors(var)).isdisjoint(all_leaves)}
+                    def computable_by_given_inputs(var, given_inputs):
+                        """
+                        Return True if the symbolic variable var depends only on the provided inputs, shared variables and constants
+                        """
+                        all_leaf_ancestors = find_leaf_ancestors(var)
+                        ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
+                        return all(ancestors_are_computable)
+
+                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves)}
                     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
 
                     # Maybe check for name conflicts here?
@@ -663,7 +671,7 @@ class AutoCompilingFunction(object):
 
 
 def _is_symbol_or_value(var):
-    return isinstance(var, ts.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
+    return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
 def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
@@ -800,8 +808,8 @@ def tdb_trace(var, name = None, callback = None):
         _TRACE_CALLBACKS[name] = callback
 
 
-def tdb_print(var, name):
-    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VARIABLES[name]))
+def tdbprint(var, name):
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
 
 
 def set_enable_omniscence(state):

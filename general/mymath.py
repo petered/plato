@@ -100,3 +100,5 @@ def expected_sigm_of_norm(mean, std, method = 'probit'):
 l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = 1)
 
 
+def normalize(x, axis=None, degree = 2):
+    return x/(np.sum(x**degree, axis = axis, keepdims=True))**(1./degree)
