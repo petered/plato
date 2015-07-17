@@ -30,7 +30,7 @@ class UniformParameterOptimizer(IGradientOptimizer):
     def update_from_gradients(self, parameters, gradients):
         """
         A secondary entry point (if for whatever reason you want to get the gradients yourself (e.g. if it's some kind
-        of pseudo-gradient) use this.
+        of pseudo-gradient)) use this.
         """
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
         return sum([self._update_param(p, g) for p, g in zip(parameters, gradients)], [])
@@ -126,8 +126,8 @@ class GradientDescent(UniformParameterOptimizer):
     def _update_param(self, param, gradient):
 
         if self.momentum != 0:
-            mom = theano.shared(np.zeros_like(param))
-            new_mom = mom*self.momentum + gradient
+            mom = theano.shared(np.zeros_like(param.get_value()))
+            new_mom = self.momentum * mom + gradient
             momentum_updates = [(mom, new_mom)]
             direction = new_mom  # Or mom, something about Nesterov...
         else:
@@ -135,3 +135,18 @@ class GradientDescent(UniformParameterOptimizer):
             momentum_updates = []
 
         return [(param, param - self.eta*direction - self.decay*param)] + momentum_updates
+
+
+def get_named_optimizer(name, learning_rate):
+    """
+    Convenience function for easily specifying optimizers.
+    :param name:
+    :param learning_rate:
+    :return:
+    """
+    return {
+        'sgd': SimpleGradientDescent(eta = learning_rate),
+        'adamax': AdaMax(alpha=learning_rate),
+        'rmsprop': RMSProp(learning_rate=learning_rate),
+        'adagrad': AdaGrad(learning_rate=learning_rate)
+    }[name]

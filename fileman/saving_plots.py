@@ -48,6 +48,8 @@ def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = 'figures',
     name = name.replace('%T', now) + '.'+ext
     name = name.replace('%N', fig_name)
 
+    fig.canvas.set_window_title(name)
+
     is_interactive = plt.isinteractive()
     if block is None:
         block = not is_interactive

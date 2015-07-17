@@ -189,7 +189,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
 
             scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
             if report_test_scores:
-                print 'Scores at Epoch %s: %s' % (current_epoch, scores)
+                print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
             record.add(current_epoch, scores)
             if test_callback is not None:
                 test_callback(predictor)

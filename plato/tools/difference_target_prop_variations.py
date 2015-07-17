@@ -36,12 +36,13 @@ class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
 
 class PerceptronLayer(ITargetPropLayer):
 
-    def __init__(self, w, b, w_rev, b_rev):
+    def __init__(self, w, b, w_rev, b_rev, lin_dtp = True):
 
         self.w = theano.shared(w, name = 'w')
         self.b = theano.shared(b, name = 'b')
         self.w_rev = theano.shared(w_rev, name = 'w_rev')
         self.b_rev = theano.shared(b_rev, name = 'b_rev')
+        self.lin_dtp = lin_dtp
 
     @symbolic_stateless
     def predict(self, x):
@@ -73,12 +74,19 @@ class PerceptronLayer(ITargetPropLayer):
         # return updates
 
     def backpropagate_target(self, x, target):
-        back_output_pre_sigmoid = self.predict(x).dot(self.w_rev) + self.b_rev
-        back_target_pre_sigmoid = target.dot(self.w_rev) + self.b_rev
-        return (x.pre_sign - back_output_pre_sigmoid + back_target_pre_sigmoid > 0).astype('int32')
+
+        if self.lin_dtp:
+            back_output_pre_sigmoid = self.predict(x).dot(self.w_rev) + self.b_rev
+            back_target_pre_sigmoid = target.dot(self.w_rev) + self.b_rev
+            return (x.pre_sign - back_output_pre_sigmoid + back_target_pre_sigmoid > 0).astype('int32')
+        else:
+            output = self.predict(x)
+            back_output = self.backward(output)
+            back_target = self.backward(target)
+            return x - back_output + back_target
 
     @classmethod
-    def from_initializer(cls, n_in, n_out, initial_mag, rng=None):
+    def from_initializer(cls, n_in, n_out, initial_mag, rng=None, **kwargs):
 
         rng = get_rng(rng)
 
@@ -87,4 +95,5 @@ class PerceptronLayer(ITargetPropLayer):
             b = np.zeros(n_out).astype('float'),
             w_rev = rng.randint(low = -initial_mag, high=initial_mag+1, size = (n_out, n_in)).astype('float'),
             b_rev = np.zeros(n_in).astype('float'),
+            **kwargs
             )

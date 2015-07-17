@@ -1,8 +1,8 @@
 from fileman.experiment_record import register_experiment, run_experiment
-from general.test_mode import is_test_mode, set_test_mode
+from general.test_mode import is_test_mode
 from plato.interfaces.decorators import set_enable_omniscence
-from plato.tools.cost import mean_squared_error, mean_xe
-from plato.tools.difference_target_prop import DifferenceTargetMLP
+from plato.tools.cost import mean_squared_error, mean_abs_error
+from plato.tools.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.difference_target_prop_variations import ReversedDifferenceTargetLayer, PerceptronLayer
 from plato.tools.networks import normal_w_init, MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
@@ -12,9 +12,11 @@ from plotting.matplotlib_backend import set_default_figure_size
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors, assess_online_predictor
 from utils.benchmarks.train_and_test import percent_argmax_correct
+from utils.bureaucracy import multichannel
 from utils.datasets.mnist import get_mnist_dataset
 from utils.tools.mymath import sqrtspace
 from utils.tools.processors import OneHotEncoding
+import numpy as np
 
 
 __author__ = 'peter'
@@ -29,10 +31,20 @@ def demo_run_dtp_on_mnist(
         hidden_activation = 'tanh',
         output_activation = 'softmax',
         optimizer_constructor = lambda: RMSProp(0.001),
+        normalize_inputs = False,
+        local_cost_function = mean_squared_error,
+        output_cost_function = None,
         noise = 1,
+        lin_dtp = False
         ):
 
     dataset = get_mnist_dataset(flat = True).to_onehot()
+    if normalize_inputs:
+        dataset = dataset.process_with(targets_processor=multichannel(lambda x: x/np.sum(x, axis = 1, keepdims=True)))
+    if is_test_mode():
+        n_epochs = 0.001
+        minibatch_size=20
+
     predictor = DifferenceTargetMLP.from_initializer(
             input_size = dataset.input_size,
             output_size = dataset.target_size,
@@ -42,8 +54,10 @@ def demo_run_dtp_on_mnist(
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             w_init_mag=0.01,
-            output_cost_function=None,
+            output_cost_function=output_cost_function,
             noise = noise,
+            cost_function = local_cost_function,
+            layer_constructor=DifferenceTargetLayer.from_initializer if not lin_dtp else ReversedDifferenceTargetLayer.from_initializer,
             ).compile()
 
     result = assess_online_predictor(
@@ -63,10 +77,11 @@ def demo_perceptron_dtp(
         n_epochs = 20,
         n_tests = 20,
         minibatch_size=100,
+        lin_dtp = True,
         ):
     dataset = get_mnist_dataset(flat = True).to_onehot()
     predictor = DifferenceTargetMLP(
-        layers=[PerceptronLayer.from_initializer(n_in, n_out, initial_mag=2)
+        layers=[PerceptronLayer.from_initializer(n_in, n_out, initial_mag=2, lin_dtp = lin_dtp)
                 for n_in, n_out in zip([dataset.input_size]+hidden_sizes, hidden_sizes+[dataset.target_size])],
         output_cost_function = None
         ).compile()
@@ -92,6 +107,11 @@ def demo_compare_dtp_optimizers(
 
     dataset = get_mnist_dataset(flat = True).to_onehot()
 
+    if is_test_mode():
+        dataset.shorten(200)
+        n_epochs = 1
+        n_tests = 3
+
     def make_dtp_net(optimizer_constructor, output_fcn):
         return DifferenceTargetMLP.from_initializer(
             input_size = dataset.input_size,
@@ -108,9 +128,12 @@ def demo_compare_dtp_optimizers(
     learning_curves = compare_predictors(
         dataset=dataset,
         online_predictors = {
-            'SGD-0.001': make_dtp_net(lambda: SimpleGradientDescent(0.001), output_fcn = 'softmax'),
-            'AdaMax-0.001': make_dtp_net(lambda: AdaMax(0.001), output_fcn = 'softmax'),
-            'RMSProp-0.001': make_dtp_net(lambda: RMSProp(0.001), output_fcn = 'softmax'),
+            'SGD-0.001-softmax': make_dtp_net(lambda: SimpleGradientDescent(0.001), output_fcn = 'softmax'),
+            'AdaMax-0.001-softmax': make_dtp_net(lambda: AdaMax(0.001), output_fcn = 'softmax'),
+            'RMSProp-0.001-softmax': make_dtp_net(lambda: RMSProp(0.001), output_fcn = 'softmax'),
+            'SGD-0.001-sigm': make_dtp_net(lambda: SimpleGradientDescent(0.001), output_fcn = 'sigm'),
+            'AdaMax-0.001-sigm': make_dtp_net(lambda: AdaMax(0.001), output_fcn = 'sigm'),
+            'RMSProp-0.001-sigm': make_dtp_net(lambda: RMSProp(0.001), output_fcn = 'sigm'),
             },
         minibatch_size = minibatch_size,
         test_epochs = sqrtspace(0, n_epochs, n_tests),
@@ -118,8 +141,6 @@ def demo_compare_dtp_optimizers(
         )
 
     plot_learning_curves(learning_curves)
-
-
 
 
 def demo_compare_dtp_methods(
@@ -142,7 +163,7 @@ def demo_compare_dtp_methods(
 
     set_enable_omniscence(True)
 
-    dataset = get_mnist_dataset(flat = True, binarize = True)
+    dataset = get_mnist_dataset(flat = True, binarize = False)
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
 
     if is_test_mode():
@@ -212,9 +233,73 @@ def run_and_plot(training_scheme):
 register_experiment(
     name = 'standard-dtp',
     function = lambda: demo_run_dtp_on_mnist(),
-    description="Train Difference Target Propagation on MNIST"
+    description="Train Difference Target Propagation on MNIST using standard settings.",
+    conclusion = "96.79% in 20 epochs."
     )
 
+register_experiment(
+    name = 'standard-dtp-noiseless',
+    function = lambda: demo_run_dtp_on_mnist(noise=0),
+    description="See if noise is helpful (compare to standard-dtp)",
+    conclusion = "96.55% in 20 epochs (though it reached 96 after 8).  But the noise is not obviously a huge help in this setting."
+    )
+
+register_experiment(
+    name = 'backprop-vs-dtp',
+    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP']),
+    description = "Compare Difference Target Propagation to ordinary Backpropagation",
+    conclusion = 'Backprop outperforms DTP, but by maybe 1%'
+    )
+
+register_experiment(
+    name = 'DTP-vs-LinDTP',
+    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'LinDTP-MLP', 'backprop-MLP']),
+    description="See the results of doing the 'difference' calculation on the pre-sigmoid instead of post-sigmoid",
+    conclusion="Surprisingly, Lin-DTP does slightly better (97.19 vs 96.96% in 10 epochs).  So this is a potential improvement to DTP."
+    )
+
+register_experiment(
+    name = 'single-level-perceptron-DTP',
+    function = lambda: demo_perceptron_dtp(hidden_sizes=[], n_epochs=60),
+    description="Just to verify we're not crazy.  This should be equiv to a single layer perceptron (without biases though)",
+    conclusion="Hovers kind of noisily just below 85%, as expected."
+    )
+
+register_experiment(
+    name = 'multi-level-perceptron-DTP',
+    function = lambda: demo_perceptron_dtp(hidden_sizes=[400], n_epochs=60, lin_dtp=False),
+    description="Try DTP with one hidden layer using sign-activation units and the perceptron learning rule",
+    conclusion="Doesn't work at all at all."
+    )
+
+register_experiment(
+    name = 'multi-level-perceptron-LinDTP',
+    function = lambda: demo_perceptron_dtp(hidden_sizes=[400], n_epochs=60, lin_dtp=True),
+    description="Try Lin-DTP with sign-activation units and the perceptron learning rule (DTP just doesn't work, it seems)",
+    conclusion="It can make it up to about 92.5% but then doesn't get any better (and can get worse)"
+    )
+
+register_experiment(
+    name = 'deep-multi-level-perceptron-LinDTP',
+    function = lambda: demo_perceptron_dtp(hidden_sizes=[400, 400], n_epochs=60, lin_dtp=True),
+    description="Try the Lin-DTP perceptron with two hidden layers.",
+    conclusion="Doesn't work at all"
+    )
+
+register_experiment(
+    name = 'compare-dtp-optimizers',
+    function = lambda: demo_compare_dtp_optimizers(hidden_sizes=[400], n_epochs=20),
+    description="It's claimed that RMSProp helps a lot.  Lets see if this is true.",
+    conclusion="SGD converges much more slowly, at least at this learning rate.  AdaMax and RMSprop perform similarily.  "
+        "The winner by a narrow margin was AdaMax-sigm with 97.19%, although it gets off to a slow start.  "
+    )
+
+register_experiment(
+    name = 'relu-dtp',
+    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP', 'LinDTP-MLP'], hidden_activation='relu'),
+    description = "Try Difference Target Prop (and LinDTP) with RELU units, see what happens.",
+    conclusion = "LinDTP appears to do worse than DTP (Backprop: 97.9, DTP: 96.85, LinDTP:95.82)"
+    )
 
 register_experiment(
     name = 'all-relu-dtp',
@@ -223,8 +308,137 @@ register_experiment(
         hidden_activation='relu',
         output_activation='relu',
         optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
         ),
-    description="DTP with an entirely RELU network: Works ok, with SGD, but then explodes."
+    description="DTP with an entirely RELU network.",
+    conclusion="Works pretty ok.  Unless it explodes.  Sometimes it doesn't explode.  Sometimes it does.  If it makes it past 93.5%, it generally survives."
+    )
+
+register_experiment(
+    name = 'all-relu-dtp-abserror',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.0001),
+        local_cost_function=mean_abs_error,
+        output_cost_function=mean_abs_error,
+        n_epochs=30,
+        ),
+    description="Maybe L1 Error?",
+    conclusion="Hells No.  Terrible idea."
+    )
+
+
+register_experiment(
+    name = 'all-balanced-relu-dtp',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='balanced-relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
+        ),
+    description="Try balanced RELU (where every second output is negated) as suggested by Xavier Glorot.  Don't see why "
+        "this shouldn't make any difference, since inverting a RELU unit is like negating its outgoing weights, which are "
+        "initialized randomly about zero.",
+    conclusion="Doesn't help, as expected.."
+    )
+
+register_experiment(
+    name = 'all-relu-dtp-momentum',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.001, momentum=0.9),
+        n_epochs=30,
+        ),
+    description="Lets see if momentum makes it more stable",
+    conclusion="Not clear.  2/3 worked, 1/3 exploded."
+    )
+
+register_experiment(
+    name = 'all-relu-dtp-rmsprop',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: RMSProp(learning_rate = 0.001),
+        ),
+    description="DTP with an entirely RELU network, using RMSprop as an optimizer",
+    conclusion="RMSProp and RELU do not mix at all!"
+    )
+
+
+register_experiment(
+    name = 'all-relu-dtp-adamax',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: AdaMax(alpha = 0.001),
+        ),
+    description="DTP with an entirely RELU network, using RMSprop as an optimizer",
+    conclusion="AdaMax and RELU do not mix well either!  (not as horrible as RMSProp though)"
+    )
+
+
+register_experiment(
+    name = 'all-relu-LinDTP',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
+        lin_dtp = True
+        ),
+    description="DTP with an entirely RELU network.",
+    conclusion="Works ok for a bit, then explodes and doesn't work at all.  Wait, somethimes it doesn't explode."
+    )
+
+register_experiment(
+    name = 'all-relu-dtp-noiseless',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
+        noise = 0
+        ),
+    description="See the effect of noise on RELU-DTP (in this architecture, it doesn't have a big effect on tanh-DTP).  "
+        "Compare results to all-relu-dtp",
+    conclusion="It seems that noise is really important.  The noiseless version is more likely to explode and seems to learn more slowly. "
+    )
+
+register_experiment(
+    name = 'all-relu-dtp-minibatch1',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.0001),
+        n_epochs=30,
+        minibatch_size=1
+        ),
+    description="RELU DTP with just 1 sample per minibatch.",
+    conclusion="kaBOOM.  Unless you really lower the learning rate down to 0.0001.  In which case it's ok. "
+        "Reached 94.17% in 6.73 epochs, which is when I lost patience."
+    )
+
+register_experiment(
+    name = 'all-norm-relu-dtp',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='norm-relu',
+        hidden_activation='norm-relu',
+        output_activation='norm-relu',
+        optimizer_constructor=lambda: SimpleGradientDescent(eta = 1.),
+        normalize_inputs=True,
+        ),
+    description="Now try with normalized-relu units",
+    conclusion="Works, kind of, gets to like 93.5%.  Most hidden units seem to die.  At least it doesn't explode."
     )
 
 register_experiment(
@@ -233,43 +447,29 @@ register_experiment(
         input_activation='softplus',
         hidden_activation='softplus',
         output_activation='softplus',
+        optimizer_constructor=lambda: SimpleGradientDescent(eta = 0.01),
         ),
-    description="DTP with an entirely RELU network: Doesn't work that well."
+    description="DTP with an entirely softplus network.  It's known that RELUs have some problems as autoencoders, so we try softplus",
+    conclusion = "Works badly for a while, and then explodes and doesn't work at all."
     )
 
-register_experiment(
-    name = 'backprop-vs-dtp',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP']),
-    description = "Compare Difference Target Propagation to ordinary Backpropagation"
-    )
 
-register_experiment(
-    name = 'DTP-vs-LinDTP',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'LinDTP-MLP']),
-    description="See the results of doing the 'difference' calculation on the pre-sigmoid instead of post-sigmoid")
+"""
+Other experiments done by changing code temporarily (and so not available here)
+
+all-relu-dtp-nobias
+We try removing biases from Difference Target propagation with RELU units.  This
+causes the explosion to happen every time, and after achieving about 91% score.  We can
+compensate by reducing the learning rate to 0.001, but then it takes forever to converge.
+There's basically no middle ground - if you want a bearable learning rate, you get explosions.
 
 
-register_experiment(
-    name = 'relu-dtp',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP', 'LinDTP-MLP'], hidden_activation='relu'),
-    description = "Try Difference Target Prop (and LinDTP) with RELU units, see what happens."
-    )
-
-register_experiment(
-    name = 'multi-level-perceptron',
-    function = lambda: demo_perceptron_dtp(hidden_sizes=[400], n_epochs=60),
-    description="Try Lin-DTP with sign-activation units and the perceptron learning rule (DTP just doesn't work, it seems)"
-    )
-
-register_experiment(
-    name = 'compare_dtp_optimizers',
-    function = lambda: demo_compare_dtp_optimizers(hidden_sizes=[400], n_epochs=20)
-    )
+"""
 
 
 if __name__ == '__main__':
 
-    which_experiment = 'all-relu-dtp'
-    set_test_mode(False)
+    which_experiment = 'multi-level-perceptron-DTP'
+    # set_test_mode(True)
 
     run_experiment(which_experiment)

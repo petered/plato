@@ -62,7 +62,8 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
         out = self.predict(x)
         forward_updates = self.forward_optimizer(
             cost = self.cost_function(out, target),
-            parameters = [self.w, self.b], constants = [target]
+            parameters = [self.w, self.b],
+            constants = [target]
             )  # The "constants" (above) is really important - otherwise it can just try to change the target (which is a function of the weights too).
         noisy_x = x + self.noise*self.rng.normal(size = x.tag.test_value.shape)
         recon = self.backward(self.predict(noisy_x))

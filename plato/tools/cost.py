@@ -63,6 +63,11 @@ def mean_squared_error(actual, target):
 
 
 @symbolic_stateless
+def mean_abs_error(actual, target):
+    return tt.mean(tt.sum(abs(actual-target), axis = 1), axis = 0)
+
+
+@symbolic_stateless
 def percent_correct(actual, target):
     return tt.mean(tt.eq(tt.argmax(actual, axis=1), target), axis = 0) * 100
 

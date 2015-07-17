@@ -2,6 +2,7 @@ from collections import OrderedDict
 from datetime import datetime
 import inspect
 import shlex
+from IPython.core.magics import logging
 from general.test_mode import is_test_mode
 import os
 import pickle
@@ -78,7 +79,7 @@ class ExperimentRecord(object):
         else:
             plt.ioff()
         self._log_file_path = capture_print(True, to_file = True, log_file_path = self._log_file_name, print_to_console = self._print_to_console)
-        always_save_figures(show = self._show_figs, print_loc = False)
+        always_save_figures(show = self._show_figs, print_loc = False, name = self._experiment_identifier+'-%N')
         return self
 
     def __exit__(self, *args):
@@ -168,10 +169,17 @@ def run_experiment(name, exp_dict = GLOBAL_EXPERIMENT_LIBRARY, print_to_console 
         assert hasattr(exp_dict, '__call__')
         func = exp_dict
 
-    with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
-        func()
+    experiment = exp_dict[name]
 
-    return exp_rec
+    if isinstance(experiment, Experiment):
+        return experiment.run(print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs)
+    else:
+        logging.warn('DEPRECATED: Switch to register_experiment.')
+        with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
+            print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
+            func()
+            print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
+        return exp_rec
 
 
 def run_notebook_experiment(name, exp_dict, print_to_console=False, show_figs=False, **experiment_record_kwargs):
@@ -265,6 +273,14 @@ def get_latest_experiment_identifier(name, template = '%T-%N'):
         return latest_experiment_id
 
 
+def show_latest_results(experiment_name, template = '%T-%N'):
+    experiment_record_identifier = get_latest_experiment_identifier(experiment_name, template)
+    if experiment_record_identifier is None:
+        raise Exception('No records for experiment "%s" exist.' % (experiment_name, ))
+
+    show_experiment(experiment_record_identifier)
+
+
 def load_experiment(experiment_identifier):
     """
     Load an ExperimentRecord based on the identifier
@@ -291,9 +307,16 @@ def get_all_experiment_ids(expr = None):
     return experiments
 
 
-def register_experiment(name, function, description = ''):
+def register_experiment(name, function, description = '', conclusion = ''):
     assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
-    GLOBAL_EXPERIMENT_LIBRARY[name] = function
+    experiment = Experiment(
+        name = name,
+        function = function,
+        description=description,
+        conclusion=conclusion
+        )
+    GLOBAL_EXPERIMENT_LIBRARY[name] = experiment
+    return experiment
 
 
 def browse_experiment_records():
@@ -336,6 +359,35 @@ def wait_for_continue():
     raw_input('<Press Enter to Continue>')
 
 
-if __name__ == '__main__':
+def get_experiment_info(name):
+    experiment = GLOBAL_EXPERIMENT_LIBRARY[name]
+    return str(experiment)
 
+
+class Experiment(object):
+
+    def __init__(self, name, function, description, conclusion = ''):
+        self.name = name
+        self.function = function
+        self.description = description
+        self.conclusion = conclusion
+
+    def __str__(self):
+        return 'Experiment: %s\n  Defined in: %s\n  Description: %s\n  Conclusion: %s' % \
+            (self.name, inspect.getmodule(self.function).__name__, self.description, self.conclusion)
+
+    def run(self, **experiment_record_kwargs):
+        """
+        Run the experiment, and return the ExperimentRecord that is generated.
+        Note, if you want the output of the function, you should just run the function directly.
+        :param experiment_record_kwargs: See ExperimentRecord for kwargs
+        """
+        print '%s Running Experiment: %s %s' % ('='*10, self.name, '='*10)
+        with ExperimentRecord(name = self.name, **experiment_record_kwargs) as exp_rec:
+            self.function()
+        print '%s Done Experiment: %s %s' % ('-'*11, self.name, '-'*12)
+        return exp_rec
+
+
+if __name__ == '__main__':
     browse_experiment_records()

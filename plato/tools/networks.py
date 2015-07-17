@@ -1,5 +1,5 @@
 from plato.interfaces.decorators import symbolic_stateless
-from plato.interfaces.helpers import initialize_param
+from plato.interfaces.helpers import initialize_param, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt
 import theano
@@ -57,15 +57,7 @@ class Layer(IParameterized):
 
     def __init__(self, linear_transform, nonlinearity):
         if isinstance(nonlinearity, str):
-            nonlinearity = {
-                'sig': tt.nnet.sigmoid,
-                'lin': lambda x: x,
-                'tanh': tt.tanh,
-                'rect-lin': lambda x: tt.maximum(0, x),
-                'relu': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x),
-                'exp': lambda x: tt.exp(x)
-            }[nonlinearity]
+            nonlinearity = get_named_activation_function(nonlinearity)
         self.linear_transform = linear_transform
         self.nonlinearity = nonlinearity
 

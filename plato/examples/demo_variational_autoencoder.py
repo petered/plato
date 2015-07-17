@@ -1,4 +1,4 @@
-from argmaxlab.spiking_experiments.spike_sampling import get_rng
+from general.numpy_helpers import get_rng
 from general.test_mode import is_test_mode
 from plato.tools.optimizers import AdaMax
 from plato.tools.variational_autoencoder import VariationalAutoencoder, \
