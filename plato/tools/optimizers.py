@@ -40,6 +40,15 @@ class UniformParameterOptimizer(IGradientOptimizer):
         pass
 
 
+class GradientStepUpdater(UniformParameterOptimizer):
+    """
+    Just subtract the gradient to the parameter.  This is mainly useful in some situations the step size doesn't matter
+    (because for instance, the function is invariant to the scale of the weights)
+    """
+    def _update_param(self, param, gradient):
+        return [(param, param - gradient)]
+
+
 class SimpleGradientDescent(UniformParameterOptimizer):
     """
     A simple gradient descent optimizer.  For more exotic varieties of gradient descent, use the more general
@@ -137,6 +146,16 @@ class GradientDescent(UniformParameterOptimizer):
         return [(param, param - self.eta*direction - self.decay*param)] + momentum_updates
 
 
+class MultiplicativeGradientDescent(UniformParameterOptimizer):
+
+    def __init__(self, factor = 0.01):
+        self.factor = factor
+
+    def _update_param(self, param, gradient):
+        multiplier = tt.exp(-tt.tanh(gradient)*self.factor)
+        return [(param, param*multiplier)]
+
+
 def get_named_optimizer(name, learning_rate):
     """
     Convenience function for easily specifying optimizers.
@@ -148,5 +167,6 @@ def get_named_optimizer(name, learning_rate):
         'sgd': SimpleGradientDescent(eta = learning_rate),
         'adamax': AdaMax(alpha=learning_rate),
         'rmsprop': RMSProp(learning_rate=learning_rate),
-        'adagrad': AdaGrad(learning_rate=learning_rate)
+        'adagrad': AdaGrad(learning_rate=learning_rate),
+        'mulsgd': MultiplicativeGradientDescent(factor=learning_rate)
     }[name]

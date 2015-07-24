@@ -81,3 +81,13 @@ def mean_xe(actual, target):
 def softmax_mean_xe(actual, target):
     normalized_actual = tt.nnet.softmax(actual)
     return mean_xe(normalized_actual, target)
+
+
+def get_named_cost_function(name):
+    return {
+        'nll': negative_log_likelihood,
+        'nll-d': negative_log_likelihood_dangerous,
+        'mse': mean_squared_error,
+        'xe': mean_xe,
+        'percent_correct': percent_correct,
+        }[name]

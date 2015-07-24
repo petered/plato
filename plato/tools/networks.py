@@ -14,7 +14,7 @@ class MultiLayerPerceptron(IParameterized):
     """
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, scale_param = False, w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
+            normalize_minibatch = False, scale_param = False, w_init = 0.1, use_bias = True):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
@@ -23,12 +23,18 @@ class MultiLayerPerceptron(IParameterized):
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
+        if isinstance(w_init, float):
+            val = w_init
+            w_init = lambda n_in, n_out: val*np.random.randn(n_in, n_out)
+
         self.layers = [
             Layer(
                 linear_transform = FullyConnectedBridge(
                     w = w_init(pre_size, post_size),
                     normalize_minibatch=normalize_minibatch,
-                    scale = scale_param),
+                    scale = scale_param,
+                    use_bias = use_bias
+                    ),
                 nonlinearity = nonlinearity
                 )
             for pre_size, post_size, nonlinearity in zip(
@@ -44,7 +50,7 @@ class MultiLayerPerceptron(IParameterized):
 
     @property
     def parameters(self):
-        return sum([l.parameters for l in self.layers], [])
+         return sum([l.parameters for l in self.layers], [])
 
 
 def normal_w_init(mag, seed = None):
@@ -176,7 +182,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
     An element which multiplies the input by some weight matrix w and adds a bias.
     """
 
-    def __init__(self, w, b = 0, b_rev = None, scale = False, normalize_minibatch = False):
+    def __init__(self, w, b = 0, b_rev = None, scale = False, normalize_minibatch = False, use_bias = True):
         """
         :param w: Initial weight value.  Can be:
             - A numpy array, in which case a shared variable is instantiated from this data.
@@ -196,6 +202,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         self._log_scale, log_scale_params, log_scale_shape = initialize_param(0 if scale else None, shape = w.shape[1], name = 'log_scale')
         self._params = w_params+b_params+b_rev_params+log_scale_params
         self._normalize_minibatch = normalize_minibatch
+        self._use_bias = use_bias
 
     def __call__(self, x):
         current = x.flatten(2).dot(self._w)
@@ -206,12 +213,12 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         if self._log_scale is not None:
             current = current * tt.exp(self._log_scale)
 
-        y = current + self._b
+        y = current + self._b if self._use_bias else current
         return y
 
     @property
     def parameters(self):
-        return self._params
+        return self._params if self._use_bias else [self._w]
 
     def reverse(self, y):
         assert self._b_rev is not None, 'You are calling reverse on this bridge, but you failed to specify b_rev.'

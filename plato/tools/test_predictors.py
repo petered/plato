@@ -1,7 +1,8 @@
 from plato.tools.cost import negative_log_likelihood_dangerous
+from plato.tools.online_regressor import OnlineRegressor
 from plato.tools.networks import MultiLayerPerceptron
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
-from plato.tools.optimizers import SimpleGradientDescent
+from plato.tools.optimizers import SimpleGradientDescent, GradientDescent
 from plato.tools.simple_sampling_regressors import GibbsRegressor, HerdedGibbsRegressor
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
 from pytest import raises
@@ -95,7 +96,50 @@ def test_gibbs_logistic_regressor_full_update():
             )
 
 
+def test_online_regressors():
+
+    # Multinomial Regression
+    assert_online_predictor_not_broken(
+        predictor_constructor = lambda n_dim_in, n_dim_out:
+            OnlineRegressor(
+                input_size = n_dim_in,
+                output_size=n_dim_out,
+                optimizer=GradientDescent(eta = 0.01),
+                regressor_type = 'multinomial'
+                ).compile(),
+        categorical_target=True,
+        n_epochs=20
+        )
+
+    # Logistic Regression
+    assert_online_predictor_not_broken(
+        predictor_constructor = lambda n_dim_in, n_dim_out:
+            OnlineRegressor(
+                input_size = n_dim_in,
+                output_size=n_dim_out,
+                optimizer=GradientDescent(eta = 0.01),
+                regressor_type = 'logistic'
+                ).compile(),
+        categorical_target=False,
+        n_epochs=20
+        )
+
+    # Linear Regression
+    assert_online_predictor_not_broken(
+        predictor_constructor = lambda n_dim_in, n_dim_out:
+            OnlineRegressor(
+                input_size = n_dim_in,
+                output_size=n_dim_out,
+                optimizer=GradientDescent(eta = 0.01),
+                regressor_type = 'linear'
+                ).compile(),
+        categorical_target=False,
+        n_epochs=20
+        )
+
+
 if __name__ == '__main__':
+    test_online_regressors()
     test_mlp_with_scale_learning()
     test_gibbs_logistic_regressor()
     test_herded_logistic_regressor()

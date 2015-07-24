@@ -1,4 +1,4 @@
-from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm
+from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode
 import numpy as np
 __author__ = 'peter'
 
@@ -48,8 +48,43 @@ def test_exp_sig_of_norm():
         assert true_error < 0.02, 'Method %s did pretty bad' % (method, )
 
 
+def test_mode():
+
+    arr = np.random.RandomState(0).randint(low=0, high=2, size=(3, 5, 7))
+
+    m0 = mode(arr, axis = 0)
+    assert m0.shape == (5, 7)
+    assert np.all(np.sum(m0[None, :, :] == arr, axis = 0) > np.sum(m0[None, :, :] != arr, axis = 0))
+
+    m1 = mode(arr, axis = 1)
+    assert m1.shape == (3, 7)
+    assert np.all(np.sum(m1[:, None, :] == arr, axis = 1) > np.sum(m1[:, None, :] != arr, axis = 1))
+
+    m2 = mode(arr, axis = 2)
+    assert m2.shape == (3, 5)
+
+
+def test_cummode():
+
+    arr = np.random.RandomState(0).randint(low=0, high=3, size=(5, 7))
+
+    m = cummode(arr, axis = 1)  # (n_samples, n_events)
+    assert m.shape == arr.shape
+
+    uniques = np.unique(arr)
+
+    for j in xrange(arr.shape[1]):
+        n_elements_of_mode_class = np.sum(arr[:, :j+1] == m[:, j][:, None], axis = 1)  # (n_samples, )
+        for k, u in enumerate(uniques):
+            n_elements_of_this_class = np.sum(arr[:, :j+1] == u, axis = 1)  # (n_samples, )
+            assert np.all(n_elements_of_mode_class >= n_elements_of_this_class)
+
+
+
 if __name__ == '__main__':
 
+    test_cummode()
+    test_mode()
     test_exp_sig_of_norm()
     test_cumvar()
     test_cummean()

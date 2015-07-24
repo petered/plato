@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from plato.interfaces.decorators import symbolic_stateless, symbolic_standard, symbolic_updater
 from plato.interfaces.interfaces import IParameterized
+from plato.tools.cost import get_named_cost_function
 from utils.predictors.i_predictor import IPredictor
 
 __author__ = 'peter'
@@ -51,6 +52,8 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
         :param optimizer: Is an IGradientOptimizer
         """
         self._function = function
+        if isinstance(cost_function, str):
+            cost_function = get_named_cost_function(cost_function)
         self._cost_function = cost_function
         self._optimizer = optimizer
 

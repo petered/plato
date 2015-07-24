@@ -144,6 +144,37 @@ def demo_compare_dtp_optimizers(
 
 
 def demo_compare_dtp_methods(
+        predictor_constructors,
+        n_epochs = 10,
+        minibatch_size = 20,
+        n_tests = 20,
+        onehot = True,
+        accumulator = None
+        ):
+    dataset = get_mnist_dataset(flat = True, binarize = False)
+    n_categories = dataset.n_categories
+    if onehot:
+        dataset = dataset.to_onehot()
+
+    if is_test_mode():
+        dataset.shorten(200)
+        n_epochs = 0.1
+        n_tests = 3
+
+    learning_curves = compare_predictors(
+        dataset=dataset,
+        online_predictors = {name: p(dataset.input_size, n_categories) for name, p in predictor_constructors.iteritems() if name in predictor_constructors},
+        minibatch_size = minibatch_size,
+        test_epochs = sqrtspace(0, n_epochs, n_tests),
+        evaluation_function = percent_argmax_correct,
+        # online_test_callbacks={'perceptron': lambda p: dbplot(p.symbolic_predictor.layers[0].w.get_value().T.reshape(-1, 28, 28))},
+        accumulators=accumulator
+        )
+
+    plot_learning_curves(learning_curves)
+
+
+def demo_lin_dtp(
         hidden_sizes = [240],
         n_epochs = 10,
         minibatch_size = 20,
@@ -246,17 +277,25 @@ register_experiment(
 
 register_experiment(
     name = 'backprop-vs-dtp',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP']),
+    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'backprop-MLP']),
     description = "Compare Difference Target Propagation to ordinary Backpropagation",
     conclusion = 'Backprop outperforms DTP, but by maybe 1%'
     )
 
 register_experiment(
     name = 'DTP-vs-LinDTP',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'LinDTP-MLP', 'backprop-MLP']),
+    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'LinDTP-MLP', 'backprop-MLP']),
     description="See the results of doing the 'difference' calculation on the pre-sigmoid instead of post-sigmoid",
     conclusion="Surprisingly, Lin-DTP does slightly better (97.19 vs 96.96% in 10 epochs).  So this is a potential improvement to DTP."
     )
+
+
+def make_multi_level_perceptron(input_size, output_size, hidden_sizes, lin_dtp, initial_mag=2):
+    return DifferenceTargetMLP(
+        layers=[PerceptronLayer.from_initializer(n_in, n_out, initial_mag=initial_mag, lin_dtp = lin_dtp)
+                for n_in, n_out in zip([input_size]+hidden_sizes, hidden_sizes+[output_size])],
+        output_cost_function = None
+        ).compile()
 
 register_experiment(
     name = 'single-level-perceptron-DTP',
@@ -287,6 +326,38 @@ register_experiment(
     )
 
 register_experiment(
+    name = 'compare-multi-level-perceptron-dtp',
+    function = lambda: demo_compare_dtp_methods(
+        predictor_constructors={
+            'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
+            'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
+            'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
+            'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
+            }
+        ),
+    description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
+    conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
+               '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
+    )
+
+register_experiment(
+    name = 'compare-multi-level-perceptron-dtp-avg',
+    function = lambda: demo_compare_dtp_methods(
+        predictor_constructors={
+            'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
+            'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
+            'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
+            'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
+            },
+        accumulator='avg'
+        ),
+    description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
+    conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
+               '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
+    )
+
+
+register_experiment(
     name = 'compare-dtp-optimizers',
     function = lambda: demo_compare_dtp_optimizers(hidden_sizes=[400], n_epochs=20),
     description="It's claimed that RMSProp helps a lot.  Lets see if this is true.",
@@ -296,7 +367,7 @@ register_experiment(
 
 register_experiment(
     name = 'relu-dtp',
-    function = lambda: demo_compare_dtp_methods(predictors = ['DTP-MLP', 'backprop-MLP', 'LinDTP-MLP'], hidden_activation='relu'),
+    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'backprop-MLP', 'LinDTP-MLP'], hidden_activation='relu'),
     description = "Try Difference Target Prop (and LinDTP) with RELU units, see what happens.",
     conclusion = "LinDTP appears to do worse than DTP (Backprop: 97.9, DTP: 96.85, LinDTP:95.82)"
     )
@@ -463,13 +534,12 @@ causes the explosion to happen every time, and after achieving about 91% score. 
 compensate by reducing the learning rate to 0.001, but then it takes forever to converge.
 There's basically no middle ground - if you want a bearable learning rate, you get explosions.
 
-
 """
 
 
 if __name__ == '__main__':
 
-    which_experiment = 'multi-level-perceptron-DTP'
+    which_experiment = 'all-norm-relu-dtp'
     # set_test_mode(True)
 
     run_experiment(which_experiment)

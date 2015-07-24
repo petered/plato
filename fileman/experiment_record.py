@@ -263,6 +263,7 @@ def get_latest_experiment_identifier(name, template = '%T-%N'):
     :param template: The template which turns a name into an experiment identifier
     :return: A string identifying the latest matching experiment, or None, if not found.
     """
+    template = '^'+template+'$'
     named_template = template.replace('%N', name)
     expr = named_template.replace('%T', '\d\d\d\d\.\d\d\.\d\d\T\d\d\.\d\d\.\d\d\.\d\d\d\d\d\d')
     matching_experiments = get_all_experiment_ids(expr)
@@ -274,10 +275,10 @@ def get_latest_experiment_identifier(name, template = '%T-%N'):
 
 
 def show_latest_results(experiment_name, template = '%T-%N'):
+    print GLOBAL_EXPERIMENT_LIBRARY[experiment_name]
     experiment_record_identifier = get_latest_experiment_identifier(experiment_name, template)
     if experiment_record_identifier is None:
         raise Exception('No records for experiment "%s" exist.' % (experiment_name, ))
-
     show_experiment(experiment_record_identifier)
 
 

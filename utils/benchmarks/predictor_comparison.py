@@ -151,8 +151,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param predictor:  An IPredictor object
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
-    :param test_epochs:
-    :param minibatch_size:
+    :param test_epochs: List of epochs to test at.  Eg. [0.5, 1, 2, 4]
+    :param minibatch_size: Number of samples per minibatch, or 'full' to do full-batch.
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :param test_callback: A callback which takes the predictor, and is called every time a test
         is done.  This can be useful for plotting/debugging the state.
@@ -256,7 +256,8 @@ class LearningCurveData(object):
         """
         :return: (times, results), where:
             times is a length-N vector indicating the time of each test
-            scores is a (length_N, n_scores) array indicating the each score at each time.
+            scores is a (length_N, n_scores) array indicating the each score at each time
+                OR a (length_N, n_scores, n_reps) array where n_reps indexes each repetition or the same experiment
         """
         return np.array(self._times), OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
 
@@ -277,4 +278,6 @@ class LearningCurveData(object):
                 % (which_test_set, results.keys())
             return results[which_test_set]
 
+    # @classmethod
+    # def merge(self, learning_curve_data_objects):
 
