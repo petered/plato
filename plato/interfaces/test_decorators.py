@@ -1,6 +1,6 @@
 from abc import abstractmethod
-from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, set_enable_omniscence
+from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
+    tdb_trace, get_tdb_traces, symbolic
 import pytest
 import theano
 import numpy as np
@@ -8,16 +8,16 @@ import numpy as np
 __author__ = 'peter'
 
 
-def test_stateless_decorators():
+def test_stateless_symbolic_function():
 
     # Case 1: Function
-    @symbolic_stateless
+    @symbolic
     def multiply_by_two(x):
         return x*2
 
     f1 = multiply_by_two
     assert f1.compile()(2) == 4
-    assert f1.symbolic_standard.compile()(2) == [4]
+    assert f1.to_format(symbolic_standard).compile()(2) == [4]
 
     # Case 2: Method
     class GenericClass(object):
@@ -25,17 +25,17 @@ def test_stateless_decorators():
         def __init__(self):
             self._factor = 2
 
-        @symbolic_stateless
+        @symbolic
         def multiply_by_two(self, x):
             return x*self._factor
 
     obj = GenericClass()
     f2 = obj.multiply_by_two
     assert f2.compile()(2) == 4
-    assert f2.symbolic_standard.compile()(2) == [4]
+    assert f2.to_format(symbolic_standard).compile()(2) == [4]
 
     # Case 3: Callable class
-    @symbolic_stateless
+    @symbolic
     class MultiplyByTwo(object):
 
         def __init__(self):
@@ -46,22 +46,12 @@ def test_stateless_decorators():
 
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
-    assert f3.symbolic_standard.compile()(2) == [4]
-
-    # Check that the types were correctly determined (igore this
-    # if you're using this test as a tutorial - it's a detail)
-    assert f1.get_decorated_type() == 'function'
-    assert f1.symbolic_standard.get_decorated_type() == 'reformat'
-    assert f2.get_decorated_type() == 'method'
-    assert f2.symbolic_standard.get_decorated_type() == 'reformat'
-    assert f3.get_decorated_type() == 'callable_class'
-    assert f3.__call__.get_decorated_type() == 'method'
-    assert f3.symbolic_standard.get_decorated_type() == 'reformat'
+    assert f3.to_format(symbolic_standard).compile()(2) == [4]
 
 
-def test_standard_decorators():
+def test_stateful_symbolic_function():
 
-    @symbolic_standard
+    @symbolic
     class Counter(object):
 
         def __init__(self, initial_value = 0):
@@ -69,19 +59,19 @@ def test_standard_decorators():
 
         def __call__(self):
             counter = theano.shared(np.zeros((), dtype = 'int')+self._initial_value)
-            return (counter, ), [(counter, counter+1)]
+            return counter, [(counter, counter+1)]
 
     c = Counter().compile()
 
     c1 = c()
-    assert c1 == [0]
+    assert c1 == 0
 
     c2 = c()
-    assert c2 == [1]
+    assert c2 == 1
 
     c()
     c3 = c()
-    assert c3 == [3]
+    assert c3 == 3
 
 
 def test_pure_updater():
@@ -263,11 +253,11 @@ def test_method_caching_bug():
         def __init__(self, initial_value = 0):
             self._count_var = theano.shared(np.array([initial_value]))
 
-        @symbolic_standard
+        @symbolic
         def count(self):
             return (self._count_var, ), [(self._count_var, self._count_var+1)]
 
-        @symbolic_stateless
+        @symbolic
         def get_count(self):
             return self._initial_value
 
@@ -289,7 +279,7 @@ def test_debug_trace():
     :return:
     """
 
-    @symbolic_stateless
+    @symbolic
     def average(a, b):
         sum_a_b = a+b
         tdb_trace(sum_a_b, name = 'sum_a_b')
@@ -298,18 +288,16 @@ def test_debug_trace():
     f = average.compile()
 
     assert f(3, 5) == 4
-    assert f.get_debug_values()['sum_a_b'] == 8
     assert get_tdb_traces()['sum_a_b'] == 8
 
 
 if __name__ == '__main__':
-    # test_debug_trace()
-    # test_method_caching_bug()
-    # test_omniscence()
-    test_stateless_decorators()
-    # test_standard_decorators()
-    # test_pure_updater()
-    # test_function_format_checking()
-    # test_callable_format_checking()
-    # test_inhereting_from_decorated()
-    # test_dual_decoration()
+    test_stateless_symbolic_function()
+    test_stateful_symbolic_function()
+    test_debug_trace()
+    test_method_caching_bug()
+    test_pure_updater()
+    test_function_format_checking()
+    test_callable_format_checking()
+    test_inhereting_from_decorated()
+    test_dual_decoration()
