@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from functools import partial
 import inspect
 from theano.compile.sharedvalue import SharedVariable
@@ -281,7 +282,10 @@ def _list_all_output_variables(return_info):
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
     """
     :param all_outputs: A list of symbolic variables returned, and update values.  This is
-    :return: Two dicts: {trace_var_name: trace_var}, {trace_var_name: trace_callback}
+    :return: trace_variables, trace_callbacks
+        Where:
+            trace_variables is a dict<str: Variable} containing {trace_var_name: trace_var}
+            trace_callbacks is a list<function> where function should do something with the named trace variable (see tdbprint for example)
     """
     if len(_TRACE_VARIABLES) == 0:
         return {}, {}
@@ -301,7 +305,7 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
 
     trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves)}
     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
-    trace_callbacks = {name: _TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS}
+    trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
     return trace_variables, trace_callbacks
 
 
@@ -363,6 +367,8 @@ class AutoCompilingFunction(object):
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = len(trace_variables)>0
+            self._callbacks += trace_callbacks
+
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
                 self._single_output = _is_tensor(outputs)
@@ -375,6 +381,7 @@ class AutoCompilingFunction(object):
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
+            # Separate out the debug variables from the output.
             all_out = self._compiled_fcn(*args)
             self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
             _TRACE_VALUES.update(self._debug_values)
@@ -517,9 +524,9 @@ class SymbolicReturn(object):
         return (self.outputs, self.updates).__iter__()
 
 
-_TRACE_VARIABLES = {}  # A dict of trace-variable-name: Trace Variable
-_TRACE_VALUES = {}  # A dict of trace variable name: Most recently computed value
-_TRACE_CALLBACKS = {}  # A dict of trace-variable-name: Callback to call after trace ver is used.
+_TRACE_VARIABLES = OrderedDict()  # A dict of trace-variable-name: Trace Variable
+_TRACE_VALUES = OrderedDict()  # A dict of trace variable name: Most recently computed value
+_TRACE_CALLBACKS = OrderedDict()  # A dict of trace-variable-name: Callback to call after trace ver is used.
 
 
 def get_tdb_traces():
@@ -533,3 +540,14 @@ def tdb_trace(var, name = None, callback = None):
     _TRACE_VARIABLES[name] = var
     if callback is not None:
         _TRACE_CALLBACKS[name] = callback
+
+
+def printit(var_name, var_val):
+    print '%s: %s' % (var_name, var_val)
+
+
+def tdbprint(var, name = None):
+    if name is None:
+        # TODO: Get default by sneakily grabbing name from calling scope.
+        name = '%s@%s' % (str(var), hex(id(var)))
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
