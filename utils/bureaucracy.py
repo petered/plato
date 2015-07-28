@@ -1,4 +1,5 @@
 __author__ = 'peter'
+import numpy as np
 
 
 def multichannel(fcn):
@@ -14,3 +15,20 @@ def multichannel(fcn):
         (out_arr, ) = fcn((in_arr_0, in_arr_1, ...))
     """
     return lambda args: (fcn(*args), )
+
+
+def minibatch_iterate(data, minibatch_size, n_epochs):
+    """
+    Yields minibatches in sequence.
+    :param data: A (n_samples, ...) data array
+    :param minibatch_size: The number of samples per minibatch
+    :param n_epochs: The number of epochs to run for
+    :yield: (minibatch_size, ...) data arrays.
+    """
+    i = 0
+    end = len(data)*n_epochs
+
+    ixs = np.arange(minibatch_size)
+    while ixs[0] < end:
+        yield data[ixs % len(data)]
+        ixs+=minibatch_size

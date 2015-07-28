@@ -1,17 +1,16 @@
 from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
-from utils.benchmarks.train_and_test import evaluate_predictor, get_evaluation_function
+from utils.benchmarks.train_and_test import get_evaluation_function
 from collections import OrderedDict
 from utils.predictors.i_predictor import IPredictor
 from utils.tools.mymath import sqrtspace
 import numpy as np
 from utils.tools.processors import RunningAverage
-from utils.tools.progress_indicator import ProgressIndicator
 
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
         evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True,
-        test_on = 'training+test', test_batch_size = None, accumulators = None):
+        test_on = 'training+test', test_batch_size = None, accumulators = None, online_test_callbacks = {}):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -33,6 +32,8 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
         The final test point determines the end of training.
     :param evaluation_function: Function used to evaluate output of predictors
     :param report_test_scores: Boolean indicating whether you'd like to report results online.
+    :param online_test_callbacks: A dict<str: fcn> where fcn is a callback that takes an online
+        predictor as an argument.  Useful for logging/plotting/debugging progress during training.
     :return: An OrderedDict<LearningCurveData>
     """
 
@@ -48,6 +49,10 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
         minibatch_size = {predictor_name: minibatch_size for predictor_name in online_predictors.keys()}
     else:
         assert online_predictors.viewkeys() == minibatch_size.viewkeys()
+
+    assert all(c in online_predictors.viewkeys() for c in online_test_callbacks.keys()), \
+        'Your online test callbacks: %s, were not all in the list of online predictors' \
+        % (online_test_callbacks.keys(), online_predictors.keys())
 
     if not isinstance(accumulators, dict):
         accumulators = {predictor_name: accumulators for predictor_name in online_predictors.keys()}
@@ -85,6 +90,7 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 report_test_scores = report_test_scores,
                 test_on = test_on,
                 test_batch_size = test_batch_size,
+                test_callback=online_test_callbacks[predictor_name] if predictor_name in online_test_callbacks else None
                 ) if predictor_type == 'online' else \
             bad_value(predictor_type)
 
@@ -124,7 +130,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 
 
 
 def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs, minibatch_size, test_on = 'training+test',
-        accumulator = None, report_test_scores=True, test_batch_size = None):
+        accumulator = None, report_test_scores=True, test_batch_size = None, test_callback = None):
     """
     Train an online predictor and return the LearningCurveData.
 
@@ -134,6 +140,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param test_epochs:
     :param minibatch_size:
     :param report_test_scores: Print out the test scores as they're computed (T/F)
+    :param test_callback: A callback which takes the predictor, and is called every time a test
+        is done.  This can be useful for plotting/debugging the state.
     :return: LearningCurveData containing the score on the test sets
     """
 
@@ -166,6 +174,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
             if report_test_scores:
                 print 'Scores at Epoch %s: %s' % (current_epoch, scores)
             record.add(current_epoch, scores)
+            if test_callback is not None:
+                test_callback(predictor)
             if done:
                 break
 
@@ -249,3 +259,5 @@ class LearningCurveData(object):
             assert which_test_set in results, 'You asked for results for the test set %s, but we only have test sets %s' \
                 % (which_test_set, results.keys())
             return results[which_test_set]
+
+

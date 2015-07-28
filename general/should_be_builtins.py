@@ -10,3 +10,21 @@ def bad_value(value, explanation = None):
     dutch_hand = 'links' if eng_hand=='left' else 'rechts' if eng_hand=='right' else bad_value(eng_hand)
     """
     raise ValueError('Bad Value: %s%s' % (value, ': '+explanation if explanation is not None else ''))
+
+
+def memoize(fcn):
+    """
+    Use this to decorate a function whose results you want to cache.
+    Currently, you cannot use keyword-args with this.  This can probably be fixed.
+    """
+    lookup = {}
+
+    def memoization_wrapper(*args):
+        if args in lookup:
+            return lookup[args]
+        else:
+            out = fcn(*args)
+            lookup[args]=out
+            return out
+
+    return memoization_wrapper

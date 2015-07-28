@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('TkAgg')  # Makes windows pop up!
 from abc import ABCMeta, abstractmethod
 from general.should_be_builtins import bad_value
 from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit, data_to_image
@@ -6,6 +8,15 @@ __author__ = 'peter'
 
 
 from matplotlib.pyplot import *
+
+
+def set_default_figure_size(width, height):
+    """
+    :param width: Width (in inches, for some reason)
+    :param height: Height (also in inches.  One inch is about 2.54cm)
+    """
+    from pylab import rcParams
+    rcParams['figure.figsize'] = width, height
 
 
 class IPlot(object):
@@ -133,7 +144,7 @@ class TextPlot(IPlot):
 
 class HistogramPlot(IPlot):
 
-    def __init__(self, edges, mode = 'mass'):
+    def __init__(self, edges, mode = 'mass', plot_type = 'bar', cumulative = False):
         assert mode in ('mass', 'density')
         edges = np.array(edges)
         self._edges = edges
@@ -143,6 +154,8 @@ class HistogramPlot(IPlot):
         self._plot = None
         self._widths = np.diff(edges)
         self._lefts = edges[:-1]
+        self._plot_type=plot_type
+        self._cumulative = cumulative
 
     def update(self, data):
 
@@ -153,15 +166,29 @@ class HistogramPlot(IPlot):
         self._binvals += this_hist * frac
         self._binvals /= max(1, np.sum(self._binvals))
         self._n_points = new_n_points
-
         # DIsplay
         heights = self._binvals if self._mode == 'mass' else self._binvals/self._widths
-        if self._plot is None:
-            self._plot = bar(self._lefts, heights, width = self._widths)
-        else:
-            for rect, h in zip(self._plot, heights):
-                rect.set_height(h)
-        self._plot[0].axes.set_ybound(0, np.max(heights))
+        if self._cumulative:
+            heights = np.cumsum(heights)
+        if self._plot_type == 'bar':
+            if self._plot is None:
+                self._plot = bar(self._lefts, heights, width = self._widths)
+            else:
+                for rect, h in zip(self._plot, heights):
+                    rect.set_height(h)
+        elif self._plot_type == 'line':
+            if self._plot is None:
+                self._plot = plot(self._edges[:-1], heights)
+            else:
+                self._plot[0].set_ydata(heights)
+
+        self._plot[0].axes.set_ybound(0, np.max(heights)*1.05)
+
+
+class CumulativeLineHistogram(HistogramPlot):
+
+    def __init__(self, edges):
+        HistogramPlot.__init__(self, edges, mode = 'mass', plot_type='line', cumulative=True)
 
 
 def get_plot_from_data(data, mode, **plot_preference_kwargs):

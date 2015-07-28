@@ -1,3 +1,4 @@
+from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.dbn import DeepBeliefNet
 from plato.tools.networks import StochasticLayer, FullyConnectedBridge
 import numpy as np
@@ -10,11 +11,13 @@ from utils.tools.processors import OneHotEncoding
 __author__ = 'peter'
 
 
-def demo_dbn_mnist(plot = True, test_mode = True):
+def demo_dbn_mnist(plot = True, test_mode = False):
     """
     In this demo we train an RBM on the MNIST input data (labels are ignored).  We plot the state of a markov chanin
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
     """
+
+    set_enable_omniscence(True)
     minibatch_size = 20
     dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1), ))
     w_init = lambda n_in, n_out: 0.01 * np.random.randn(n_in, n_out)

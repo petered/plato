@@ -1,6 +1,6 @@
 #Plato
 
-The Plato repo contains all the work of my PhD so far.  The intent is for it to evolve into a clean, well-tested library, built on top of theano, containing standard components in deep learning (MLPs, DBNs, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.
+Welcome to the Plato repo.  Plato is (or at least should be), a clean, well-tested library, built on top of theano, containing standard components in deep learning (MLPs, DBNs, VA's, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.
 
 To separate the messy, experimental stuff from the clean, reuseable stuff, I've separated the repo into several packages, which should be split off into separate repos once things mature.  The packages are as follows:
 

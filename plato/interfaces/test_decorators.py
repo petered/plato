@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces
+    tdb_trace, get_tdb_traces, set_enable_omniscence
 import pytest
 import theano
 import numpy as np
@@ -209,6 +209,8 @@ def test_omniscence():
     it records all internals of the function, and makes them available through
     the "locals" property.
     """
+
+    set_enable_omniscence(True)
 
     # Way 2
     @symbolic_stateless

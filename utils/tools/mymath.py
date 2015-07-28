@@ -20,16 +20,3 @@ def cummean(x, axis):
     x=np.array(x)
     normalized = np.arange(1, x.shape[axis]+1).astype(float)[(slice(None), )+(None, )*(x.ndim-axis-1)]
     return np.cumsum(x, axis)/normalized
-
-
-
-
-# class QuadTransform()
-#
-#
-# class QuadScale(ScaleBase):
-#
-#     def __init__(self, *args, **kwargs):
-#         self.
-
-

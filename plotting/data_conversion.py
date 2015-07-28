@@ -1,23 +1,9 @@
+from general.should_be_builtins import memoize
 import numpy as np
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
 __author__ = 'peter'
-
-
-def memoize(fcn):
-
-    lookup = {}
-
-    def memoization_wrapper(*args):
-        if args in lookup:
-            return lookup[args]
-        else:
-            out = fcn(*args)
-            lookup[args]=out
-            return out
-
-    return memoization_wrapper
 
 
 def vector_length_to_tile_dims(vector_length):

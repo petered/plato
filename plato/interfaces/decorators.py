@@ -9,6 +9,7 @@ import theano.tensor as ts
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
+from theano.updates import OrderedUpdates
 
 """
 It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
@@ -27,7 +28,9 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-ENABLE_OMNISCENCE = True
+ENABLE_OMNISCENCE = False
+# This is false by defaut, due to a potential error it can cause in theano.
+# See: https://groups.google.com/forum/#!topic/theano-users/tQC8UjiAwWY
 
 
 class ISymbolicFunction(object):
@@ -127,13 +130,18 @@ class BaseSymbolicFunction(ISymbolicFunction):
         has_instance = instance is not None
         is_callable_class = hasattr(fcn, 'IS_DYNAMIC_CLASS') and fcn.IS_DYNAMIC_CLASS
 
+        key = (is_function, is_method, has_instance, is_callable_class)
+
+        if key == (False, False, False, False):
+            raise Exception('I think you have to remove the decorator on some child of %s' % fcn._fcn.im_class.__name__)
+
         this_is_a = {
             (True, False, False, False): 'function',
             (False, True, False, False): 'reformat',
             (False, False, False, True): 'callable_class',
             (False, True, True, False): 'method',
             (True, False, True, False): 'method'
-            }[is_function, is_method, has_instance, is_callable_class]
+            }[key]
         self._type = this_is_a
 
     def _assert_is_tensor(self, arg, name):
@@ -145,8 +153,8 @@ class BaseSymbolicFunction(ISymbolicFunction):
             raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
 
     def _assert_all_updates(self, updates):
-        if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
-                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+        if not (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates))):
             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
 
     def _assert_standard_return(self, return_val):
@@ -341,6 +349,48 @@ class SymbolicStandardFunction(BaseSymbolicFunction):
         return out
 
 
+class SymbolicSingleOutSingleUpdate(BaseSymbolicFunction):
+
+    def _check_inputs(self, *args, **kwargs):
+        pass
+
+    def _check_outputs(self, out):
+        assert len(out) == 2, 'Output must consist of tensor, update'
+        var, up = out
+        self._assert_is_tensor(out)
+        self._assert_all_updates([up])
+
+    @property
+    def symbolic_standard(self):
+        raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
+
+    @property
+    def symbolic_stateless(self):
+        raise Exception("Cannot be caset to a stateless function")
+
+
+class SymbolicSingleOutputUpdater(BaseSymbolicFunction):
+
+    def _check_inputs(self, *args, **kwargs):
+        pass
+
+    def _check_outputs(self, out):
+        assert len(out) == 2, 'Output must consist of tensor, update'
+        var, up = out
+        self._assert_is_tensor(var, 'Output')
+        self._assert_all_updates(up)
+
+    @property
+    def symbolic_standard(self):
+        raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
+
+    @property
+    def symbolic_stateless(self):
+        raise Exception("Cannot be caset to a stateless function")
+
+
+# TODO: Obviously the code in here is terrible.  Refactor it to So that there's only one
+# SymbolicFunction class which takes format as an argument.  See branch redecoration
 # TODO: Add option for "required fixed args": arguments that must be defined at compile time.
 # Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
 # or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
@@ -478,6 +528,14 @@ def symbolic_updater(fcn):
     return _decorate_anything(SymbolicUpdateFunction, fcn)
 
 
+def symbolic_single_out_single_update(fcn):
+    return _decorate_anything(SymbolicSingleOutSingleUpdate, fcn)
+
+
+def symbolic_single_output_updater(fcn):
+    return _decorate_anything(SymbolicSingleOutputUpdater, fcn)
+
+
 def _decorate_anything(symbolic_function_class, callable_thing):
     """
     Decorate a callable thing as with a symbolic decorator
@@ -592,6 +650,13 @@ class AutoCompilingFunction(object):
             elif issubclass(self._fcn_class, SymbolicUpdateFunction):
                 outputs = ()
                 updates = return_value
+            elif issubclass(self._fcn_class, SymbolicSingleOutSingleUpdate):
+                output, update = return_value
+                outputs = (output, )
+                updates = [update]
+            elif issubclass(self._fcn_class, SymbolicSingleOutputUpdater):
+                output, updates = return_value
+                outputs = (output, )
             else:
                 raise Exception("Get OUT!")
 
@@ -618,9 +683,15 @@ class AutoCompilingFunction(object):
                 if len(_TRACE_VARIABLES) > 0:
                     # Find all trace variables that are ancestors of the output/updates
                     out_and_up = outputs + tuple(new for old, new in updates)
-                    all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+                    # all_ancestors = set().union(*[find_all_ancestors(v) for v in out_and_up])
+                    all_leaves = set().union(*[find_leaf_ancestors(v) for v in out_and_up])
 
-                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_all_ancestors(var).isdisjoint(all_ancestors)}
+                    # Now we need to make sure the trace variables actually belong to this function.
+                    # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
+                    # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
+                    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if not find_leaf_ancestors(var).difference(find_shared_ancestors(var)).isdisjoint(all_leaves)}
+                    # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
+
                     # Maybe check for name conflicts here?
                     all_debug_variables.update(trace_variables)
                     for name in trace_variables:
@@ -788,14 +859,29 @@ def find_shared_ancestors(variable):
         return list(set(sum([find_shared_ancestors(p) for p in variable.get_parents()], [])))
 
 
-def find_all_ancestors(variable):
+def find_all_ancestors(variable, memo = None):
     """
     Return a set including the all ancestors of the given variable
     :param variable: A Theano Tensor
     :return: A set containing all ancestors, including the given variable.
     """
 
-    return {variable}.union(*[find_all_ancestors(p) for p in variable.get_parents()])
+    if memo is None:
+        memo = set()
+
+    memo.add(variable)
+
+    for p in variable.get_parents():
+        if p not in memo:
+            find_all_ancestors(p, memo = memo)
+
+    return memo
+
+
+def find_leaf_ancestors(variable):
+    all_ancestors = find_all_ancestors(variable)
+    leaf_ancestors = {var for var in all_ancestors if len(var.get_parents()) == 0}
+    return leaf_ancestors
 
 
 class SymbolicReturn(object):

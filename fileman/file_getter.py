@@ -27,6 +27,7 @@ def get_file(relative_name, url = None, data_transformation = None):
         response = urllib2.urlopen(url)
         data = response.read()
         print '...Done.'
+
         if data_transformation is not None:
             data = data_transformation(data)
         with open(full_filename, 'w') as f:

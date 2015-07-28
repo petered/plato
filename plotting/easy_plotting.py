@@ -2,6 +2,7 @@ from collections import OrderedDict
 from general.nested_structures import flatten_struct
 from plotting.data_conversion import vector_length_to_tile_dims
 import plotting.matplotlib_backend as eplt
+import numpy as np
 
 __author__ = 'peter'
 
@@ -16,7 +17,7 @@ def ezplot(anything, plots = None, hang = True, **plot_preference_kwargs):
     return figure, plots
 
 
-def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, figure = None, **plot_preference_kwargs):
+def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, figure = None, size = None, **plot_preference_kwargs):
     """
     Make a plot of data in the format defined in data_dict
     :param data_dict: dict<str: plottable_data>
@@ -34,16 +35,32 @@ def plot_data_dict(data_dict, plots = None, mode = 'static', hang = True, figure
         plots = {k: eplt.get_plot_from_data(v, mode = mode, **plot_preference_kwargs) for k, v in data_dict.iteritems()}
 
     if figure is None:
+        if size is not None:
+            from pylab import rcParams
+            rcParams['figure.figsize'] = size
         figure = eplt.figure()
     n_rows, n_cols = vector_length_to_tile_dims(len(data_dict))
     for i, (k, v) in enumerate(data_dict.iteritems()):
         eplt.subplot(n_rows, n_cols, i+1)
         plots[k].update(v)
         eplt.title(k, fontdict = {'fontsize': 8})
-    if hang:
-        eplt.ioff()
-    else:
-        eplt.ion()
+    oldhang = eplt.isinteractive()
+    eplt.interactive(not hang)
     eplt.show()
-
+    eplt.interactive(oldhang)
     return figure, plots
+
+
+def funplot(func, xlims = None, n_points = 100):
+    """
+    Plot a function
+    :param func:
+    :param xlims:
+    :param n_points:
+    :return:
+    """
+    if xlims is None:
+        xlims = eplt.gca().get_xbound()
+    xs, xe = xlims
+    x = np.linspace(xs, xe, n_points)
+    eplt.plot(x, func(x))

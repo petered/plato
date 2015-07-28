@@ -1,5 +1,9 @@
+import time
+from general.test_mode import set_test_mode
+import os
 import pickle
-from fileman.experiment_record import ExperimentRecord, start_experiment
+from fileman.experiment_record import ExperimentRecord, start_experiment, run_experiment, show_experiment, \
+    get_latest_experiment_identifier, get_or_run_notebook_experiment, get_local_experiment_path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,7 +28,7 @@ def _run_experiment():
 
 def test_experiment_with():
 
-    with ExperimentRecord(filename = 'test_exp') as exp_1:
+    with ExperimentRecord(filename = 'test_exp', save_result=True) as exp_1:
         _run_experiment()
 
     assert exp_1.get_logs() == 'aaa\nbbb\n'
@@ -48,12 +52,61 @@ def test_start_experiment():
     experiment.
     """
 
-    exp = start_experiment()
+    exp = start_experiment(save_result = False)
     _run_experiment()
     exp.end_and_show()
     assert len(exp.get_figure_locs()) == 2
 
 
+def test_run_and_show():
+    """
+    This is nice because it no longer required that an experiment be run and shown in a
+    single session - each experiment just has a unique identifier that can be used to show
+    its results whenevs.
+    """
+    experiment = run_experiment('the_exp', exp_dict = {'the_exp': _run_experiment}, save_result = True)
+    show_experiment(experiment.get_identifier())
+    os.remove(experiment.get_file_path())
+
+
+def test_get_latest():
+
+    experiment_1 = run_experiment('test_get_latest', exp_dict = {'test_get_latest': _run_experiment}, save_result = True)
+    time.sleep(0.01)
+    experiment_2 = run_experiment('test_get_latest', exp_dict = {'test_get_latest': _run_experiment}, save_result = True)
+    identifier = get_latest_experiment_identifier('test_get_latest')
+    assert identifier == experiment_2.get_identifier()
+    os.remove(experiment_1.get_file_path())
+    os.remove(experiment_2.get_file_path())
+
+
+def test_get_or_run_experiment():
+
+    name = 'test_get_or_run'
+
+    while get_latest_experiment_identifier(name) is not None:
+        ident = get_latest_experiment_identifier(name)
+        os.remove(get_local_experiment_path(ident))
+
+    counter = [0]
+
+    def add_one():
+        counter[0] += 1
+
+    experiment_1 = get_or_run_notebook_experiment('test_get_or_run', exp_dict = {'test_get_or_run': add_one}, save_result = True)
+    time.sleep(0.001)
+    experiment_2 = get_or_run_notebook_experiment('test_get_or_run', exp_dict = {'test_get_or_run': add_one}, save_result = True)
+    assert counter[0] == 1  # 0 in case this experiment existed before
+    assert experiment_1.get_file_path() == experiment_2.get_file_path()
+    os.remove(experiment_1.get_file_path())
+
+
 if __name__ == '__main__':
+
+    set_test_mode(True)
+
+    test_get_or_run_experiment()
+    test_get_latest()
+    test_run_and_show()
     test_experiment_with()
     test_start_experiment()
