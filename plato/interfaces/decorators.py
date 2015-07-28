@@ -28,79 +28,17 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-ENABLE_OMNISCENCE = False
-# This is false by defaut, due to a potential error it can cause in theano.
-# See: https://groups.google.com/forum/#!topic/theano-users/tQC8UjiAwWY
+class SymbolicFunction(object):
 
+    def __init__(self, input_format = None, output_format = None):
 
-class ISymbolicFunction(object):
-
-    def compile(self, **kwargs):
-        """
-        :return: A compiled version of function that takes and returns numpy arrays.
-
-        Note: Compilation actually happens the first time the function is called, because it needs the inputs to tell it
-        what kind of symbolic variables to instatiate.
-        """
-
-    @abstractproperty
-    def symbolic_stateless(self):
-        """
-        :return: A function of the form:
-            out = fcn(in_0, in_1, ...)
-            Where out and in are tensors.  If the function cannot be cast to this form (for instance because it returns
-            multiple outputs or updates) an exception will be raised when it is called.
-        """
-
-    @abstractproperty
-    def symbolic_standard(self):
-        """
-        :return: A function of the form:
-            (out_0, out_1, ...), ((shared_0, new_shared_0), (shared_1, new_shared_1), ...) = fcn(in_0, in_1, ...)
-            Where all variables are symbolic, and shared_x variables are theano shared variables.
-        """
-
-    @abstractmethod
-    def __call__(self, *args, **kwargs):
-        """
-        Call the function as it was defined, but do input/output type checking to confirm that it was implemented correctly
-        """
-
-    @abstractproperty
-    def original(self):
-        """
-        Returns the original decorated function/method/class
-        """
-
-    @abstractmethod
-    def locals(self):
-        """
-        Return a dictionary of variables INSIDE the symbolic funciton, at the time the return statement
-        is executed.  This can be useful for debugging.
-        """
-
-
-class BaseSymbolicFunction(ISymbolicFunction):
-
-    IS_DYNAMIC_CLASS = False
-
-    def __new__(cls, *args, **kwargs):
-
-        obj = object.__new__(cls)
-
-        if issubclass(cls, BaseSymbolicFunction) and cls.IS_DYNAMIC_CLASS:
-            # We're dealing with a callable class.  Since the decorated class can have its own
-            # __init__ method, we need to sneakily call our own __init__ from here.
-
-            BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
-        return obj
-
-    def __init__(self, fcn, instance = None):
-
-        self._fcn = fcn
-        self._instance = instance
-        self._locals = None
+        # Cases:
+        # 1) Ordinary function
+        self.input_format = input_format
+        self.output_format = output_format
         self._dispatched_symbolic_methods = {}
+
+    def __call__(self, fcn):
         # Ok, there're basically 5 situations:
         # 1: This is an ordinary function
         #    inspect.isfunction: True
@@ -118,442 +56,61 @@ class BaseSymbolicFunction(ISymbolicFunction):
         #    inspect.isfunction: False
         #    instance is None
         #    IS_DYNAMIC_CLASS True
-        # 6: This is a modified-format call of one of the above.
-        #    inspect.isfunction: False
-        #    instance: None
 
-        # We need to distinguish between these situations, because locals need to be found
-        # differently in each case.
+        if inspect.isclass(fcn):
+            # This is class with a __call__ method
+            assert hasattr(fcn, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
+                "be callable.  If there's a specific method you want to decorate, decorate that instead."
 
-        is_function = inspect.isfunction(fcn)
-        is_method = inspect.ismethod(fcn)
-        has_instance = instance is not None
-        is_callable_class = hasattr(fcn, 'IS_DYNAMIC_CLASS') and fcn.IS_DYNAMIC_CLASS
+            class CallableSymbolicFunction(fcn, SymbolicFunctionWrapper):
+                    """
+                    This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
+                    the callable class comply to the ISymbolicFunction interface.
+                    """
 
-        key = (is_function, is_method, has_instance, is_callable_class)
+                    IS_DYNAMIC_CLASS = True
 
-        if key == (False, False, False, False):
-            raise Exception('I think you have to remove the decorator on some child of %s' % fcn._fcn.im_class.__name__)
+                    # Also decorate the __call__ method, so that type checking is done.
+                    __call__ = SymbolicFunction(input_format = self.input_format, output_format = self.output_format)(fcn.__call__)
 
-        this_is_a = {
-            (True, False, False, False): 'function',
-            (False, True, False, False): 'reformat',
-            (False, False, False, True): 'callable_class',
-            (False, True, True, False): 'method',
-            (True, False, True, False): 'method'
-            }[key]
-        self._type = this_is_a
+                    def __init__(self, *args, **kwargs):
+                        SymbolicFunctionWrapper.__init__(self, input_format = self.input_format, output_format=self.output_format)
+                        fcn.__init__(*args, **kwargs)
 
-    def _assert_is_tensor(self, arg, name):
-        if not isinstance(arg, Variable):
-            raise SymbolicFormatError('%s of function %s should have been a tensor, but was %s' % (name, self._fcn, arg))
+            return CallableSymbolicFunction
 
-    def _assert_all_tensors(self, args, name):
-        if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
-            raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
+        elif inspect.isfunction(fcn):
+            # This may be:
+            # 1) An ordinary function
+            # 2) An unbound method.
+            return SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format)
 
-    def _assert_all_updates(self, updates):
-        if not (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
-                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates))):
-            raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
-
-    def _assert_standard_return(self, return_val):
-        if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
-            return
-        else:  # Possibly remove this entirely and only allow SymbolicReturn
-            if not (isinstance(return_val, tuple) and len(return_val)==2):
-                raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
-            outputs, updates = return_val
-            self._assert_all_tensors(outputs, 'Outputs')
-            self._assert_all_updates(updates)
-
-    def __get__(self, instance, owner):
-        # What's going on here:
-        # self is an ISymbolicFunction that wrapps a method - it is created at the time the class is, before
-        # any object is instantiated.  Every time the method is requested from an instantiated object, this
-        # function is called.  This function has 2 jobs: 1: Make sure the dispatched method is a symbolic function
-        # of the same type as this (e.g. StatelessSymbolicFunction).  2: Make sure that each time the method is
-        # requested for a particular instance, we return the same method.  2 is important for (a) efficiency - there's
-        # no reason to create a separate object every time we want to get the method, and (b) debugging - because we
-        # attach the local variables to the method, and want to get them later, so the returned method better have
-        # the same address every time we request it.
-        if instance in self._dispatched_symbolic_methods:
-            # The caching is necessary for the .locals() method to work - we need to make
-            # sure we're returning the same object every time a method is requested.
-            dispatched_symbolic_method = self._dispatched_symbolic_methods[instance]
         else:
-            dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
-            self._dispatched_symbolic_methods[instance] = dispatched_symbolic_method
-        return dispatched_symbolic_method
-
-    def compile(self, **kwargs):
-        return AutoCompilingFunction(self, **kwargs)
-
-    def __call__(self, *args, **kwargs):
-        """
-        This function wraps a symbolic function.  Its job is to check that the format of the inputs/outputs are what we
-        expect them to be, and also to capture the values of internal variables for inspection purposes, if we've
-        enabled "omniscence".  If you're here because you're inspecting a stack-trace, you can probably just ignore this
-        function.
-        """
-
-        self._check_inputs(*args, **kwargs)
-
-        if self._instance is not None:  # Method calls - you need to pass the function
-            args = (self._instance, )+args
-
-        if ENABLE_OMNISCENCE:
-            captor = CaptureLocals()
-            with captor:
-                return_val = self._fcn(*args, **kwargs)
-            try:
-                self._locals = captor.get_captured_locals()
-            except LocalsNotCapturedError:
-                logging.critical('Failed to capture locals for function %s.  This can happen when you call from debugger.' % (self._fcn, ))
-        else:
-            return_val = self._fcn(*args, **kwargs)
-
-        self._check_outputs(return_val)
-        return return_val
-
-    @abstractmethod
-    def _check_inputs(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def _check_outputs(self, *args, **kwargs):
-        pass
-
-    def locals(self):
-        if self._type in ('function', 'method'):
-            local_vars = self._locals
-        elif self._type == 'callable_class':
-            local_vars = self.__call__._locals
-        elif self._type == 'reformat':
-            local_vars = self._fcn.__self__.locals()
-        else:
-            raise Exception('Unexpected type: %s' % (self._type))
-        assert local_vars is not None, 'You tried to retrieve locals, but they are not available.  Have you called the function yet?'
-        return LocalsContainer(local_vars)
-
-    @abstractproperty
-    def original(self):
-        return self._fcn
-
-    def get_decorated_type(self):
-        return self._type
-
-
-class LocalsContainer(object):
-    """
-    Just a dict that you can also reference by field.
-    """
-
-    def __init__(self, local_vars):
-        for k, v in local_vars.iteritems():
-            setattr(self, k, v)
-        self._local_vars = local_vars
-
-    def items(self):
-        return self._local_vars.items()
-
-    def iteritems(self):
-        return self._local_vars.iteritems()
-
-    def keys(self):
-        return self._local_vars.keys()
-
-    def values(self):
-        return self._local_vars.values()
-
-    def __getitem__(self, item):
-        return self._local_vars[item]
-
-
-class SymbolicStatelessFunction(BaseSymbolicFunction):
-    """
-    Use this to decorate a symbolic fcntion of the form:
-    out = fcn(in_0, in_1, ...)    OR
-    (out_0, out_1, ...) = fcn(in_0, in_1, ...)
-    """
-
-    def _check_inputs(self, *args, **kwargs):
-        # TODO: Need to check inputs only if trying to compile as a theano function.
-        # Previously we checked with the following lines that all inputs were symbolic:
-        #   self._assert_all_tensors(args, 'Arguments')
-        #   self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
-        # ... But we've lifted that constraint - sometimes you want inputs defined at compile time.
-        pass
-
-    def _check_outputs(self, out):
-        self._assert_is_tensor(out, 'Output')
-
-    @property
-    def symbolic_stateless(self):
-        return self
-
-    @property
-    def symbolic_standard(self):
-        return SymbolicStandardFunction(self._standard_function)
-
-    def _standard_function(self, *args, **kwargs):
-        out = self(*args, **kwargs)
-        return (out, ), []
-
-
-class SymbolicUpdateFunction(BaseSymbolicFunction):
-
-    def _check_inputs(self, *args, **kwargs):
-        pass
-
-    def _check_outputs(self, out):
-        self._assert_all_updates(out)
-
-    @property
-    def symbolic_stateless(self):
-        raise Exception("Tried to get the symbolic_stateless function from an %s\n, which is a SymbolicUpdateFunction. - "
-            "This won't work because updaters have state.")
-
-    @property
-    def symbolic_standard(self):
-        return SymbolicStandardFunction(self._standard_function)
-
-    def _standard_function(self, *args, **kwargs):
-        updates = self(*args, **kwargs)
-        return (), updates
-
-
-class SymbolicStandardFunction(BaseSymbolicFunction):
-
-    def _check_inputs(self, *args, **kwargs):
-        pass
-
-    def _check_outputs(self, out):
-        self._assert_standard_return(out)
-
-    @property
-    def symbolic_standard(self):
-        return self
-
-    @property
-    def symbolic_stateless(self):
-        return SymbolicStatelessFunction(self._stateless_function)
-
-    def _stateless_function(self, *args, **kwargs):
-        outputs, updates = self._fcn(*args, **kwargs)
-        assert len(updates)==0, "You tried to call %s as a stateless function, but it returns updates, so this can't be done." \
-            % self._fcn
-        assert len(outputs)==1, "You tried to call %s as a stateless function, but it returns multiple outputs, so this can't be done." \
-            % self._fcn
-        out, = outputs
-        return out
-
-
-class SymbolicSingleOutSingleUpdate(BaseSymbolicFunction):
-
-    def _check_inputs(self, *args, **kwargs):
-        pass
-
-    def _check_outputs(self, out):
-        assert len(out) == 2, 'Output must consist of tensor, update'
-        var, up = out
-        self._assert_is_tensor(out)
-        self._assert_all_updates([up])
-
-    @property
-    def symbolic_standard(self):
-        raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
-
-    @property
-    def symbolic_stateless(self):
-        raise Exception("Cannot be caset to a stateless function")
-
-
-class SymbolicSingleOutputUpdater(BaseSymbolicFunction):
-
-    def _check_inputs(self, *args, **kwargs):
-        pass
-
-    def _check_outputs(self, out):
-        assert len(out) == 2, 'Output must consist of tensor, update'
-        var, up = out
-        self._assert_is_tensor(var, 'Output')
-        self._assert_all_updates(up)
-
-    @property
-    def symbolic_standard(self):
-        raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
-
-    @property
-    def symbolic_stateless(self):
-        raise Exception("Cannot be caset to a stateless function")
-
-
-# TODO: Obviously the code in here is terrible.  Refactor it to So that there's only one
-# SymbolicFunction class which takes format as an argument.  See branch redecoration
-# TODO: Add option for "required fixed args": arguments that must be defined at compile time.
-# Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
-# or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
-
-
-class SymbolicFormat(object):
-    """
-    A class representing the format of data that can go into or be returned from a symbolic function.
-    """
-
-    def __init__(self, n_vars, n_updates):
-        """
-        :param n_vals: Number of symbolic variables.  Can be:
-            None - No variables in this (only updates)
-            'single' - Just one var
-            'multi' - A tuple of vars
-            Some integer - A tuple of exactly this many vars.
-        :param n_updates: Number of updates.  Same options as for vars.
-        """
-        assert n_vars in (None, 'single', 'multi') or isinstance(n_vars, int)
-        assert n_updates in (None, 'single', 'multi') or isinstance(n_updates, int)
-        assert not (n_vars is None and n_updates is None), 'A symbolic function must return SOMETHING.'
-        self.n_vars = n_vars
-        self.n_updates = n_updates
-
-    def assert_format(self, data):
-        """
-        Assert that the data obeys the format of this class.
-        """
-        sym_vars, updates = \
-            data, None if self.n_updates is None else \
-            None, data if self.n_vars is None else \
-            data
-
-        if self.n_vars == 'single':
-            assert_tensor(sym_vars)
-        elif self.n_vars == 'multi':
-            assert_tensor_collection(sym_vars)
-        elif self.n_vars is not None:
-            assert_tensor_collection(sym_vars)
-            assert len(sym_vars) == self.n_vars
-
-        if self.n_updates == 'single':
-            assert_update(updates)
-        elif self.n_updates == 'multi':
-            assert_update_collection(updates)
-        elif self.n_updates is not None:
-            assert_update_collection(updates)
-            assert len(sym_vars) == self.n_vars
-
-    def __eq__(self, other):
-        return isinstance(other, SymbolicFormat) and self.n_vars == other.n_vars and self.n_updates == other.n_updates
-
-    def convert_data_to(self, data, other_format):
-
-        if self == other_format:
-            converted_data = data
-        else:
-            sym_vars, updates = \
-                data, None if self.n_updates is None else \
-                None, data if self.n_vars is None else \
-                data
-            if self.n_vars == other_format.n_vars:
-                out_sym_vars = sym_vars
-            elif self.n_vars == 'single' and other_format.n_vars == 'multi':
-                out_sym_vars = (sym_vars, )
-            elif self.n_vars == 'multi' and other_format.n_vars == 'single':
-                assert len(sym_vars) == 1
-
-
-
-        return converted_data
-
-
-
-def assert_tensor(arg):
-    assert isinstance(arg, Variable)
-
-
-def assert_tensor_collection(args):
-    assert isinstance(args, (list, tuple))
-    for arg in args:
-        assert_tensor(arg)
-
-
-def assert_update(arg):
-    assert len(arg) == 2
-    old, new = arg
-    assert isinstance(old, SharedVariable) and isinstance(new, Variable)
-
-
-def assert_update_collection(args):
-    assert isinstance(args, list)
-    for arg in args:
-        assert_update(arg)
-
-
-# def is_standard_format(args):
-#
-#
-#
-#     if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
-#         raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
-#
-# def _assert_all_updates(self, updates):
-#     if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
-#             all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
-#         raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
-#
-# def _assert_standard_return(self, return_val):
-#     if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
-#         return
-#     else:  # Possibly remove this entirely and only allow SymbolicReturn
-#         if not (isinstance(return_val, tuple) and len(return_val)==2):
-#             raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
-#         outputs, updates = return_val
-#         self._assert_all_tensors(outputs, 'Outputs')
-#         self._assert_all_updates(updates)
-
-# def _convert_formats(data, data_format, output_format):
-
-
-
-
-
-def symbolic_stateless(fcn):
-    return _decorate_anything(SymbolicStatelessFunction, fcn)
-
-
-def symbolic_standard(fcn):
-    return _decorate_anything(SymbolicStandardFunction, fcn)
-
-
-def symbolic_updater(fcn):
-    return _decorate_anything(SymbolicUpdateFunction, fcn)
-
-
-def symbolic_single_out_single_update(fcn):
-    return _decorate_anything(SymbolicSingleOutSingleUpdate, fcn)
-
-
-def symbolic_single_output_updater(fcn):
-    return _decorate_anything(SymbolicSingleOutputUpdater, fcn)
-
-
-def _decorate_anything(symbolic_function_class, callable_thing):
-    """
-    Decorate a callable thing as with a symbolic decorator
-
-    # Cases to consider:
-    # 1) Function: called directly with instance = None
-    # 2) Method: Called from __get__ when the method is requested.  instance is the object to which the method is bound
-    # 3) Callable class:
-    """
-    if inspect.isclass(callable_thing): # Case 3: Class with __call__ method
-        return _decorate_callable_class(symbolic_function_class = symbolic_function_class, callable_class = callable_thing)
-    else:  # Cases 1 and 2: Function or method
-        return symbolic_function_class(callable_thing)
-
-
-def _decorate_callable_class(symbolic_function_class, callable_class):
-
-    assert hasattr(symbolic_function_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
+            raise Exception('eh?')
+
+    # def __get__(self, instance, owner):
+    #     # What's going on here:
+    #     # self is an ISymbolicFunction that wraps a method - it is created at the time the class is, before
+    #     # any object is instantiated.  Every time the method is requested from an instantiated object, this
+    #     # function is called.  This function has 2 jobs: 1: Make sure the dispatched method is a symbolic function
+    #     # of the same type as this (e.g. StatelessSymbolicFunction).  2: Make sure that each time the method is
+    #     # requested for a particular instance, we return the same method.  2 is important for (a) efficiency - there's
+    #     # no reason to create a separate object every time we want to get the method, and (b) debugging - because we
+    #     # attach the local variables to the method, and want to get them later, so the returned method better have
+    #     # the same address every time we request it.
+    #     if instance in self._dispatched_symbolic_methods:
+    #         # The caching is necessary for the .locals() method to work - we need to make
+    #         # sure we're returning the same object every time a method is requested.
+    #         dispatched_symbolic_method = self._dispatched_symbolic_methods[instance]
+    #     else:
+    #         dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
+    #         self._dispatched_symbolic_methods[instance] = dispatched_symbolic_method
+    #     return dispatched_symbolic_method
+
+
+def _decorate_callable_class(callable_class, input_format, output_format):
+
+    assert hasattr(callable_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
         "be callable.  If there's a specific method you want to decorate, decorate that instead."
 
     # Strategy 1: Return a new constructor that dynamically binds the function_type as a base-class when the object
@@ -573,6 +130,7 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
         __call__ = symbolic_function_class(callable_class.__call__)
 
         def __init__(self, *args, **kwargs):
+
             callable_class.__init__(self, *args, **kwargs)
 
         original = callable_class
@@ -580,8 +138,698 @@ def _decorate_callable_class(symbolic_function_class, callable_class):
     return CallableSymbolicFunction
 
 
+class SymbolicFunctionWrapper(object):
+
+    def __init__(self, fcn, input_format = None, output_format = None):
+        self.fcn = fcn
+        self.input_format = input_format
+        self.output_format = output_format
+
+    def __call__(self, *args, **kwargs):
+        check_inputs(self.input_format, args, kwargs)
+        outputs = self.fcn(*args, **kwargs)
+        check_outputs(self.output_format, outputs)
+        return outputs
+
+    def partial(self, **kwargs):
+        pass
+
+    def compile(self, **compilation_kwargs):
+        return AutoCompilingFunction(self, **compilation_kwargs)
+
+    def to_format(self, input_format, output_format):
+        pass
+
+    def __get__(self, instance, other):
+
+        raise Exception('Didnt experct this!')
+
+
+
+def check_inputs(arg_format, args, kwargs):
+    pass
+
+
+def check_outputs(arg_format, args):
+    pass
+
+
+def symbolic_stateless(fcn):
+
+    return SymbolicFunction(input_format=None, output_format=None)(fcn)
+
+
+def symbolic_updater(fcn):
+
+    return SymbolicFunction(input_format=None, output_format=None)(fcn)
+
+
+def symbolic_standard(fcn):
+
+    return SymbolicFunction(input_format=None, output_format=None)(fcn)
+
+
+
+
+
+
+#
+#
+#
+# class UnboundMethodDecorator(object):
+#     """
+#     This is a kind of purgatory class wherein an unbound method waits until it is dispatched.
+#     """
+#
+#     def __init__(self):
+#         self._dispatched_symbolic_method = {}
+#
+#     def __get__(self, instance, owner):
+#
+#         if instance in self._dispatched_symbolic_methods:
+#             # The caching is necessary for the .locals() method to work - we need to make
+#             # sure we're returning the same object every time a method is requested.
+#             dispatched_symbolic_method = self._dispatched_symbolic_methods[instance]
+#         else:
+#             dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
+#             self._dispatched_symbolic_methods[instance] = dispatched_symbolic_method
+#         return dispatched_symbolic_method
+#
+#
+#
+#
+#
+#
+# ENABLE_OMNISCENCE = False
+# # This is false by defaut, due to a potential error it can cause in theano.
+# # See: https://groups.google.com/forum/#!topic/theano-users/tQC8UjiAwWY
+#
+#
+# class ISymbolicFunction(object):
+#
+#     def compile(self, **kwargs):
+#         """
+#         :return: A compiled version of function that takes and returns numpy arrays.
+#
+#         Note: Compilation actually happens the first time the function is called, because it needs the inputs to tell it
+#         what kind of symbolic variables to instatiate.
+#         """
+#
+#     @abstractproperty
+#     def symbolic_stateless(self):
+#         """
+#         :return: A function of the form:
+#             out = fcn(in_0, in_1, ...)
+#             Where out and in are tensors.  If the function cannot be cast to this form (for instance because it returns
+#             multiple outputs or updates) an exception will be raised when it is called.
+#         """
+#
+#     @abstractproperty
+#     def symbolic_standard(self):
+#         """
+#         :return: A function of the form:
+#             (out_0, out_1, ...), ((shared_0, new_shared_0), (shared_1, new_shared_1), ...) = fcn(in_0, in_1, ...)
+#             Where all variables are symbolic, and shared_x variables are theano shared variables.
+#         """
+#
+#     @abstractmethod
+#     def __call__(self, *args, **kwargs):
+#         """
+#         Call the function as it was defined, but do input/output type checking to confirm that it was implemented correctly
+#         """
+#
+#     @abstractproperty
+#     def original(self):
+#         """
+#         Returns the original decorated function/method/class
+#         """
+#
+#     @abstractmethod
+#     def locals(self):
+#         """
+#         Return a dictionary of variables INSIDE the symbolic funciton, at the time the return statement
+#         is executed.  This can be useful for debugging.
+#         """
+#
+#
+# class BaseSymbolicFunction(ISymbolicFunction):
+#
+#     IS_DYNAMIC_CLASS = False
+#
+#     def __new__(cls, *args, **kwargs):
+#
+#         obj = object.__new__(cls)
+#
+#         if issubclass(cls, BaseSymbolicFunction) and cls.IS_DYNAMIC_CLASS:
+#             # We're dealing with a callable class.  Since the decorated class can have its own
+#             # __init__ method, we need to sneakily call our own __init__ from here.
+#
+#             BaseSymbolicFunction.__init__(obj, fcn = obj, instance = None)
+#         return obj
+#
+#     def __init__(self, fcn, instance = None):
+#
+#         self._fcn = fcn
+#         self._instance = instance
+#         self._locals = None
+#         self._dispatched_symbolic_methods = {}
+#         # Ok, there're basically 5 situations:
+#         # 1: This is an ordinary function
+#         #    inspect.isfunction: True
+#         #    instance is None
+#         # 2: This is a method before it has been bound to a class.
+#         #    inspect.isfunction: True
+#         #    instance is None
+#         #    The result of this seems to be discarded.
+#         # 3: This is a method
+#         #    inspect.isfunction: True
+#         #    instance is an object with class of the decorated method
+#         # 4: This is the __call__ function, which is decorated when its parent
+#         #    class is decorated.
+#         # 5: This is a decorated class
+#         #    inspect.isfunction: False
+#         #    instance is None
+#         #    IS_DYNAMIC_CLASS True
+#         # 6: This is a modified-format call of one of the above.
+#         #    inspect.isfunction: False
+#         #    instance: None
+#
+#         # We need to distinguish between these situations, because locals need to be found
+#         # differently in each case.
+#
+#         is_function = inspect.isfunction(fcn)
+#         is_method = inspect.ismethod(fcn)
+#         has_instance = instance is not None
+#         is_callable_class = hasattr(fcn, 'IS_DYNAMIC_CLASS') and fcn.IS_DYNAMIC_CLASS
+#
+#         key = (is_function, is_method, has_instance, is_callable_class)
+#
+#         if key == (False, False, False, False):
+#             raise Exception('I think you have to remove the decorator on some child of %s' % fcn._fcn.im_class.__name__)
+#
+#         this_is_a = {
+#             (True, False, False, False): 'function',
+#             (False, True, False, False): 'reformat',
+#             (False, False, False, True): 'callable_class',
+#             (False, True, True, False): 'method',
+#             (True, False, True, False): 'method'
+#             }[key]
+#         self._type = this_is_a
+#
+#     def _assert_is_tensor(self, arg, name):
+#         if not isinstance(arg, Variable):
+#             raise SymbolicFormatError('%s of function %s should have been a tensor, but was %s' % (name, self._fcn, arg))
+#
+#     def _assert_all_tensors(self, args, name):
+#         if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
+#             raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
+#
+#     def _assert_all_updates(self, updates):
+#         if not (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+#                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates))):
+#             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
+#
+#     def _assert_standard_return(self, return_val):
+#         if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
+#             return
+#         else:  # Possibly remove this entirely and only allow SymbolicReturn
+#             if not (isinstance(return_val, tuple) and len(return_val)==2):
+#                 raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
+#             outputs, updates = return_val
+#             self._assert_all_tensors(outputs, 'Outputs')
+#             self._assert_all_updates(updates)
+#
+#     def __get__(self, instance, owner):
+#         # What's going on here:
+#         # self is an ISymbolicFunction that wrapps a method - it is created at the time the class is, before
+#         # any object is instantiated.  Every time the method is requested from an instantiated object, this
+#         # function is called.  This function has 2 jobs: 1: Make sure the dispatched method is a symbolic function
+#         # of the same type as this (e.g. StatelessSymbolicFunction).  2: Make sure that each time the method is
+#         # requested for a particular instance, we return the same method.  2 is important for (a) efficiency - there's
+#         # no reason to create a separate object every time we want to get the method, and (b) debugging - because we
+#         # attach the local variables to the method, and want to get them later, so the returned method better have
+#         # the same address every time we request it.
+#         if instance in self._dispatched_symbolic_methods:
+#             # The caching is necessary for the .locals() method to work - we need to make
+#             # sure we're returning the same object every time a method is requested.
+#             dispatched_symbolic_method = self._dispatched_symbolic_methods[instance]
+#         else:
+#             dispatched_symbolic_method = self.__class__(self._fcn, instance=instance)
+#             self._dispatched_symbolic_methods[instance] = dispatched_symbolic_method
+#         return dispatched_symbolic_method
+#
+#     def compile(self, **kwargs):
+#         return AutoCompilingFunction(self, **kwargs)
+#
+#     def __call__(self, *args, **kwargs):
+#         """
+#         This function wraps a symbolic function.  Its job is to check that the format of the inputs/outputs are what we
+#         expect them to be, and also to capture the values of internal variables for inspection purposes, if we've
+#         enabled "omniscence".  If you're here because you're inspecting a stack-trace, you can probably just ignore this
+#         function.
+#         """
+#
+#         self._check_inputs(*args, **kwargs)
+#
+#         if self._instance is not None:  # Method calls - you need to pass the function
+#             args = (self._instance, )+args
+#
+#         if ENABLE_OMNISCENCE:
+#             captor = CaptureLocals()
+#             with captor:
+#                 return_val = self._fcn(*args, **kwargs)
+#             try:
+#                 self._locals = captor.get_captured_locals()
+#             except LocalsNotCapturedError:
+#                 logging.critical('Failed to capture locals for function %s.  This can happen when you call from debugger.' % (self._fcn, ))
+#         else:
+#             return_val = self._fcn(*args, **kwargs)
+#
+#         self._check_outputs(return_val)
+#         return return_val
+#
+#     @abstractmethod
+#     def _check_inputs(self, *args, **kwargs):
+#         pass
+#
+#     @abstractmethod
+#     def _check_outputs(self, *args, **kwargs):
+#         pass
+#
+#     def locals(self):
+#         if self._type in ('function', 'method'):
+#             local_vars = self._locals
+#         elif self._type == 'callable_class':
+#             local_vars = self.__call__._locals
+#         elif self._type == 'reformat':
+#             local_vars = self._fcn.__self__.locals()
+#         else:
+#             raise Exception('Unexpected type: %s' % (self._type))
+#         assert local_vars is not None, 'You tried to retrieve locals, but they are not available.  Have you called the function yet?'
+#         return LocalsContainer(local_vars)
+#
+#     @abstractproperty
+#     def original(self):
+#         return self._fcn
+#
+#     def get_decorated_type(self):
+#         return self._type
+#
+#
+# class LocalsContainer(object):
+#     """
+#     Just a dict that you can also reference by field.
+#     """
+#
+#     def __init__(self, local_vars):
+#         for k, v in local_vars.iteritems():
+#             setattr(self, k, v)
+#         self._local_vars = local_vars
+#
+#     def items(self):
+#         return self._local_vars.items()
+#
+#     def iteritems(self):
+#         return self._local_vars.iteritems()
+#
+#     def keys(self):
+#         return self._local_vars.keys()
+#
+#     def values(self):
+#         return self._local_vars.values()
+#
+#     def __getitem__(self, item):
+#         return self._local_vars[item]
+#
+#
+# class SymbolicStatelessFunction(BaseSymbolicFunction):
+#     """
+#     Use this to decorate a symbolic fcntion of the form:
+#     out = fcn(in_0, in_1, ...)    OR
+#     (out_0, out_1, ...) = fcn(in_0, in_1, ...)
+#     """
+#
+#     def _check_inputs(self, *args, **kwargs):
+#         # TODO: Need to check inputs only if trying to compile as a theano function.
+#         # Previously we checked with the following lines that all inputs were symbolic:
+#         #   self._assert_all_tensors(args, 'Arguments')
+#         #   self._assert_all_tensors(kwargs.values(), 'Keyword Arguments')
+#         # ... But we've lifted that constraint - sometimes you want inputs defined at compile time.
+#         pass
+#
+#     def _check_outputs(self, out):
+#         self._assert_is_tensor(out, 'Output')
+#
+#     @property
+#     def symbolic_stateless(self):
+#         return self
+#
+#     @property
+#     def symbolic_standard(self):
+#         return SymbolicStandardFunction(self._standard_function)
+#
+#     def _standard_function(self, *args, **kwargs):
+#         out = self(*args, **kwargs)
+#         return (out, ), []
+#
+#
+# class SymbolicUpdateFunction(BaseSymbolicFunction):
+#
+#     def _check_inputs(self, *args, **kwargs):
+#         pass
+#
+#     def _check_outputs(self, out):
+#         self._assert_all_updates(out)
+#
+#     @property
+#     def symbolic_stateless(self):
+#         raise Exception("Tried to get the symbolic_stateless function from an %s\n, which is a SymbolicUpdateFunction. - "
+#             "This won't work because updaters have state.")
+#
+#     @property
+#     def symbolic_standard(self):
+#         return SymbolicStandardFunction(self._standard_function)
+#
+#     def _standard_function(self, *args, **kwargs):
+#         updates = self(*args, **kwargs)
+#         return (), updates
+#
+#
+# class SymbolicStandardFunction(BaseSymbolicFunction):
+#
+#     def _check_inputs(self, *args, **kwargs):
+#         pass
+#
+#     def _check_outputs(self, out):
+#         self._assert_standard_return(out)
+#
+#     @property
+#     def symbolic_standard(self):
+#         return self
+#
+#     @property
+#     def symbolic_stateless(self):
+#         return SymbolicStatelessFunction(self._stateless_function)
+#
+#     def _stateless_function(self, *args, **kwargs):
+#         outputs, updates = self._fcn(*args, **kwargs)
+#         assert len(updates)==0, "You tried to call %s as a stateless function, but it returns updates, so this can't be done." \
+#             % self._fcn
+#         assert len(outputs)==1, "You tried to call %s as a stateless function, but it returns multiple outputs, so this can't be done." \
+#             % self._fcn
+#         out, = outputs
+#         return out
+#
+#
+# class SymbolicSingleOutSingleUpdate(BaseSymbolicFunction):
+#
+#     def _check_inputs(self, *args, **kwargs):
+#         pass
+#
+#     def _check_outputs(self, out):
+#         assert len(out) == 2, 'Output must consist of tensor, update'
+#         var, up = out
+#         self._assert_is_tensor(out)
+#         self._assert_all_updates([up])
+#
+#     @property
+#     def symbolic_standard(self):
+#         raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
+#
+#     @property
+#     def symbolic_stateless(self):
+#         raise Exception("Cannot be caset to a stateless function")
+#
+#
+# class SymbolicSingleOutputUpdater(BaseSymbolicFunction):
+#
+#     def _check_inputs(self, *args, **kwargs):
+#         pass
+#
+#     def _check_outputs(self, out):
+#         assert len(out) == 2, 'Output must consist of tensor, update'
+#         var, up = out
+#         self._assert_is_tensor(var, 'Output')
+#         self._assert_all_updates(up)
+#
+#     @property
+#     def symbolic_standard(self):
+#         raise NotImplementedError("Not done yet.  Need to refactor this whole thing anyway.")
+#
+#     @property
+#     def symbolic_stateless(self):
+#         raise Exception("Cannot be caset to a stateless function")
+#
+#
+# # TODO: Obviously the code in here is terrible.  Refactor it to So that there's only one
+# # SymbolicFunction class which takes format as an argument.  See branch redecoration
+# # TODO: Add option for "required fixed args": arguments that must be defined at compile time.
+# # Maybe like partial_symbolic_stateless(fixed_args = ['alpha', 'beta'])
+# # or symbolic_stateless.partial(fixed_args = ['alpha', 'beta'])
+#
+#
+# class SymbolicFormat(object):
+#     """
+#     A class representing the format of data that can go into or be returned from a symbolic function.
+#     """
+#
+#     def __init__(self, n_vars, n_updates):
+#         """
+#         :param n_vals: Number of symbolic variables.  Can be:
+#             None - No variables in this (only updates)
+#             'single' - Just one var
+#             'multi' - A tuple of vars
+#             Some integer - A tuple of exactly this many vars.
+#         :param n_updates: Number of updates.  Same options as for vars.
+#         """
+#         assert n_vars in (None, 'single', 'multi') or isinstance(n_vars, int)
+#         assert n_updates in (None, 'single', 'multi') or isinstance(n_updates, int)
+#         assert not (n_vars is None and n_updates is None), 'A symbolic function must return SOMETHING.'
+#         self.n_vars = n_vars
+#         self.n_updates = n_updates
+#
+#     def assert_format(self, data):
+#         """
+#         Assert that the data obeys the format of this class.
+#         """
+#         sym_vars, updates = \
+#             data, None if self.n_updates is None else \
+#             None, data if self.n_vars is None else \
+#             data
+#
+#         if self.n_vars == 'single':
+#             assert_tensor(sym_vars)
+#         elif self.n_vars == 'multi':
+#             assert_tensor_collection(sym_vars)
+#         elif self.n_vars is not None:
+#             assert_tensor_collection(sym_vars)
+#             assert len(sym_vars) == self.n_vars
+#
+#         if self.n_updates == 'single':
+#             assert_update(updates)
+#         elif self.n_updates == 'multi':
+#             assert_update_collection(updates)
+#         elif self.n_updates is not None:
+#             assert_update_collection(updates)
+#             assert len(sym_vars) == self.n_vars
+#
+#     def __eq__(self, other):
+#         return isinstance(other, SymbolicFormat) and self.n_vars == other.n_vars and self.n_updates == other.n_updates
+#
+#     def convert_data_to(self, data, other_format):
+#
+#         if self == other_format:
+#             converted_data = data
+#         else:
+#             sym_vars, updates = \
+#                 data, None if self.n_updates is None else \
+#                 None, data if self.n_vars is None else \
+#                 data
+#             if self.n_vars == other_format.n_vars:
+#                 out_sym_vars = sym_vars
+#             elif self.n_vars == 'single' and other_format.n_vars == 'multi':
+#                 out_sym_vars = (sym_vars, )
+#             elif self.n_vars == 'multi' and other_format.n_vars == 'single':
+#                 assert len(sym_vars) == 1
+#
+#
+#
+#         return converted_data
+#
+#
+#
+# def assert_tensor(arg):
+#     assert isinstance(arg, Variable)
+#
+#
+# def assert_tensor_collection(args):
+#     assert isinstance(args, (list, tuple))
+#     for arg in args:
+#         assert_tensor(arg)
+#
+#
+# def assert_update(arg):
+#     assert len(arg) == 2
+#     old, new = arg
+#     assert isinstance(old, SharedVariable) and isinstance(new, Variable)
+#
+#
+# def assert_update_collection(args):
+#     assert isinstance(args, list)
+#     for arg in args:
+#         assert_update(arg)
+#
+#
+# # def is_standard_format(args):
+# #
+# #
+# #
+# #     if not (isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)):
+# #         raise SymbolicFormatError('%s of %s must a list/tuple of tensors.  They were %s instead' % (name, self._fcn, args, ))
+# #
+# # def _assert_all_updates(self, updates):
+# #     if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
+# #             all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+# #         raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
+# #
+# # def _assert_standard_return(self, return_val):
+# #     if isinstance(return_val, SymbolicReturn):  # It's been checked already, you're clear.
+# #         return
+# #     else:  # Possibly remove this entirely and only allow SymbolicReturn
+# #         if not (isinstance(return_val, tuple) and len(return_val)==2):
+# #             raise SymbolicFormatError('Function %s was expected to return a 2-tuple of (outputs, updates) but returned %s instead' % (self._fcn, return_val))
+# #         outputs, updates = return_val
+# #         self._assert_all_tensors(outputs, 'Outputs')
+# #         self._assert_all_updates(updates)
+#
+# # def _convert_formats(data, data_format, output_format):
+#
+#
+#
+#
+#
+# def symbolic_stateless(fcn):
+#     return _decorate_anything(SymbolicStatelessFunction, fcn)
+#
+#
+# def symbolic_standard(fcn):
+#     return _decorate_anything(SymbolicStandardFunction, fcn)
+#
+#
+# def symbolic_updater(fcn):
+#     return _decorate_anything(SymbolicUpdateFunction, fcn)
+#
+#
+# def symbolic_single_out_single_update(fcn):
+#     return _decorate_anything(SymbolicSingleOutSingleUpdate, fcn)
+#
+#
+# def symbolic_single_output_updater(fcn):
+#     return _decorate_anything(SymbolicSingleOutputUpdater, fcn)
+#
+#
+# def _decorate_anything(symbolic_function_class, callable_thing):
+#     """
+#     Decorate a callable thing as with a symbolic decorator
+#
+#     # Cases to consider:
+#     # 1) Function: called directly with instance = None
+#     # 2) Method: Called from __get__ when the method is requested.  instance is the object to which the method is bound
+#     # 3) Callable class:
+#     """
+#     if inspect.isclass(callable_thing): # Case 3: Class with __call__ method
+#         return _decorate_callable_class(symbolic_function_class = symbolic_function_class, callable_class = callable_thing)
+#     else:  # Cases 1 and 2: Function or method
+#         return symbolic_function_class(callable_thing)
+#
+#
+# def _decorate_callable_class(symbolic_function_class, callable_class):
+#
+#     assert hasattr(symbolic_function_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
+#         "be callable.  If there's a specific method you want to decorate, decorate that instead."
+#
+#     # Strategy 1: Return a new constructor that dynamically binds the function_type as a base-class when the object
+#     # is instantiated. (Now defunct - see git log if you want)
+#
+#     # Strategy 2: Bind the function_type as a base-class to the class - the __new__ method of function_type will then be
+#     # called when the object is instantiated.
+#     class CallableSymbolicFunction(callable_class, symbolic_function_class):
+#         """
+#         This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
+#         the callable class comply to the ISymbolicFunction interface.
+#         """
+#
+#         IS_DYNAMIC_CLASS = True
+#
+#         # Also decorate the __call__ method, so that type checking is done.
+#         __call__ = symbolic_function_class(callable_class.__call__)
+#
+#         def __init__(self, *args, **kwargs):
+#             callable_class.__init__(self, *args, **kwargs)
+#
+#         original = callable_class
+#
+#     return CallableSymbolicFunction
+
+
 class SymbolicFormatError(Exception):
     pass
+
+
+def _is_tensor(arg):
+    return isinstance(arg, Variable)
+
+
+def _is_tuple_of_tensors(args):
+    return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+
+
+def _is_updates_list(updates):
+    """
+    Return True if updates is a proper list of updates and False if not.
+    :return:
+    """
+    return (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+        all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)))
+
+
+
+# if not (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+# #                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates))):
+# #             raise SymbolicFormatError('Updates from %s must be a list of 2-tuples of (shared_variable, update_tensor).  It was %s instead.  Did you forget to compile your function?' % (self._fcn, updates, ))
+# #
+#
+def detect_return_value(return_info, return_outputs_in_tuple = False):
+    """
+    :param return_info: Whatever is returned from a symbolic function.
+    :return: In one of two formats, depending on whether output is returned as a single or not.
+        output, [(shared_0, new_val_0), ...]
+        (output_0, ...), [(shared_0, new_val_0), ...]
+    """
+    if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
+        outputs, updates = return_info
+    elif _is_updates_list(return_info):
+        outputs = ()
+        updates = return_info
+    elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
+        outputs = return_info
+        updates = []
+    else:
+        raise Exception('Unrecognised return format: %s' % (return_info, ))
+
+    if return_outputs_in_tuple and _is_tensor(outputs):
+        outputs = (outputs, )
+
+    return outputs, updates
+
+
+def _list_all_output_variables(return_info):
+    outputs, updates = detect_return_value(return_info, return_outputs_in_tuple=True)
+    out_and_up = outputs + tuple(new for old, new in updates)
+    return out_and_up
+
+
+def _
 
 
 class AutoCompilingFunction(object):
@@ -606,7 +854,7 @@ class AutoCompilingFunction(object):
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
-        assert isinstance(fcn, ISymbolicFunction), 'You must pass a symbolic function.  Decorate it!'
+        assert isinstance(fcn, SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
         if mode == 'tr':
             mode = 'test_and_run'
         assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
@@ -638,31 +886,11 @@ class AutoCompilingFunction(object):
         if self._compiled_fcn is None:
 
             d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
-
             tensor_args = [d2t(arg) for arg in args]
-
             return_value = self._fcn(*tensor_args)
-            if issubclass(self._fcn_class, SymbolicStatelessFunction):
-                outputs = return_value
-                updates = []
-            elif issubclass(self._fcn_class, SymbolicStandardFunction):
-                outputs, updates = return_value
-            elif issubclass(self._fcn_class, SymbolicUpdateFunction):
-                outputs = ()
-                updates = return_value
-            elif issubclass(self._fcn_class, SymbolicSingleOutSingleUpdate):
-                output, update = return_value
-                outputs = (output, )
-                updates = [update]
-            elif issubclass(self._fcn_class, SymbolicSingleOutputUpdater):
-                output, updates = return_value
-                outputs = (output, )
-            else:
-                raise Exception("Get OUT!")
+            outputs, updates = detect_return_value(return_value)
 
-            # Now - check the trace variables.  If any of them are ancestors of the outputs,
-            # add themj
-
+            # Now - check the trace variables.  If any of them are ancestors of the outputs, add them
             self._there_are_debug_variables = self._debug_variable_getter is not None or len(_TRACE_VARIABLES) > 0
             if self._there_are_debug_variables:
 
