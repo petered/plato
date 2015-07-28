@@ -23,7 +23,7 @@ class MultiLayerPerceptron(IParameterized):
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
-        if isinstance(w_init, float):
+        if isinstance(w_init, (int, float)):
             val = w_init
             w_init = lambda n_in, n_out: val*np.random.randn(n_in, n_out)
 

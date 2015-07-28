@@ -263,9 +263,9 @@ def get_latest_experiment_identifier(name, template = '%T-%N'):
     :param template: The template which turns a name into an experiment identifier
     :return: A string identifying the latest matching experiment, or None, if not found.
     """
-    template = '^'+template+'$'
-    named_template = template.replace('%N', name)
+    named_template = template.replace('%N', re.escape(name))
     expr = named_template.replace('%T', '\d\d\d\d\.\d\d\.\d\d\T\d\d\.\d\d\.\d\d\.\d\d\d\d\d\d')
+    expr = '^' + expr + '$'
     matching_experiments = get_all_experiment_ids(expr)
     if len(matching_experiments) == 0:
         return None

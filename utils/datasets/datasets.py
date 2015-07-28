@@ -56,7 +56,7 @@ class DataSet(object):
     @property
     def n_categories(self):
         if self._n_categories is None:
-            assert self.training_set.target.dtype in (int, str), \
+            assert self.training_set.target.dtype in (int, str, np.int32), \
                 'n_categories is only a valid attribute when target data is int or str.  It is %s' \
                 % (self.training_set.target.dtype, )
             self._n_categories = len(np.unique(self.training_set.target))

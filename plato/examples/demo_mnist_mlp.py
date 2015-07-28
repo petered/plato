@@ -166,9 +166,18 @@ register_experiment(
     )
 
 
+register_experiment(
+    name = 'MNIST-tanh-MLP[300,10]-cos-cost',
+    function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation='tanh', output_activation='softmax',
+        learning_rate=0.03, cost='cos', onehot=True),
+    description='What happens when we use cosine-distance as a cost?',
+    conclusion='Seems to work - 95.7%.  May benefit some learning-rate-fiddling to get it better.'
+    )
+
+
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST_MLP[300,10]_all_relu-nobias'
+    which_experiment = 'MNIST-tanh-MLP[300,10]-cos-cost'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)

@@ -35,7 +35,8 @@ def demo_run_dtp_on_mnist(
         local_cost_function = mean_squared_error,
         output_cost_function = None,
         noise = 1,
-        lin_dtp = False
+        lin_dtp = False,
+        seed = None
         ):
 
     dataset = get_mnist_dataset(flat = True).to_onehot()
@@ -58,6 +59,7 @@ def demo_run_dtp_on_mnist(
             noise = noise,
             cost_function = local_cost_function,
             layer_constructor=DifferenceTargetLayer.from_initializer if not lin_dtp else ReversedDifferenceTargetLayer.from_initializer,
+            rng = seed
             ).compile()
 
     result = assess_online_predictor(
@@ -385,6 +387,37 @@ register_experiment(
     conclusion="Works pretty ok.  Unless it explodes.  Sometimes it doesn't explode.  Sometimes it does.  If it makes it past 93.5%, it generally survives."
     )
 
+
+register_experiment(
+    name = 'all-relu-dtp-exploding',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
+        seed = 0
+        ),
+    description="DTP with an entirely RELU network.",
+    conclusion="Works pretty ok.  Unless it explodes.  Sometimes it doesn't explode.  Sometimes it does.  If it makes it past 93.5%, it generally survives."
+    )
+
+
+register_experiment(
+    name = 'all-relu-dtp-nonexploding',
+    function = lambda: demo_run_dtp_on_mnist(
+        input_activation='relu',
+        hidden_activation='relu',
+        output_activation='relu',
+        optimizer_constructor=lambda: GradientDescent(eta = 0.01),
+        n_epochs=30,
+        seed = 1
+        ),
+    description="DTP with an entirely RELU network.",
+    conclusion="Works pretty ok.  Unless it explodes.  Sometimes it doesn't explode.  Sometimes it does.  If it makes it past 93.5%, it generally survives."
+    )
+
+
 register_experiment(
     name = 'all-relu-dtp-abserror',
     function = lambda: demo_run_dtp_on_mnist(
@@ -502,10 +535,10 @@ register_experiment(
 register_experiment(
     name = 'all-norm-relu-dtp',
     function = lambda: demo_run_dtp_on_mnist(
-        input_activation='norm-relu',
-        hidden_activation='norm-relu',
-        output_activation='norm-relu',
-        optimizer_constructor=lambda: SimpleGradientDescent(eta = 1.),
+        input_activation='safenorm-relu',
+        hidden_activation='safenorm-relu',
+        output_activation='safenorm-relu',
+        optimizer_constructor=lambda: SimpleGradientDescent(eta = 0.1),
         normalize_inputs=True,
         ),
     description="Now try with normalized-relu units",

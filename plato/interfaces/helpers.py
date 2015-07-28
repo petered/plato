@@ -183,6 +183,7 @@ def get_named_activation_function(activation_name):
             'linear': lambda x: x,
             'softplus': lambda x: tt.nnet.softplus(x),
             'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
+            'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
             'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
             'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0)
             }[activation_name]
