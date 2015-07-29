@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from pytest import raises
 from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic
 import pytest
@@ -292,7 +293,34 @@ def test_debug_trace():
     assert get_tdb_traces()['sum_a_b'] == 8
 
 
+def test_named_arguments():
+    """
+    We allow named arguments in Plato.  Note that you have to
+    be consistent in your use of args and kwargs once you've compiled a funciton, otherwise
+    you
+    :return:
+    """
+    @symbolic
+    def add_and_div(x, y, z):
+        return (x+y)/z
+
+    f = add_and_div.compile()
+    assert f(2, 4, 3.) == 2
+    with raises(TypeError):
+        # You were inconsistent - used args the first time, kwargs the second.
+        assert f(x=2, y=4, z=3.)
+    f = add_and_div.compile()
+    assert f(x=2, y=4, z=3.) == 2
+    with raises(KeyError):
+        # You were inconsistent - used args the first time, kwargs the second.
+        assert f(2, 4, 3.)
+    assert f(y=4, x=2, z=3.) == 2
+    f = add_and_div.compile()
+    assert f(2, y=4, z=3.) == 2
+
+
 if __name__ == '__main__':
+    test_named_arguments()
     test_stateless_symbolic_function()
     test_stateful_symbolic_function()
     test_debug_trace()

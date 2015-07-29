@@ -147,6 +147,14 @@ def symbolic_stateless(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat)(fcn)
 
 
+def symbolic_multi(fcn):
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
+
+
+def symbolic_single_output_updater(fcn):
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
+
+
 def symbolic_updater(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=UpdateFormat)(fcn)
 
@@ -212,6 +220,17 @@ class SingleOutputFormat(IFormat):
     def check(data):
         if not _is_tensor(data):
             raise SymbolicFormatError('You did not return a tensor output.  You returned: %s' % (data, ))
+
+
+class SingleOutputUpdater(IFormat):
+
+    @staticmethod
+    def check(data):
+        if not (isinstance(data, tuple) and len(data)==2):
+            raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
+        outputs, updates = data
+        SingleOutputFormat.check(outputs)
+        UpdateFormat.check(updates)
 
 
 class MultiOutputFormat(IFormat):
@@ -355,7 +374,7 @@ class AutoCompilingFunction(object):
             __builtins__['showloc'] = show_all_locals
             __builtins__['locinfo'] = get_local_info
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         """
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
         returns the result, in numpy arrays.
@@ -365,7 +384,10 @@ class AutoCompilingFunction(object):
 
             d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
             tensor_args = [d2t(arg) for arg in args]
-            return_value = self._fcn(*tensor_args)
+            tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
+            self._kwarg_order = tensor_kwargs.keys()
+            args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
+            return_value = self._fcn(*tensor_args, **tensor_kwargs)
             outputs, updates = detect_return_value(return_value)
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
@@ -380,19 +402,21 @@ class AutoCompilingFunction(object):
                 self._debug_variable_keys = trace_variables.keys()
                 outputs = outputs+tuple(trace_variables.values())
 
-            self._compiled_fcn = theano.function(inputs = tensor_args, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
+
+        arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
             # Separate out the debug variables from the output.
-            all_out = self._compiled_fcn(*args)
+            all_out = self._compiled_fcn(*arg_and_kwarg_values)
             self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
             _TRACE_VALUES.update(self._debug_values)
             numeric_output = all_out if len(self._debug_variable_keys) == 0 else all_out[:-len(self._debug_variable_keys)]
             if self._single_output:
                 numeric_output, = numeric_output
         else:
-            numeric_output = self._compiled_fcn(*args)
+            numeric_output = self._compiled_fcn(*arg_and_kwarg_values)
 
         for c in self._callbacks:
             c()
