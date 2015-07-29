@@ -34,8 +34,6 @@ def demo_backprop_vs_difference_target_prop(
     :return:
     """
 
-    set_enable_omniscence(True)
-
     dataset = get_mnist_dataset(flat = True)
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
 

@@ -1,6 +1,6 @@
+from general.numpy_helpers import get_rng
+from plato.core import symbolic_updater, symbolic_stateless, tdbprint
 from abc import abstractmethod
-from argmaxlab.spiking_experiments.spike_sampling import get_rng
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless, tdb_print
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.cost import mean_squared_error
 from plato.tools.online_prediction.online_predictors import ISymbolicPredictor
@@ -188,7 +188,7 @@ class PerceptronLayer(object):
         delta_w_rev = out.T.dot(x - recon)
         delta_b_rev = (x - recon).sum(axis = 0)
 
-        tdb_print(tt.max(self.w), 'max-w')
+        tdbprint(tt.max(self.w), 'max-w')
 
         return [(self.w, self.w+delta_w), (self.b, self.b+delta_b), (self.w_rev, self.w_rev+delta_w_rev), (self.b_rev, self.b_rev+delta_b_rev)]
 
