@@ -104,7 +104,7 @@ class SymbolicFunctionWrapper(object):
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
 
-        if ENABLE_OMNISCENCE and not isinstance(self.fcn, SymbolicFunctionWrapper):
+        if ENABLE_OMNISCENCE:
             with CaptureLocals() as c:
                 symbolic_return = self.fcn(*args, **kwargs)
             captured_anything = c.get_captured_locals()
@@ -408,7 +408,7 @@ class AutoCompilingFunction(object):
             outputs, updates = detect_return_value(return_value)
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._fcn.locals() is not None))
+            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (isinstance(self._fcn, SymbolicFunctionWrapper) and self._fcn.locals() is not None))
             self._callbacks += trace_callbacks
 
             if self._there_are_debug_variables:

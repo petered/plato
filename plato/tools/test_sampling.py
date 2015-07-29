@@ -1,3 +1,4 @@
+from general.test_mode import set_test_mode
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given, SequentialIndexGenerator, \
     RandomIndexGenerator, OrderedIndexGenerator, RowIndexGenerator
@@ -190,6 +191,8 @@ def test_row_indices():
 
 
 if __name__ == '__main__':
+
+    set_test_mode(True)
 
     test_row_indices()
     test_matrix_indices()
