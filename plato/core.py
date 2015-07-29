@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 from general.local_capture import CaptureLocals
+from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
@@ -103,10 +104,14 @@ class SymbolicFunctionWrapper(object):
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
 
-        if ENABLE_OMNISCENCE:
+        if ENABLE_OMNISCENCE and not isinstance(self.fcn, SymbolicFunctionWrapper):
             with CaptureLocals() as c:
                 symbolic_return = self.fcn(*args, **kwargs)
-            self._captured_locals = c.get_captured_locals()
+            captured_anything = c.get_captured_locals()
+            captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
+            captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
+            self._captured_locals = captured_locals
+
         else:
             symbolic_return = self.fcn(*args, **kwargs)
         self.output_format.check(symbolic_return)
@@ -144,6 +149,8 @@ class SymbolicFunctionWrapper(object):
         else:
             return SymbolicFunctionWrapper(lambda *args, **kwargs: self.fcn(instance, *args, **kwargs), input_format=self.input_format, output_format=self.output_format)
 
+    def locals(self):
+        return self._captured_locals
 
 def symbolic(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
@@ -213,6 +220,9 @@ class StandardFormat(IFormat):
 
     @staticmethod
     def check(data):
+        if isinstance(data, SymbolicReturn):
+            # Type checked already.
+            return
         if not (isinstance(data, tuple) and len(data)==2):
             raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
         outputs, updates = data
@@ -285,6 +295,8 @@ def detect_return_value(return_info, return_outputs_in_tuple = False):
         (output_0, ...), [(shared_0, new_val_0), ...]
     """
     if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
+        outputs, updates = return_info
+    elif isinstance(return_info, SymbolicReturn):
         outputs, updates = return_info
     elif _is_updates_list(return_info):
         outputs = ()
@@ -370,6 +382,7 @@ class AutoCompilingFunction(object):
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
         self._debug_values = None
+        self._local_values = None
 
         self._callbacks = []
         if mode in ('test_and_run', 'debug', 'omniscent'):
@@ -404,8 +417,12 @@ class AutoCompilingFunction(object):
                 self._single_output = _is_tensor(outputs)
                 if self._single_output:
                     outputs = (outputs, )
-                self._debug_variable_keys = trace_variables.keys()
-                outputs = outputs+tuple(trace_variables.values())
+                self._trace_variable_keys = trace_variables.keys()
+                self._local_variable_keys = self._fcn.locals().keys()
+                self._n_outputs = len(outputs)
+                self._n_trace_vars = len(trace_variables)
+                self._n_local_vars = len(self._fcn.locals())
+                outputs = outputs+tuple(trace_variables.values())+tuple(self._fcn.locals().values())
 
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
 
@@ -415,33 +432,36 @@ class AutoCompilingFunction(object):
         if self._there_are_debug_variables:
             # Separate out the debug variables from the output.
             all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            self._debug_values = {k: v for k, v in zip(self._debug_variable_keys, all_out[-len(self._debug_variable_keys):])}
-            _TRACE_VALUES.update(self._debug_values)
-            numeric_output = all_out if len(self._debug_variable_keys) == 0 else all_out[:-len(self._debug_variable_keys)]
+
+            true_out = all_out[:self._n_outputs]
+            trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
+            local_out = all_out[self._n_outputs+self._n_trace_vars:]
+
+            trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
+            _TRACE_VALUES.update(trace_values)
+            self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
+
+            # numeric_output = all_out[:-len(self._trace_variable_keys)]
             if self._single_output:
-                numeric_output, = numeric_output
+                true_out, = true_out
         else:
-            numeric_output = self._compiled_fcn(*arg_and_kwarg_values)
+            true_out = self._compiled_fcn(*arg_and_kwarg_values)
 
         for c in self._callbacks:
             c()
 
-        return numeric_output
+        return true_out
 
     def add_callback(self, fcn):
         self._callbacks.append(fcn)
 
     def locals(self):
-        return self._fcn.locals()
+        return expand_struct(self._local_values)
 
     @property
     def symbolic(self):
         """ Return the symbolic function """
         return self._fcn
-
-    @property
-    def debug(self):
-        return self._debug_values
 
 
 ENABLE_TRACES = True
@@ -451,6 +471,16 @@ def set_enable_traces(state):
     global ENABLE_TRACES
     ENABLE_TRACES = state
 
+
+ENABLE_OMNISCENCE = False
+
+
+def set_enable_omniscence(state):
+    """
+    A possible useful but evil feature wherein we can peek at the local variables of a compiled function.
+    """
+    global ENABLE_OMNISCENCE
+    ENABLE_OMNISCENCE = state
 
 def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)

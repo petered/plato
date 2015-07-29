@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from pytest import raises
 from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence
 import pytest
 import theano
 import numpy as np
@@ -190,7 +190,7 @@ def test_dual_decoration():
     assert recon == 37
 
 
-@pytest.mark.skipif(True, reason = "This was an old feature that's been superceded by variable traces.  We keep the test around in case we ever want to bring it back.")
+# @pytest.mark.skipif(True, reason = "This was an old feature that's been superceded by variable traces.  We keep the test around in case we ever want to bring it back.")
 def test_omniscence():
     """
     This test demonstrates a useful bit of evil that we've added to the
@@ -227,19 +227,21 @@ def test_omniscence():
 
     for k, op in [
             ('function', average),
-            ('callable_class', Averager()),
-            ('method', TwoNumberOperator().average),
-            ('standard_function', average.symbolic_standard),
-            ('standard_callable_class', Averager().symbolic_standard),
-            ('standard_method', TwoNumberOperator().average.symbolic_standard)
+            # ('callable_class', Averager()),
+            # ('method', TwoNumberOperator().average),
+            # ('standard_function', average.to_format(symbolic_standard)),
+            # ('standard_callable_class', Averager().to_format(symbolic_standard)),
+            # ('standard_method', TwoNumberOperator().average.to_format(symbolic_standard))
             ]:
 
         average_fcn = op.compile(mode = 'omniscent')
-        average_fcn.set_debug_variables('locals')
+        # average_fcn.set_debug_variables('locals')
 
         mean = average_fcn(3, 6)
         assert mean == ([4.5] if k.startswith('standard_') else 4.5)
-        assert average_fcn.get_debug_values()['sum_a_b'] == 9
+        print k
+        print average_fcn.locals()
+        assert average_fcn.locals()['sum_a_b'] == 9
 
 
 def test_method_caching_bug():
@@ -247,7 +249,7 @@ def test_method_caching_bug():
     Previously there was a bug in BaseSymbolicFunction.__get__ where dispatched
     methods were cached using the method-wrapper as a key rather than the instance.
     This caused the same method to be dispatched for different objects.  This test
-    catches that bug.  Before it was fixed, the second counter would appear to just
+    )catches that bug.  Before it was fixed, the second counter would appear to just
     continue the counting of the first, which is obviously not what you want.
     """
     class Counter(object):
@@ -320,6 +322,7 @@ def test_named_arguments():
 
 
 if __name__ == '__main__':
+    test_omniscence()
     test_named_arguments()
     test_stateless_symbolic_function()
     test_stateful_symbolic_function()
