@@ -1,6 +1,5 @@
 from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode
-from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.cost import mean_squared_error, mean_abs_error
 from plato.tools.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.difference_target_prop_variations import ReversedDifferenceTargetLayer, PerceptronLayer
@@ -194,9 +193,7 @@ def demo_lin_dtp(
     :return:
     """
 
-    set_enable_omniscence(True)
-
-    dataset = get_mnist_dataset(flat = True, binarize = False)
+    dataset = get_mnist_dataset(flat = True)
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
 
     if is_test_mode():

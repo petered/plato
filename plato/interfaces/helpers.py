@@ -168,8 +168,6 @@ normalize= lambda x, axis = None: x/(x.sum(axis=axis, keepdims = True) + 1e-9)
 normalize_safely= lambda x, axis = None, degree = 1: x/((x**degree).sum(axis=axis, keepdims = True) + 1)**(1./degree)
 
 
-
-
 def get_named_activation_function(activation_name):
     return {
             'softmax': lambda x: softmax(x, axis = -1),
@@ -186,4 +184,5 @@ def get_named_activation_function(activation_name):
             'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
             'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
             'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0)
+            'linear': lambda x: x
             }[activation_name]
