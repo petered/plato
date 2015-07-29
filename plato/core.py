@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from functools import partial
 import inspect
+from general.local_capture import CaptureLocals
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
@@ -97,10 +98,17 @@ class SymbolicFunctionWrapper(object):
         self.input_format = input_format
         self.output_format = output_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
+        self._captured_locals = None
 
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
-        symbolic_return = self.fcn(*args, **kwargs)
+
+        if ENABLE_OMNISCENCE:
+            with CaptureLocals() as c:
+                symbolic_return = self.fcn(*args, **kwargs)
+            self._captured_locals = c.get_captured_locals()
+        else:
+            symbolic_return = self.fcn(*args, **kwargs)
         self.output_format.check(symbolic_return)
         return symbolic_return
 
@@ -115,12 +123,10 @@ class SymbolicFunctionWrapper(object):
         return conversion_wrapper
 
     def partial(self, **fixed_kwargs):
-
-
-
         raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
 
     def compile(self, **compilation_kwargs):
+
         return AutoCompilingFunction(self, **compilation_kwargs)
 
     def __get__(self, instance, other):
@@ -344,12 +350,11 @@ class AutoCompilingFunction(object):
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
         :param mode: There are 3 modes:
-            'run': Just compile and run - use this if you're confident in your code and just want to go.
             'test_and_run': Same as run, but you pass through test values once before compilation.  This lets you
                 catch all sorts of errors.  You can also view test values by placing breakpoints, and viewing the
                 value var.tag.test_value where var is some tensor variable.
-            'debug': Never compile - just keep passing through test values.  This is basically like running the code
-                in numpy, except to see variable values, you have to go var.tag.test_value
+        :param debug_vars: A dictionary of {debug_var_name: symbolic_debug_var}.  The values of these variables will
+            be accessible through the debug property.
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
@@ -364,8 +369,6 @@ class AutoCompilingFunction(object):
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
-        self._debug_values = None
-        self._debug_variable_getter = None
         self._debug_values = None
 
         self._callbacks = []
@@ -388,10 +391,12 @@ class AutoCompilingFunction(object):
             self._kwarg_order = tensor_kwargs.keys()
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
             return_value = self._fcn(*tensor_args, **tensor_kwargs)
+
+
             outputs, updates = detect_return_value(return_value)
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = len(trace_variables)>0
+            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (self._fcn.locals() is not None)
             self._callbacks += trace_callbacks
 
             if self._there_are_debug_variables:
@@ -433,6 +438,18 @@ class AutoCompilingFunction(object):
     def symbolic(self):
         """ Return the symbolic function """
         return self._fcn
+
+    @property
+    def debug(self):
+        return self._debug_values
+
+
+ENABLE_TRACES = True
+
+
+def set_enable_traces(state):
+    global ENABLE_TRACES
+    ENABLE_TRACES = state
 
 
 def _is_symbol_or_value(var):

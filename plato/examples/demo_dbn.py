@@ -1,6 +1,5 @@
-from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.dbn import DeepBeliefNet
-from plato.tools.networks import StochasticLayer, FullyConnectedBridge
+from plato.tools.networks import FullyConnectedBridge, StochasticNonlinearity
 import numpy as np
 from plato.tools.optimizers import SimpleGradientDescent
 from plotting.live_plotting import LiveStream
@@ -17,7 +16,6 @@ def demo_dbn_mnist(plot = True, test_mode = False):
     that is being simulaniously sampled from the RBM, and the parameters of the RBM.
     """
 
-    set_enable_omniscence(True)
     minibatch_size = 20
     dataset = get_mnist_dataset().process_with(inputs_processor=lambda (x, ): (x.reshape(x.shape[0], -1), ))
     w_init = lambda n_in, n_out: 0.01 * np.random.randn(n_in, n_out)
@@ -32,10 +30,10 @@ def demo_dbn_mnist(plot = True, test_mode = False):
 
     dbn = DeepBeliefNet(
         layers = {
-            'vis': StochasticLayer('bernoulli'),
-            'hid': StochasticLayer('bernoulli'),
-            'ass': StochasticLayer('bernoulli'),
-            'lab': StochasticLayer('bernoulli'),
+            'vis': StochasticNonlinearity('bernoulli'),
+            'hid': StochasticNonlinearity('bernoulli'),
+            'ass': StochasticNonlinearity('bernoulli'),
+            'lab': StochasticNonlinearity('bernoulli'),
             },
         bridges = {
             ('vis', 'hid'): FullyConnectedBridge(w = w_init(784, 500), b_rev = 0),
@@ -54,11 +52,10 @@ def demo_dbn_mnist(plot = True, test_mode = False):
 
     # Step 1: Train the first layer, plotting the weights and persistent chain state.
     if plot:
-        train_first_layer.set_debug_variables(lambda: {
-                'weights': dbn._bridges['vis', 'hid']._w.T.reshape((-1, 28, 28)),
-                'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(*train_first_layer.locals()['initial_hidden']).reshape((-1, 28, 28))
+        plotter = LiveStream(lambda: {
+                'weights': dbn._bridges['vis', 'hid']._w.get_value().T.reshape((-1, 28, 28)),
+                # 'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(*train_first_layer.locals()['initial_hidden']).reshape((-1, 28, 28))
             })
-        plotter = LiveStream(train_first_layer.get_debug_values)
 
     for i, (n_samples, visible_data, label_data) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = n_training_epochs_1, single_channel = True)):
         train_first_layer(visible_data)
@@ -73,9 +70,9 @@ def demo_dbn_mnist(plot = True, test_mode = False):
             'w_vis_hid': dbn._bridges['vis', 'hid']._w.T.reshape((-1, 28, 28)),
             'w_hid_ass': dbn._bridges['hid', 'ass']._w,
             'w_lab_ass': dbn._bridges['hid', 'ass']._w,
-            'associative_state': train_second_layer.locals()['sleep_hidden'][0].reshape((-1, 20, 25)),
-            'hidden_state': train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)),
-            'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(train_second_layer.locals()['sleep_visible'][0]).reshape((-1, 28, 28))
+            # 'associative_state': train_second_layer.locals()['sleep_hidden'][0].reshape((-1, 20, 25)),
+            # 'hidden_state': train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)),
+            # 'smooth_vis_state': dbn.get_inference_function('hid', 'vis', smooth = True).symbolic_stateless(train_second_layer.locals()['sleep_visible'][0]).reshape((-1, 28, 28))
             })
         plotter = LiveStream(train_first_layer.get_debug_values)
 

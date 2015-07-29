@@ -1,12 +1,10 @@
 from fileman.experiment_record import run_experiment
 from general.test_mode import is_test_mode, set_test_mode
-from plato.interfaces.decorators import set_enable_omniscence
 from plato.tools.cost import softmax_negative_log_likelihood, mean_squared_error
 from plato.tools.difference_target_prop import DifferenceTargetMLP
 from plato.tools.networks import MultiLayerPerceptron, normal_w_init
 from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
-from plato.tools.optimizers import SimpleGradientDescent, AdaMax, AdaGrad
-from plotting.db_plotting import dbplot
+from plato.tools.optimizers import SimpleGradientDescent, AdaMax
 from plotting.matplotlib_backend import set_default_figure_size
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors
@@ -110,8 +108,6 @@ def backprop_vs_difference_target_prop(
         minibatch_size = 20,
         n_tests = 20
         ):
-
-    set_enable_omniscence(True)
 
     dataset = get_mnist_dataset(flat = True)
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
