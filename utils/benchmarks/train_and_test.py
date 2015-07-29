@@ -30,6 +30,8 @@ def train_online_predictor(predictor, training_set, minibatch_size, n_epochs = 1
 
 
 def evaluate_predictor(predictor, test_set, evaluation_function):
+    if isinstance(evaluation_function, str):
+        evaluation_function = get_evaluation_function(evaluation_function)
     output = predictor.predict(test_set.input)
     score = evaluation_function(actual = output, target = test_set.target)
     return score

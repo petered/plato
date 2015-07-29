@@ -6,6 +6,7 @@ from plato.examples.demo_prediction_example import compare_example_predictors
 from plato.examples.demo_mnist_mlp import demo_mnist_mlp
 from plato.examples.demo_dbn import demo_dbn_mnist
 from plato.examples.demo_rbm import demo_rbm_mnist
+from plato.examples.demo_difference_target_propagation import EXPERIMENTS as DTP_EXPERIMENTS
 import pytest
 __author__ = 'peter'
 
@@ -18,7 +19,7 @@ def test_demo_compare_optimizers():
 
 
 def test_demo_mnist_mlp():
-    demo_mnist_mlp(test_mode = True)
+    demo_mnist_mlp()
 
 
 def test_demo_dbn_mnist():
@@ -30,7 +31,7 @@ def test_demo_rbm_mnist():
 
 
 def test_demo_prediction_example():
-    compare_example_predictors(test_mode = True)
+    compare_example_predictors()
 
 
 @pytest.mark.skipif(True, reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
@@ -43,8 +44,16 @@ def test_demo_lstm():
     demo_lstm_novelist()
 
 
+def test_demo_difference_target_prop():
+
+    for exp, val in DTP_EXPERIMENTS.iteritems():
+        print 'Running %s' % (exp, )
+        val()
+
+
 if __name__ == '__main__':
     set_test_mode(True)
+    test_demo_difference_target_prop()
     test_demo_lstm()
     test_demo_variational_autoencoder()
     test_demo_compare_optimizers()

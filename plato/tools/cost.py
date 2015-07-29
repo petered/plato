@@ -70,3 +70,9 @@ def percent_correct(actual, target):
 @symbolic_stateless
 def mean_xe(actual, target):
     return tt.nnet.binary_crossentropy(actual, target).sum(axis=1).mean(axis=0)
+
+
+@symbolic_stateless
+def softmax_mean_xe(actual, target):
+    normalized_actual = tt.nnet.softmax(actual)
+    return mean_xe(normalized_actual, target)

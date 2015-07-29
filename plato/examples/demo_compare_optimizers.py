@@ -157,7 +157,6 @@ def get_experiments():
     training_schemes = {
         'adamax-showdown': mnist_adamax_showdown,
         'mlp-normalization': mlp_normalization,
-        'backprop-vs-dtp': backprop_vs_difference_target_prop,
         }
     experiments = {name: lambda sc=scheme: run_and_plot(sc) for name, scheme in training_schemes.iteritems()}
     return experiments
@@ -166,7 +165,7 @@ def get_experiments():
 if __name__ == '__main__':
 
     test_mode = False
-    experiment = 'backprop-vs-dtp'
+    experiment = 'adamax-showdown'
 
     set_test_mode(test_mode)
     run_experiment(experiment, exp_dict=get_experiments(), show_figs = None, print_to_console=True)
