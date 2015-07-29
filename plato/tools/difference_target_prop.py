@@ -1,4 +1,4 @@
-from argmaxlab.spiking_experiments.spike_sampling import get_rng
+from general.numpy_helpers import get_rng
 from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.cost import mean_squared_error

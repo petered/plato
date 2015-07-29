@@ -1,10 +1,9 @@
 from plato.interfaces.decorators import symbolic_stateless
-from plato.interfaces.helpers import initialize_param
+from plato.interfaces.helpers import initialize_param, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt
 import theano
 import numpy as np
-from plato.tools.linking import Chain
 from theano.tensor.shared_randomstreams import RandomStreams
 
 
@@ -15,7 +14,7 @@ class MultiLayerPerceptron(IParameterized):
     """
 
     def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, scale_param = False, w_init = lambda n_in, n_out: 0.1*np.random.randn(n_in, n_out)):
+            normalize_minibatch = False, scale_param = False, w_init = 0.1, use_bias = True):
         """
         :param layer_sizes: A list indicating the sizes of each layer.
         :param input_size: An integer indicating the size of the input layer
@@ -24,23 +23,34 @@ class MultiLayerPerceptron(IParameterized):
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
+        if isinstance(w_init, (int, float)):
+            val = w_init
+            w_init = lambda n_in, n_out: val*np.random.randn(n_in, n_out)
 
-        all_layer_sizes = [input_size]+layer_sizes
-        all_layer_activations = [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
-        processors = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size), normalize_minibatch=normalize_minibatch, scale = scale_param),
-             Layer(activation_fcn)
-             ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
-             ], [])
-
-        self._chain = Chain(*processors)
+        self.layers = [
+            Layer(
+                linear_transform = FullyConnectedBridge(
+                    w = w_init(pre_size, post_size),
+                    normalize_minibatch=normalize_minibatch,
+                    scale = scale_param,
+                    use_bias = use_bias
+                    ),
+                nonlinearity = nonlinearity
+                )
+            for pre_size, post_size, nonlinearity in zip(
+                [input_size]+layer_sizes[:-1],
+                layer_sizes,
+                [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
+            )]
 
     def __call__(self, x):
-        return self._chain.symbolic_stateless(x)
+        for lay in self.layers:
+            x = lay(x)
+        return x
 
     @property
     def parameters(self):
-        return self._chain.parameters
+         return sum([l.parameters for l in self.layers], [])
 
 
 def normal_w_init(mag, seed = None):
@@ -49,7 +59,25 @@ def normal_w_init(mag, seed = None):
 
 
 @symbolic_stateless
-class Layer(object):
+class Layer(IParameterized):
+
+    def __init__(self, linear_transform, nonlinearity):
+        if isinstance(nonlinearity, str):
+            nonlinearity = get_named_activation_function(nonlinearity)
+        self.linear_transform = linear_transform
+        self.nonlinearity = nonlinearity
+
+    def __call__(self, x):
+        pre_sig = self.linear_transform(x)
+        return self.nonlinearity(pre_sig)
+
+    @property
+    def parameters(self):
+        return self.linear_transform.parameters
+
+
+@symbolic_stateless
+class Nonlinearity(object):
     """
     An element that applies a nonlinearity to its inputs.  If multiple vectors
     of input feed into a layer, they are summed before the nonlinearity.
@@ -66,6 +94,7 @@ class Layer(object):
                 'lin': lambda x: x,
                 'tanh': tt.tanh,
                 'rect-lin': lambda x: tt.maximum(0, x),
+                'relu': lambda x: tt.maximum(0, x),
                 'softmax': lambda x: tt.nnet.softmax(x),
                 'exp': lambda x: tt.exp(x)
             }[activation_fcn]
@@ -78,7 +107,7 @@ class Layer(object):
 
 
 @symbolic_stateless
-class StochasticLayer(IParameterized, IFreeEnergy):
+class StochasticNonlinearity(IParameterized, IFreeEnergy):
     """
     A stochastic layer, which can also be called without the stochastic component
     (see smooth method).  These are building blocks in RBMs.
@@ -153,7 +182,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
     An element which multiplies the input by some weight matrix w and adds a bias.
     """
 
-    def __init__(self, w, b = 0, b_rev = None, scale = False, normalize_minibatch = False):
+    def __init__(self, w, b = 0, b_rev = None, scale = False, normalize_minibatch = False, use_bias = True):
         """
         :param w: Initial weight value.  Can be:
             - A numpy array, in which case a shared variable is instantiated from this data.
@@ -173,6 +202,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         self._log_scale, log_scale_params, log_scale_shape = initialize_param(0 if scale else None, shape = w.shape[1], name = 'log_scale')
         self._params = w_params+b_params+b_rev_params+log_scale_params
         self._normalize_minibatch = normalize_minibatch
+        self._use_bias = use_bias
 
     def __call__(self, x):
         current = x.flatten(2).dot(self._w)
@@ -183,12 +213,12 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         if self._log_scale is not None:
             current = current * tt.exp(self._log_scale)
 
-        y = current + self._b
+        y = current + self._b if self._use_bias else current
         return y
 
     @property
     def parameters(self):
-        return self._params
+        return self._params if self._use_bias else [self._w]
 
     def reverse(self, y):
         assert self._b_rev is not None, 'You are calling reverse on this bridge, but you failed to specify b_rev.'

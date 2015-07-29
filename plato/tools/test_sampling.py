@@ -1,4 +1,3 @@
-from plato.interfaces.decorators import set_enable_omniscence
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.sampling import compute_hypothetical_vs, p_w_given, p_x_given, SequentialIndexGenerator, \
     RandomIndexGenerator, OrderedIndexGenerator, RowIndexGenerator

@@ -114,7 +114,10 @@ class SymbolicFunctionWrapper(object):
             return return_val
         return conversion_wrapper
 
-    def partial(self, **kwargs):
+    def partial(self, **fixed_kwargs):
+
+
+
         raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
 
     def compile(self, **compilation_kwargs):

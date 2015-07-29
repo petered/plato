@@ -189,6 +189,7 @@ def test_dual_decoration():
     assert recon == 37
 
 
+@pytest.mark.skipif(True, reason = "This was an old feature that's been superceded by variable traces.  We keep the test around in case we ever want to bring it back.")
 def test_omniscence():
     """
     This test demonstrates a useful bit of evil that we've added to the

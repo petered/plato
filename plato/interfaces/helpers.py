@@ -136,7 +136,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     return variable, params, variable_shape
 
 
-def create_shared_variable(initializer_fcn, shape, name = None):
+def create_shared_variable(initializer_fcn, shape = None, name = None):
     """
     :param initializer_fcn: A function that takes a shape and returns a numpy array.
     :param shape: Either a tuple or an integer
@@ -163,10 +163,27 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
         "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
 
 
+normalize= lambda x, axis = None: x/(x.sum(axis=axis, keepdims = True) + 1e-9)
+
+normalize_safely= lambda x, axis = None, degree = 1: x/((x**degree).sum(axis=axis, keepdims = True) + 1)**(1./degree)
+
+
+
+
 def get_named_activation_function(activation_name):
     return {
             'softmax': lambda x: softmax(x, axis = -1),
             'sigm': tt.nnet.sigmoid,
+            'sig': tt.nnet.sigmoid,
             'tanh': tt.tanh,
+            'lin': lambda x: x,
+            'exp': lambda x: tt.exp(x),
             'relu': lambda x: tt.maximum(x, 0),
+            'rect-lin': lambda x: tt.maximum(0, x),
+            'linear': lambda x: x,
+            'softplus': lambda x: tt.nnet.softplus(x),
+            'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
+            'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
+            'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
+            'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0)
             }[activation_name]
