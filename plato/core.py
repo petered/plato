@@ -377,11 +377,11 @@ class AutoCompilingFunction(object):
 
         self._fcn_class = type(fcn)
         self._fcn = fcn if fixed_args is None else partial(fcn, **fixed_args)
+        self._original_fcn = fcn  # Needed for retrieveing locals hack
         self._format = format
         self._compiled_fcn = None
         self._cast_floats_to_floatX = cast_floats_to_floatX
         self._mode = mode
-        self._debug_values = None
         self._local_values = None
 
         self._callbacks = []
@@ -408,7 +408,7 @@ class AutoCompilingFunction(object):
             outputs, updates = detect_return_value(return_value)
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (isinstance(self._fcn, SymbolicFunctionWrapper) and self._fcn.locals() is not None))
+            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
             self._callbacks += trace_callbacks
 
             if self._there_are_debug_variables:
@@ -417,10 +417,10 @@ class AutoCompilingFunction(object):
                 if self._single_output:
                     outputs = (outputs, )
                 self._trace_variable_keys = trace_variables.keys()
-                self._local_variable_keys = self._fcn.locals().keys()
+                self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
                 self._n_trace_vars = len(trace_variables)
-                outputs = outputs+tuple(trace_variables.values())+tuple(self._fcn.locals().values())
+                outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
 
