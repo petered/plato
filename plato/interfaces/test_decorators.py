@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from pytest import raises
 from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence
 import pytest
 import theano
 import numpy as np
@@ -202,46 +202,46 @@ def test_omniscence():
     the "locals" property.
     """
 
-    set_enable_omniscence(True)
+    with EnableOmbniscence():
 
-    # Way 2
-    @symbolic_stateless
-    def average(a, b):
-        sum_a_b = a+b
-        return sum_a_b/2.
-
-
-    @symbolic_stateless
-    class Averager(object):
-
-        def __call__(self, a, b):
+        # Way 2
+        @symbolic_stateless
+        def average(a, b):
             sum_a_b = a+b
             return sum_a_b/2.
 
-    class TwoNumberOperator(object):
 
         @symbolic_stateless
-        def average(self, a, b):
-            sum_a_b = a+b
-            return sum_a_b/2.
+        class Averager(object):
 
-    for k, op in [
-            ('function', average),
-            # ('callable_class', Averager()),
-            # ('method', TwoNumberOperator().average),
-            # ('standard_function', average.to_format(symbolic_standard)),
-            # ('standard_callable_class', Averager().to_format(symbolic_standard)),
-            # ('standard_method', TwoNumberOperator().average.to_format(symbolic_standard))
-            ]:
+            def __call__(self, a, b):
+                sum_a_b = a+b
+                return sum_a_b/2.
 
-        average_fcn = op.compile(mode = 'omniscent')
-        # average_fcn.set_debug_variables('locals')
+        class TwoNumberOperator(object):
 
-        mean = average_fcn(3, 6)
-        assert mean == ([4.5] if k.startswith('standard_') else 4.5)
-        print k
-        print average_fcn.locals()
-        assert average_fcn.locals()['sum_a_b'] == 9
+            @symbolic_stateless
+            def average(self, a, b):
+                sum_a_b = a+b
+                return sum_a_b/2.
+
+        for k, op in [
+                ('function', average),
+                ('callable_class', Averager()),
+                ('method', TwoNumberOperator().average),
+                ('standard_function', average.to_format(symbolic_standard)),
+                ('standard_callable_class', Averager().to_format(symbolic_standard)),
+                ('standard_method', TwoNumberOperator().average.to_format(symbolic_standard))
+                ]:
+
+            if k != 'function':
+                continue  # For now we've reduced the functionality of this hacky code.  We'll see if its useful before bringing it back.
+
+            average_fcn = op.compile()
+
+            mean = average_fcn(3, 6)
+            assert mean == ([4.5] if k.startswith('standard_') else 4.5)
+            assert average_fcn.locals()['sum_a_b'] == 9
 
 
 def test_method_caching_bug():

@@ -99,7 +99,7 @@ class SymbolicFunctionWrapper(object):
         self.input_format = input_format
         self.output_format = output_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
-        self._captured_locals = None
+        self._captured_locals = {}
 
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
@@ -405,11 +405,10 @@ class AutoCompilingFunction(object):
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
             return_value = self._fcn(*tensor_args, **tensor_kwargs)
 
-
             outputs, updates = detect_return_value(return_value)
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (self._fcn.locals() is not None)
+            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._fcn.locals() is not None))
             self._callbacks += trace_callbacks
 
             if self._there_are_debug_variables:
@@ -421,7 +420,6 @@ class AutoCompilingFunction(object):
                 self._local_variable_keys = self._fcn.locals().keys()
                 self._n_outputs = len(outputs)
                 self._n_trace_vars = len(trace_variables)
-                self._n_local_vars = len(self._fcn.locals())
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._fcn.locals().values())
 
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
@@ -472,8 +470,18 @@ def set_enable_traces(state):
     ENABLE_TRACES = state
 
 
-ENABLE_OMNISCENCE = False
+class EnableOmbniscence():
 
+    def __enter__(self):
+        global ENABLE_OMNISCENCE
+        ENABLE_OMNISCENCE = True
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        global ENABLE_OMNISCENCE
+        ENABLE_OMNISCENCE = False
+
+
+ENABLE_OMNISCENCE = False
 
 def set_enable_omniscence(state):
     """
@@ -481,6 +489,7 @@ def set_enable_omniscence(state):
     """
     global ENABLE_OMNISCENCE
     ENABLE_OMNISCENCE = state
+
 
 def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)

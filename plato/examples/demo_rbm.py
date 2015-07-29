@@ -1,11 +1,10 @@
 from general.should_be_builtins import bad_value
 from general.test_mode import is_test_mode
-from plato.interfaces.decorators import set_enable_omniscence
+from plato.core import EnableOmbniscence
 from plato.tools.rbm import simple_rbm
 from plato.tools.networks import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimizers import SimpleGradientDescent, AdaMax
 from plotting.db_plotting import dbplot
-from plotting.live_plotting import LiveStream
 import theano
 from utils.bureaucracy import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
@@ -43,37 +42,37 @@ def demo_rbm_mnist(
 
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
-    set_enable_omniscence(True)
+    with EnableOmbniscence():
 
-    if is_test_mode():
-        n_epochs = 0.01
+        if is_test_mode():
+            n_epochs = 0.01
 
-    data = get_mnist_dataset(flat = True).training_set.input
+        data = get_mnist_dataset(flat = True).training_set.input
 
-    rbm = simple_rbm(
-        visible_layer = StochasticNonlinearity(vis_activation),
-        bridge=FullyConnectedBridge(w = w_init_mag*np.random.randn(28*28, n_hidden).astype(theano.config.floatX), b=0, b_rev = 0),
-        hidden_layer = StochasticNonlinearity(hid_activation)
-        )
-    
-    optimizer = \
-        SimpleGradientDescent(eta = eta) if optimizer == 'sgd' else \
-        AdaMax(alpha=eta) if optimizer == 'adamax' else \
-        bad_value(optimizer)
+        rbm = simple_rbm(
+            visible_layer = StochasticNonlinearity(vis_activation),
+            bridge=FullyConnectedBridge(w = w_init_mag*np.random.randn(28*28, n_hidden).astype(theano.config.floatX), b=0, b_rev = 0),
+            hidden_layer = StochasticNonlinearity(hid_activation)
+            )
 
-    train_function = rbm.get_training_fcn(n_gibbs = 1, persistent = persistent, optimizer = optimizer).compile()
+        optimizer = \
+            SimpleGradientDescent(eta = eta) if optimizer == 'sgd' else \
+            AdaMax(alpha=eta) if optimizer == 'adamax' else \
+            bad_value(optimizer)
 
-    def plot_fcn():
-        lv = train_function.locals()
-        dbplot({
-            'visible-pos-chain': lv['wake_visible'].reshape((-1, 28, 28)),
-            'visible-neg-chain': lv['sleep_visible'].reshape((-1, 28, 28)),
-            })
+        train_function = rbm.get_training_fcn(n_gibbs = 1, persistent = persistent, optimizer = optimizer).compile()
 
-    for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
-        train_function(visible_data)
-        if plot and i % plot_interval == 0:
-            plot_fcn()
+        def plot_fcn():
+            lv = train_function.locals()
+            dbplot({
+                'visible-pos-chain': lv['wake_visible'].reshape((-1, 28, 28)),
+                'visible-neg-chain': lv['sleep_visible'].reshape((-1, 28, 28)),
+                })
+
+        for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
+            train_function(visible_data)
+            if plot and i % plot_interval == 0:
+                plot_fcn()
 
 
 EXPERIMENTS = {}

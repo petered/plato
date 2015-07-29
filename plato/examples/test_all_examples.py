@@ -22,7 +22,7 @@ def test_demo_mnist_mlp():
 
 
 def test_demo_dbn_mnist():
-    demo_dbn_mnist(plot = True, test_mode = True)
+    demo_dbn_mnist(plot = True)
 
 
 def test_demo_rbm_mnist():
