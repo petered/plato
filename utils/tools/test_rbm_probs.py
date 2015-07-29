@@ -1,4 +1,5 @@
-from utils.tools.rbm_probs import estimate_log_z, compute_exact_log_z
+from argmaxlab.herding_experiments.demo_rbm_herding import compute_exact_log_z
+from utils.tools.rbm_probs import estimate_log_z
 
 __author__ = 'peter'
 import numpy as np
