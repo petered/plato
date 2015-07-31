@@ -7,7 +7,6 @@ from plato.interfaces.interfaces import IParameterized
 from plato.tools.linking import Chain, Branch
 from plato.tools.networks import FullyConnectedBridge, Nonlinearity
 from plato.tools.optimizers import AdaMax
-from plato.tools.tdb_plotting import tdbplot
 import theano.tensor as tt
 __author__ = 'peter'
 

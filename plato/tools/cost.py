@@ -94,6 +94,16 @@ def mean_cosine_distance(actual, target, eps = 1e-7):
     return -mean_cosine_similarity
 
 
+def onehot_mse(actual, target):
+    """
+    :param actual: An (n_samples, n_categories) array of guesses
+    :param target: An (n_samples, ) array of integer labels.
+    :return: A cost, which is equivalent to the MSE if the target were to be onehot encoded.
+    """
+    difference = tt.inc_subtensor(actual[tt.arange(target.shape[0]), target], -1)
+    return tt.mean(tt.sum(difference**2, axis = 1))
+
+
 def norm_mse(actual, target, eps = 1e-7):
     normed_actual = actual/tt.maximum(eps, tt.sqrt(tt.sum(actual**2, axis = 1, keepdims = True)))
     normed_target = target/tt.maximum(eps, tt.sqrt(tt.sum(target**2, axis = 1, keepdims = True)))
@@ -114,5 +124,6 @@ def get_named_cost_function(name):
         'xe': mean_xe,
         'percent_correct': percent_correct,
         'cos': mean_cosine_distance,
-        'norm-mse': norm_mse
+        'norm-mse': norm_mse,
+        'onehot-mse': onehot_mse
         }[name]

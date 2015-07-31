@@ -94,6 +94,13 @@ register_experiment(
     )
 
 register_experiment(
+    name = 'MNIST1000_onelayer_minibatch-20',
+    function = lambda: demo_mnist_mlp(learning_rate= 0.03, hidden_sizes = [], minibatch_size=20, max_training_samples=1000, n_epochs=1000),
+    description='How does a single-layer (logistic-regression) net do on MNIST-1000?',
+    conclusion='Gets to about 87.5% before overfitting its way down to 86.7.  100% on training.'
+    )
+
+register_experiment(
     name = 'MNIST1000_MLP[300,10]_minibatch-20',
     function = lambda: demo_mnist_mlp(learning_rate= 0.03, minibatch_size=20, max_training_samples=1000, n_epochs=1000)
     )
@@ -177,7 +184,7 @@ register_experiment(
 
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST-tanh-MLP[300,10]-cos-cost'
+    which_experiment = 'MNIST1000_onelayer_minibatch-20'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)

@@ -37,6 +37,6 @@ def link_and_show(embed = False, **save_and_show_kwargs):
 
 def show_embedded_figure(relative_link):
     figure_folder_loc = get_relative_link_from_relative_path('figures')
-    display(HTML("<iframe src='%s' width=600 height=400></iframe>" % (relative_link, )))
+    display(HTML("<iframe src='%s' width=600 height=460></iframe>" % (relative_link, )))
     display(HTML("See <a href='%s' target='_blank'>this figure</a>.  See <a href='%s' target='_blank'>all figures</a>"
             % (relative_link, figure_folder_loc)))
