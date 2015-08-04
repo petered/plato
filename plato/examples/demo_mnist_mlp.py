@@ -125,6 +125,15 @@ register_experiment(
     conclusion='Works very nicely, gets 98.27% within 10 epochs.'
     )
 
+
+# register_experiment(
+#     name = 'MNIST_MLP[300,10]_all_relu-normweights',
+#     function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation= 'relu', output_activation='relu',
+#         optimizer = 'sgd', learning_rate=0.03, onehot = True, cost = 'mse'),
+#     description='Lets try an all-rely MLP with the constraint that weights must sum to 1.',
+#     conclusion=''
+#     )
+
 register_experiment(
     name = 'MNIST_MLP[300,10]_all_relu-nobias',
     function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation= 'relu', output_activation='relu',
@@ -182,9 +191,10 @@ register_experiment(
     )
 
 
+
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST1000_onelayer_minibatch-20'
+    which_experiment = 'MNIST_MLP[300,10]_norm-relu'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)
