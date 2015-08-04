@@ -1,6 +1,6 @@
 import numpy as np
 from plato.interfaces.decorators import find_shared_ancestors
-from plato.tools.basic import softmax
+from plato.tools.common.basic import softmax
 import theano
 from theano import Variable
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
