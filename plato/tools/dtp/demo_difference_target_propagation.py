@@ -1,6 +1,6 @@
 from general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.cost import mean_squared_error
-from plato.tools.difference_target_prop import DifferenceTargetMLP, ReversedDifferenceTargetLayer, PerceptronLayer
+from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, ReversedDifferenceTargetLayer, PerceptronLayer
 from plato.tools.mlp.networks import normal_w_init, MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import AdaMax

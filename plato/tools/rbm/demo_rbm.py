@@ -1,7 +1,7 @@
 from general.should_be_builtins import bad_value
 from general.test_mode import is_test_mode
 from plato.core import EnableOmbniscence
-from plato.tools.rbm import simple_rbm
+from plato.tools.rbm.restricted_boltzmann_machine import simple_rbm
 from plato.tools.mlp.networks import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 from plotting.db_plotting import dbplot

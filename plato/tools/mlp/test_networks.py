@@ -53,11 +53,6 @@ def test_bare_bones_mlp(seed = 1234):
     assert final_score > 98
 
 
-if __name__ == '__main__':
-
-    test_bare_bones_mlp()
-
-
 def test_mlp():
 
     assert_online_predictor_not_broken(
@@ -97,3 +92,9 @@ def test_mlp_with_scale_learning():
         minibatch_size=10,
         n_epochs=2
         )
+
+if __name__ == '__main__':
+
+    test_bare_bones_mlp()
+    test_mlp()
+    test_mlp_with_scale_learning()

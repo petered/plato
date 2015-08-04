@@ -32,6 +32,7 @@ def test_shared_random_streams():
 
     assert np.array_equal(a, aa)
     assert np.array_equal(b, bb)
+    assert not np.array_equal(a, b)
 
 
 if __name__ == '__main__':

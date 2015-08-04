@@ -3,7 +3,7 @@ from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
 from plato.tools.va import demo_variational_autoencoder
 from plato.tools.optimization.demo_compare_optimizers import get_experiments
 from plato.examples.demo_prediction_example import compare_example_predictors
-from plato.tools.mlp import demo_mnist_mlp
+from plato.tools.mlp.demo_mnist_mlp import demo_mnist_mlp
 from plato.tools.dbn.demo_dbn import demo_dbn_mnist
 from plato.tools.rbm.demo_rbm import demo_rbm_mnist
 from plato.tools.dtp.demo_difference_target_propagation import EXPERIMENTS as DTP_EXPERIMENTS

@@ -4,7 +4,7 @@ from general.test_mode import is_test_mode
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.mlp.networks import MultiLayerPerceptron, normal_w_init
 from plato.tools.common.online_predictors import GradientBasedPredictor
-from plato.tools.optimizers import SimpleGradientDescent
+from plato.tools.optimization.optimizers import SimpleGradientDescent
 from utils.benchmarks.train_and_test import percent_argmax_correct
 from utils.datasets.mnist import get_mnist_dataset
 

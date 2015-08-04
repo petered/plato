@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from pytest import raises
 from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces
 import pytest
 import theano
 import numpy as np
@@ -293,6 +293,8 @@ def test_debug_trace():
 
     assert f(3, 5) == 4
     assert get_tdb_traces()['sum_a_b'] == 8
+    clear_tdb_traces()  # Needed due to unresolved thing where the drace callback happens on every symbolic function call in the future somehow.
+
 
 
 def test_named_arguments():

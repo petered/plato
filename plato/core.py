@@ -625,6 +625,11 @@ def tdb_trace(var, name = None, callback = None):
         _TRACE_CALLBACKS[name] = callback
 
 
+def clear_tdb_traces():
+    _TRACE_CALLBACKS.clear()
+    _TRACE_VARIABLES.clear()
+
+
 def printit(var_name, var_val):
     print '%s: %s' % (var_name, var_val)
 
