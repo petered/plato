@@ -1,7 +1,8 @@
-from plato.tools.cost import negative_log_likelihood_dangerous
-from plato.tools.networks import MultiLayerPerceptron, normal_w_init
-from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
-from plato.tools.optimizers import SimpleGradientDescent
+from general.test_mode import is_test_mode
+from plato.tools.optimization.cost import negative_log_likelihood_dangerous
+from plato.tools.mlp.networks import MultiLayerPerceptron, normal_w_init
+from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.optimization.optimizers import SimpleGradientDescent
 from sklearn.ensemble.forest import RandomForestClassifier
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors
@@ -18,7 +19,6 @@ def compare_example_predictors(
         n_epochs = 5,
         n_tests = 20,
         minibatch_size = 10,
-        test_mode = False
     ):
     """
     This demo shows how we can compare different online predictors.  The demo trains both predictors on the dataset,
@@ -30,7 +30,7 @@ def compare_example_predictors(
     dataset = get_mnist_dataset(flat = True)
     # "Flatten" the 28x28 inputs to a 784-d vector
 
-    if test_mode:
+    if is_test_mode():
         # Shorten the dataset so we run through it quickly in test mode.
         dataset = dataset.shorten(200)
         n_epochs = 1

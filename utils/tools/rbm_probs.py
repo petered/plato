@@ -1,4 +1,4 @@
-from argmaxlab.spiking_experiments.spike_sampling import get_rng
+from general.numpy_helpers import get_rng
 from general.mymath import sigm, binary_permutations, cummean
 import numpy as np
 from sklearn.svm.classes import LinearSVC

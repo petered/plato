@@ -1,48 +1,17 @@
 #Plato
 
-Welcome to the Plato repo.  Plato is (or at least should be), a clean, well-tested library, built on top of theano, containing standard components in deep learning (MLPs, DBNs, VA's, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.
+Welcome to the Plato repo.  
 
-To separate the messy, experimental stuff from the clean, reuseable stuff, I've separated the repo into several packages, which should be split off into separate repos once things mature.  The packages are as follows:
+Plato is a python package built on top of [Theano](http://deeplearning.net/software/theano/) with a few objectives:
 
-**plato** - Contains a very nice framework built on top of theano, primarily for doing deep learning stuff.  Things in here should in theory be nice, clean, and tested.
+1. Simplify the use of Theano with a new interface (see the tutorial).
+2. Use this simplified interface to build a clean, well-tested library, containing standard components in deep learning (MLPs, DBNs, VA's, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.  
+3. Provide a set of tools for plotting, debugging, setting up experiments, and saving results.  
 
-**utils** - Various utilities that don't involve theano (for loading datasets, doing numpy operations, comparing predictors, etc)
+If you want to learn what Plato is and how to use it, see [The Plato Tutorial](https://rawgit.com/petered/plato/master/plato_tutorial.html).  
 
-**experimental** - Various scripts and experiments.  Don't expect much hygene here.
+If you want to learn how to set it up, read [Getting Started with Plato](https://github.com/petered/plato/wiki/Getting-Started-with-Plato).
 
-**general** - Generally useful things that don't necessairily relate to machine learning.  Things here should be nice and individually useful, and probably just included in python/numpy one day.
+If you want to learn about the contents of Plato, read [Contents of Plato](https://github.com/petered/plato/wiki/Contents-of-Plato).
 
-**plotting** - Code related to plotting - this should be moved out to a separate repo once it's satisfactory and stable.
-
-Dependency:
-```
-experimental --> plato --> utils --> general
-  |                                    /\
-  '----------> plotting ---------------'
-```
-Arrow from A to B indicates "A imports from B, but B doesn't import from A"
-
-
-**Getting Started**
-
-To get started (Works on OSX, and maybe Linux):
-
-1. Open a terminal.
-1. Make sure you have virtualenv (run `virtualenv` to check).  If you do not, run `sudo pip install virtualenv`
-1. Now, cd to whatever folder you store your projects in, and run the following commands in terminal:
-```
-git clone https://github.com/petered/plato.git
-cd plato
-source setup.sh  # This installs a bunch of stuff, and may take some time.
-```
-You should now be in the virtual environment (there should be a little `(venv)` on the left side in the terminal).  To see if everything worked, try running the RBM demo: 
-```
-python plato/tools/demo_rbm.py 
-```
-A window should pop up, visualizing an RBM as it learns on MNIST data.
-
-You can at this point either use the project from within an IDE (like PyCharm), or keep running things from terminal.  If you run from terminal, the next time you return to the project, you just need to get into the virtual environment again.  You can do that by running:
-```
-cd path/to/plato/project  # Which you obviously replace by your actual path to the project
-source venv/bin/activate  # This will get you inside the venv.
-```
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Platon_Cave_Sanraedam_1604.jpg/1024px-Platon_Cave_Sanraedam_1604.jpg)

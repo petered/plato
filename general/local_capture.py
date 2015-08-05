@@ -41,6 +41,7 @@ class CaptureLocals(object):
     def __enter__(self):
         CaptureLocals._profiler_stack.append(self._profile_fcn)
         sys.setprofile(self._profile_fcn)
+        return self
 
     def __exit__(self, _, _1, _2):
         CaptureLocals._profiler_stack.pop()

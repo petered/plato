@@ -10,7 +10,7 @@ from utils.tools.processors import RunningAverage
 
 def compare_predictors(dataset, online_predictors={}, offline_predictors={}, minibatch_size = 'full',
         evaluation_function = 'mse', test_epochs = sqrtspace(0, 1, 10), report_test_scores = True,
-        test_on = 'training+test', test_batch_size = None, accumulators = None):
+        test_on = 'training+test', test_batch_size = None, accumulators = None, online_test_callbacks = {}):
     """
     Compare a set of predictors by running them on a dataset, and return the learning curves for each predictor.
 
@@ -32,6 +32,14 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
         The final test point determines the end of training.
     :param evaluation_function: Function used to evaluate output of predictors
     :param report_test_scores: Boolean indicating whether you'd like to report results online.
+    :param test_on: 'training', 'test', 'training+test'
+    :param test_batch_size: When the test set is too large to process in one step, use this to break it
+        up into chunks.
+    :param accumulators: A dict<str: accum_fcn>, where accum_fcn is a stateful-function of the form:
+        accmulated_output = accum_fcn(this_output)
+        Special case: accum_fcn can be 'avg' to make a running average.
+    :param online_test_callbacks: A dict<str: fcn> where fcn is a callback that takes an online
+        predictor as an argument.  Useful for logging/plotting/debugging progress during training.
     :return: An OrderedDict<LearningCurveData>
     """
 
@@ -43,20 +51,10 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
         [(k, ('online', online_predictors[k])) for k in sorted(online_predictors.keys())]
         )
 
-    if not isinstance(minibatch_size, dict):
-        minibatch_size = {predictor_name: minibatch_size for predictor_name in online_predictors.keys()}
-    else:
-        assert online_predictors.viewkeys() == minibatch_size.viewkeys()
-
-    if not isinstance(accumulators, dict):
-        accumulators = {predictor_name: accumulators for predictor_name in online_predictors.keys()}
-    else:
-        assert online_predictors.viewkeys() == accumulators.viewkeys()
-
+    minibatch_size = _pack_into_dict(minibatch_size, expected_keys=online_predictors.keys())
+    accumulators = _pack_into_dict(accumulators, expected_keys=online_predictors.keys())
+    online_test_callbacks = _pack_into_dict(online_test_callbacks, expected_keys=online_predictors.keys(), allow_subset=True)
     test_epochs = np.array(test_epochs)
-    # test_epochs_float = test_epochs.dtype == float
-    # if test_epochs_float:
-    #     test_epochs = (test_epochs * dataset.training_set.n_samples).astype(int)
     if isinstance(evaluation_function, str):
         evaluation_function = get_evaluation_function(evaluation_function)
 
@@ -84,12 +82,35 @@ def compare_predictors(dataset, online_predictors={}, offline_predictors={}, min
                 report_test_scores = report_test_scores,
                 test_on = test_on,
                 test_batch_size = test_batch_size,
+                test_callback=online_test_callbacks[predictor_name] if predictor_name in online_test_callbacks else None
                 ) if predictor_type == 'online' else \
             bad_value(predictor_type)
 
     print 'Done!'
 
     return records
+
+
+def _pack_into_dict(value_or_dict, expected_keys, allow_subset = False):
+    """
+    Used for when you want to either
+        a) Distribute some value to all predictors
+        b) Distribute different values to different predictors and check that the names match up.
+    :param value_or_dict: Either
+        a) A value
+        b) A dict<predictor_name: value_for_predictor>
+    :param expected_keys: Names of predictors
+    :return: A dict<predictor_name: value_for_predictor>
+    """
+    if not isinstance(value_or_dict, dict):
+        output_dict = {predictor_name: value_or_dict for predictor_name in expected_keys}
+    else:
+        output_dict = value_or_dict
+        if allow_subset:
+            assert set(value_or_dict.keys()).issubset(expected_keys), 'Expected a subset of: %s.  Got %s' % (expected_keys, value_or_dict.keys())
+        else:
+            assert set(expected_keys) == set(value_or_dict.keys()), 'Expected keys: %s.  Got %s' % (expected_keys, value_or_dict.keys())
+    return output_dict
 
 
 def dataset_to_testing_sets(dataset, test_on = 'training+test'):
@@ -123,7 +144,7 @@ def assess_offline_predictor(predictor, dataset, evaluation_function, test_on = 
 
 
 def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs, minibatch_size, test_on = 'training+test',
-        accumulator = None, report_test_scores=True, test_batch_size = None):
+        accumulator = None, report_test_scores=True, test_batch_size = None, test_callback = None):
     """
     Train an online predictor and return the LearningCurveData.
 
@@ -133,6 +154,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param test_epochs:
     :param minibatch_size:
     :param report_test_scores: Print out the test scores as they're computed (T/F)
+    :param test_callback: A callback which takes the predictor, and is called every time a test
+        is done.  This can be useful for plotting/debugging the state.
     :return: LearningCurveData containing the score on the test sets
     """
 
@@ -165,6 +188,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
             if report_test_scores:
                 print 'Scores at Epoch %s: %s' % (current_epoch, scores)
             record.add(current_epoch, scores)
+            if test_callback is not None:
+                test_callback(predictor)
             if done:
                 break
 

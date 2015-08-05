@@ -10,6 +10,15 @@ __author__ = 'peter'
 from matplotlib.pyplot import *
 
 
+def set_default_figure_size(width, height):
+    """
+    :param width: Width (in inches, for some reason)
+    :param height: Height (also in inches.  One inch is about 2.54cm)
+    """
+    from pylab import rcParams
+    rcParams['figure.figsize'] = width, height
+
+
 class IPlot(object):
 
     __metaclass__ = ABCMeta
