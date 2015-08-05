@@ -26,7 +26,7 @@ def mnist_adamax_showdown(hidden_size = 300, n_epochs = 10, n_tests = 20):
     dataset = get_mnist_dataset()
 
     if is_test_mode():
-        dataset.shorten(200)
+        dataset = dataset.shorten(200)
         n_epochs = 0.1
         n_tests = 3
 
@@ -71,7 +71,7 @@ def mlp_normalization(hidden_size = 300, n_epochs = 30, n_tests = 50, minibatch_
     dataset = get_mnist_dataset()
 
     if is_test_mode():
-        dataset.shorten(200)
+        dataset = dataset.shorten(200)
         n_epochs = 0.1
         n_tests = 3
 
@@ -113,7 +113,7 @@ def backprop_vs_difference_target_prop(
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
 
     if is_test_mode():
-        dataset.shorten(200)
+        dataset = dataset.shorten(200)
         n_epochs = 0.1
         n_tests = 3
 

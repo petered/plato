@@ -3,12 +3,19 @@ from general.test_mode import set_test_mode
 import os
 import pickle
 from fileman.experiment_record import ExperimentRecord, start_experiment, run_experiment, show_experiment, \
-    get_latest_experiment_identifier, get_or_run_notebook_experiment, get_local_experiment_path
+    get_latest_experiment_identifier, get_or_run_notebook_experiment, get_local_experiment_path, register_experiment, \
+    get_experiment_info, load_experiment
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 __author__ = 'peter'
+
+"""
+The experiment interface.  Currently, this can be used in many ways.  We'd like to
+converge on just using the interface demonstrated in test_experiment_interface.  So
+use that if you're looking for an example.
+"""
 
 
 def _run_experiment():
@@ -28,7 +35,7 @@ def _run_experiment():
 
 def test_experiment_with():
 
-    with ExperimentRecord(filename = 'test_exp', save_result=True) as exp_1:
+    with ExperimentRecord(filename = 'test_exp', save_result=True, print_to_console=True) as exp_1:
         _run_experiment()
 
     assert exp_1.get_logs() == 'aaa\nbbb\n'
@@ -101,10 +108,28 @@ def test_get_or_run_experiment():
     os.remove(experiment_1.get_file_path())
 
 
+def test_experiment_interface():
+
+    register_experiment(
+        name = 'my_test_experiment',
+        function=_run_experiment,
+        description="See if this thing works",
+        conclusion="It does."
+        )
+
+    exp_rec = run_experiment('my_test_experiment', save_result=True)
+    print get_experiment_info('my_test_experiment')
+    assert exp_rec.get_logs() == 'aaa\nbbb\n'
+
+    same_exp_rec = load_experiment(get_latest_experiment_identifier(name = 'my_test_experiment'))
+    assert same_exp_rec.get_logs() == 'aaa\nbbb\n'
+
+
 if __name__ == '__main__':
 
     set_test_mode(True)
 
+    test_experiment_interface()
     test_get_or_run_experiment()
     test_get_latest()
     test_run_and_show()

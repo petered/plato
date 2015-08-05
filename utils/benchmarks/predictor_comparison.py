@@ -151,8 +151,8 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param predictor:  An IPredictor object
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
-    :param test_epochs:
-    :param minibatch_size:
+    :param test_epochs: List of epochs to test at.  Eg. [0.5, 1, 2, 4]
+    :param minibatch_size: Number of samples per minibatch, or 'full' to do full-batch.
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :param test_callback: A callback which takes the predictor, and is called every time a test
         is done.  This can be useful for plotting/debugging the state.
@@ -167,11 +167,14 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     if accumulator is None:
         prediction_functions = {k: predictor.predict for k in testing_sets}
     else:
-        accum_constructor = {'avg': RunningAverage}[accumulator]
+        accum_constructor = {'avg': RunningAverage}[accumulator] \
+            if isinstance(accumulator, str) else accumulator
         accumulators = {k: accum_constructor() for k in testing_sets}
-
         prediction_functions = {k: lambda inp, kp=k: accumulators[kp](predictor.predict(inp)) for k in testing_sets}
         # Bewate the in-loop lambda - but I think we're ok here.
+
+    if isinstance(evaluation_function, str):
+        evaluation_function = get_evaluation_function(evaluation_function)
 
     checker = CheckPointCounter(test_epochs)
 
@@ -186,7 +189,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
 
             scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
             if report_test_scores:
-                print 'Scores at Epoch %s: %s' % (current_epoch, scores)
+                print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
             record.add(current_epoch, scores)
             if test_callback is not None:
                 test_callback(predictor)
@@ -253,7 +256,8 @@ class LearningCurveData(object):
         """
         :return: (times, results), where:
             times is a length-N vector indicating the time of each test
-            scores is a (length_N, n_scores) array indicating the each score at each time.
+            scores is a (length_N, n_scores) array indicating the each score at each time
+                OR a (length_N, n_scores, n_reps) array where n_reps indexes each repetition or the same experiment
         """
         return np.array(self._times), OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
 
@@ -274,4 +278,6 @@ class LearningCurveData(object):
                 % (which_test_set, results.keys())
             return results[which_test_set]
 
+    # @classmethod
+    # def merge(self, learning_curve_data_objects):
 

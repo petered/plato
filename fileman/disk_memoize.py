@@ -74,6 +74,15 @@ def get_function_hash_filename(fcn, args, kwargs):
     return os.path.join(MEMO_DIR, '%s-%s.pkl' % (fcn.__name__, args_code))
 
 
+def get_all_memos():
+    """
+    :return: A list of file-locations
+    """
+    all_memos = os.listdir(MEMO_DIR) if os.path.exists(MEMO_DIR) else []
+    full_paths_of_memos = [os.path.join(MEMO_DIR, m) for m in all_memos]
+    return full_paths_of_memos
+
+
 def get_memo_files_for_function(fcn):
     all_memos = os.listdir(MEMO_DIR) if os.path.exists(MEMO_DIR) else []
     matching_memos = [os.path.join(MEMO_DIR, m) for m in all_memos if m.startswith(fcn.wrapped_fcn.__name__)]
@@ -84,6 +93,13 @@ def clear_memo_files_for_function(fcn):
     memos = get_memo_files_for_function(fcn)
     for m in memos:
         os.remove(m)
+
+
+def clear_all_memos():
+    all_memos = get_all_memos()
+    for m in all_memos:
+        os.remove(m)
+    print 'Removed %s memos.' % (len(all_memos))
 
 
 def compute_fixed_hash(obj, hasher = None):
@@ -164,3 +180,13 @@ class DisableMemos(object):
     def __exit__(self, *args):
         self._reader.__exit__(*args)
         self._writer.__exit__(*args)
+
+
+if __name__ == '__main__':
+
+    cmd = raw_input('Type "clearall" to clear all memos: ')
+
+    if cmd == 'clearall':
+        clear_all_memos()
+    else:
+        raise Exception('Bad command or file name.')

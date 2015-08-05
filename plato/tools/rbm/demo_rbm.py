@@ -2,7 +2,7 @@ from general.should_be_builtins import bad_value
 from general.test_mode import is_test_mode
 from plato.core import EnableOmbniscence
 from plato.tools.rbm.restricted_boltzmann_machine import simple_rbm
-from plato.tools.mlp.networks import StochasticNonlinearity, FullyConnectedBridge
+from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 from plotting.db_plotting import dbplot
 import theano
@@ -75,7 +75,7 @@ def demo_rbm_mnist(
                 plot_fcn()
 
 
-EXPERIMENTS = {}
+EXPERIMENTS = dict()
 
 EXPERIMENTS['standard'] = lambda: demo_rbm_mnist(vis_activation='bernoulli', hid_activation='bernoulli', n_hidden=500, w_init_mag=0.01, eta = 0.01)
 

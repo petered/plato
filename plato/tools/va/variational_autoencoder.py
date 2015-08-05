@@ -1,11 +1,11 @@
 from abc import abstractproperty, abstractmethod
 from general.should_be_builtins import bad_value
 import numpy as np
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
-from plato.interfaces.helpers import get_theano_rng
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple
+from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.linking import Chain, Branch
-from plato.tools.mlp.networks import FullyConnectedBridge, Nonlinearity
+from plato.tools.mlp.networks import FullyConnectedTransform
 from plato.tools.optimization.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'
@@ -44,18 +44,18 @@ class VariationalAutoencoder(object):
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
         return updates
 
-    @symbolic_stateless
+    @symbolic_simple
     def sample(self, n_samples):
         z_samples = self.pq_pair.prior.sample(n_samples, self.rng)
         return self.sample_x_given_z(z_samples)
 
-    @symbolic_stateless
+    @symbolic_simple
     def sample_x_given_z(self, z_samples):
         x_dist = self.pq_pair.p_x_given_z(z_samples)
         x_samples = x_dist.sample(1, self.rng)[0]
         return x_samples
 
-    @symbolic_stateless
+    @symbolic_simple
     def sample_z_given_x(self, x_samples):
         z_dist = self.pq_pair.p_z_given_x(x_samples)
         z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
@@ -165,17 +165,17 @@ class DistributionMLP(IParameterized):
         all_layer_activations = [hidden_activation] * len(hidden_sizes)
 
         processing_chain = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size)),
-             Nonlinearity(activation_fcn)
+             FullyConnectedTransform(w = w_init(pre_size, post_size)),
+             get_named_activation_function(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
 
         distribution_function = \
             Branch(
-                 FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)),
-                 FullyConnectedBridge(w_init(all_layer_sizes[-1], output_size))) \
+                 FullyConnectedTransform(w = w_init(all_layer_sizes[-1], output_size)),
+                 FullyConnectedTransform(w_init(all_layer_sizes[-1], output_size))) \
                  if distribution == 'gaussian' else \
-            Chain(FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)), Nonlinearity('sig')) \
+            Chain(FullyConnectedTransform(w = w_init(all_layer_sizes[-1], output_size)), get_named_activation_function('sig')) \
                  if distribution=='bernoulli' else \
             bad_value(distribution)
 

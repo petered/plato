@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 import numpy as np
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless, symbolic_standard, SymbolicReturn
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple, symbolic_standard, SymbolicReturn
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import theano
 import theano.tensor as tt
@@ -13,11 +13,11 @@ rbm = namedtuple('RBM', ['propup', 'propdown', 'get_training_fcn', 'get_free_sam
 
 def simple_rbm(visible_layer, bridge, hidden_layer):
 
-    @symbolic_stateless
+    @symbolic_simple
     def propup(x):
         return hidden_layer(bridge(x))
 
-    @symbolic_stateless
+    @symbolic_simple
     def propdown(h):
         return visible_layer(bridge.reverse(h))
 

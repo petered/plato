@@ -1,4 +1,4 @@
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 from plato.interfaces.helpers import MRG_RandomStreams_ext
 import numpy as np
 import pytest
@@ -12,7 +12,7 @@ def test_mrg_choice():
     n_options = 10
     n_elements = 7
 
-    @symbolic_stateless
+    @symbolic_simple
     def random_indices():
         rng = MRG_RandomStreams_ext(seed = 4324)
         ixs = rng.choice(a=n_options, size = n_elements, replace = False)

@@ -1,6 +1,7 @@
 from general.should_be_builtins import memoize
 import numpy as np
-from scipy.stats import norm
+from scipy import weave
+from scipy.stats import norm, mode as sp_mode
 __author__ = 'peter'
 
 # Note - this module used to be called math, but it somehow results in a numpy import error
@@ -100,3 +101,62 @@ def expected_sigm_of_norm(mean, std, method = 'probit'):
 l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = 1)
 
 
+def normalize(x, axis=None, degree = 2):
+    """
+    Normalize vector x.  If norm is zero,
+    :param x:
+    :param axis:
+    :param degree:
+    :return:
+    """
+    z = np.sum(x**degree, axis = axis, keepdims=True)
+    if z == 0:
+        return normalize(np.ones_like(x), axis = axis, degree=degree)
+    else:
+        return x/z
+
+
+def mode(x, axis = None, keepdims = False):
+    mode_x, _ = sp_mode(x, axis = axis)
+    if not keepdims:
+        mode_x = np.take(mode_x, 0, axis = axis)
+    return mode_x
+
+
+def cummode(x, axis = 1):
+    """
+    Cumulative mode along an axis.  Ties give priority to the first value to achieve the
+    given count.
+    """
+
+    assert x.ndim == 2 and axis == 1, 'Only implemented for a special case!'
+    all_values, element_ids = np.unique(x, return_inverse=True)
+    n_unique = len(all_values)
+    element_ids = element_ids.reshape(x.shape)
+    result = np.zeros(x.shape, dtype = int)
+    counts = np.zeros(n_unique, dtype = int)
+    code = """
+    int n_samples = Nelement_ids[0];
+    int n_events = Nelement_ids[1];
+    for (int i=0; i<n_samples; i++){
+        int maxcount = 0;
+        int maxel = -1;
+
+        for (int k=0; k<n_unique; k++)
+            counts[k] = 0;
+
+        for (int j=0; j<n_events; j++){
+            int ix = i*n_events+j;
+            int k = element_ids[ix];
+            counts[k]+=1;
+            if (counts[k] > maxcount){
+                maxcount = counts[k];
+                maxel = k;
+            }
+            result[ix]=maxel;
+        }
+    }
+    """
+    weave.inline(code, ['element_ids', 'result', 'n_unique', 'counts'], compiler = 'gcc')
+    mode_values = all_values[result]
+    return mode_values

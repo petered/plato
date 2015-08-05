@@ -1,6 +1,6 @@
 from general.numpy_helpers import get_rng
 import numpy as np
-from plato.core import symbolic, symbolic_updater, symbolic_stateless
+from plato.core import symbolic, symbolic_updater, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.mlp.networks import Layer
 from plato.tools.optimization.optimizers import AdaMax
@@ -112,7 +112,7 @@ class GaussianVariationalAutoencoder(object):
             x_log_vars = self.decoder_log_var_layer(h)
             return x_means, x_log_vars
 
-    @symbolic_stateless
+    @symbolic_simple
     def sample(self, n_samples):
         """
         Draw samples from the model

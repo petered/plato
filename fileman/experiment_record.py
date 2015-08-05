@@ -1,21 +1,34 @@
 from collections import OrderedDict
 from datetime import datetime
 import inspect
+import shlex
+from IPython.core.magics import logging
 from general.test_mode import is_test_mode
 import os
 import pickle
 from IPython.core.display import display, HTML
 from fileman.local_dir import format_filename, make_file_dir, get_local_path, get_relative_path
 from fileman.notebook_plots import show_embedded_figure
-from fileman.notebook_utils import get_server_relative_data_folder_name, get_local_server_dir
+from fileman.notebook_utils import get_local_server_dir
 from fileman.notebook_utils import get_relative_link_from_relative_path
 from fileman.persistent_print import capture_print
 from fileman.saving_plots import clear_saved_figure_locs, get_saved_figure_locs, \
-    set_show_callback, always_save_figures
+    set_show_callback, always_save_figures, show_saved_figure
 import matplotlib.pyplot as plt
 import re
 
 __author__ = 'peter'
+
+
+GLOBAL_EXPERIMENT_LIBRARY = {}
+
+
+def _am_in_ipython():
+    try:
+        __IPYTHON__
+        return True
+    except NameError:
+        return False
 
 
 class ExperimentRecord(object):
@@ -66,7 +79,7 @@ class ExperimentRecord(object):
         else:
             plt.ioff()
         self._log_file_path = capture_print(True, to_file = True, log_file_path = self._log_file_name, print_to_console = self._print_to_console)
-        always_save_figures(show = self._show_figs, print_loc = False)
+        always_save_figures(show = self._show_figs, print_loc = False, name = self._experiment_identifier+'-%N')
         return self
 
     def __exit__(self, *args):
@@ -99,12 +112,18 @@ class ExperimentRecord(object):
 
     def show_figures(self):
         for loc in self._captured_figure_locs:
-            rel_loc = get_relative_link_from_relative_path(loc)
-            show_embedded_figure(rel_loc)
+            if _am_in_ipython():
+                rel_loc = get_relative_link_from_relative_path(loc)
+                show_embedded_figure(rel_loc)
+            else:
+                show_saved_figure(loc)
 
     def show(self):
-        display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
-                     % get_relative_link_from_relative_path(self._log_file_path)))
+        if _am_in_ipython():
+            display(HTML("<a href = '%s' target='_blank'>View Log File for this experiment</a>"
+                         % get_relative_link_from_relative_path(self._log_file_path)))
+        else:
+            self.print_logs()
         self.show_figures()
 
     def print_logs(self):
@@ -131,7 +150,7 @@ def start_experiment(*args, **kwargs):
     return exp
 
 
-def run_experiment(name, exp_dict, print_to_console = True, show_figs = None, **experiment_record_kwargs):
+def run_experiment(name, exp_dict = GLOBAL_EXPERIMENT_LIBRARY, print_to_console = True, show_figs = None, **experiment_record_kwargs):
     """
     Run an experiment and save the results.  Return a string which uniquely identifies the experiment.
     You can run the experiment agin later by calling show_experiment(location_string):
@@ -150,10 +169,17 @@ def run_experiment(name, exp_dict, print_to_console = True, show_figs = None, **
         assert hasattr(exp_dict, '__call__')
         func = exp_dict
 
-    with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
-        func()
+    experiment = exp_dict[name]
 
-    return exp_rec
+    if isinstance(experiment, Experiment):
+        return experiment.run(print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs)
+    else:
+        logging.warn('DEPRECATED: Switch to register_experiment.')
+        with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
+            print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
+            func()
+            print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
+        return exp_rec
 
 
 def run_notebook_experiment(name, exp_dict, print_to_console=False, show_figs=False, **experiment_record_kwargs):
@@ -168,15 +194,20 @@ def get_local_experiment_path(identifier):
     return format_filename(identifier, directory = get_local_path('experiments'), ext = 'exp.pkl')
 
 
+def get_experiment_record(identifier):
+    local_path = get_local_experiment_path(identifier)
+    assert os.path.exists(local_path), "Couldn't find experiment '%s' at '%s'" % (identifier, local_path)
+    with open(local_path) as f:
+        exp_rec = pickle.load(f)
+    return exp_rec
+
+
 def show_experiment(identifier):
     """
     Show the results of an experiment (plots and logs)
     :param identifier: A string uniquely identifying the experiment
     """
-    local_path = get_local_experiment_path(identifier)
-    assert os.path.exists(local_path), "Couldn't find experiment '%s' at '%s'" % (identifier, local_path)
-    with open(local_path) as f:
-        exp_rec = pickle.load(f)
+    exp_rec = get_experiment_record(identifier)
     exp_rec.show()
 
 
@@ -232,14 +263,23 @@ def get_latest_experiment_identifier(name, template = '%T-%N'):
     :param template: The template which turns a name into an experiment identifier
     :return: A string identifying the latest matching experiment, or None, if not found.
     """
-    named_template = template.replace('%N', name)
+    named_template = template.replace('%N', re.escape(name))
     expr = named_template.replace('%T', '\d\d\d\d\.\d\d\.\d\d\T\d\d\.\d\d\.\d\d\.\d\d\d\d\d\d')
+    expr = '^' + expr + '$'
     matching_experiments = get_all_experiment_ids(expr)
     if len(matching_experiments) == 0:
         return None
     else:
         latest_experiment_id = sorted(matching_experiments)[-1]
         return latest_experiment_id
+
+
+def show_latest_results(experiment_name, template = '%T-%N'):
+    print GLOBAL_EXPERIMENT_LIBRARY[experiment_name]
+    experiment_record_identifier = get_latest_experiment_identifier(experiment_name, template)
+    if experiment_record_identifier is None:
+        raise Exception('No records for experiment "%s" exist.' % (experiment_name, ))
+    show_experiment(experiment_record_identifier)
 
 
 def load_experiment(experiment_identifier):
@@ -266,3 +306,89 @@ def get_all_experiment_ids(expr = None):
     if expr is not None:
         experiments = [e for e in experiments if re.match(expr, e)]
     return experiments
+
+
+def register_experiment(name, function, description = '', conclusion = ''):
+    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
+    experiment = Experiment(
+        name = name,
+        function = function,
+        description=description,
+        conclusion=conclusion
+        )
+    GLOBAL_EXPERIMENT_LIBRARY[name] = experiment
+    return experiment
+
+
+def browse_experiment_records():
+
+    ids = get_all_experiment_ids()
+    while True:
+        print '\n'.join(['%s: %s' % (i, exp_id) for i, exp_id in enumerate(ids)])
+
+        user_input = raw_input('Enter Command (or h for help) >>')
+        parts = shlex.split(user_input)
+
+        cmd = parts[0]
+        args = parts[1:]
+
+        try:
+            if cmd == 'q':
+                break
+            elif cmd == 'h':
+                print 'q: Quit\nfilter <text>: filter experiments\brmfilters: Remove all filters\nshow <number> show experiment with number'
+            elif cmd == 'filter':
+                filter_text, = args
+                ids = get_all_experiment_ids(filter_text)
+            elif cmd == 'rmfilters':
+                ids = get_all_experiment_ids()
+            elif cmd == 'show':
+                index, = args
+                exp_id = ids[int(index)]
+                show_experiment(exp_id)
+                wait_for_continue()
+            else:
+                print 'Bad Command: %s.' % cmd
+                wait_for_continue()
+        except Exception as e:
+            res = raw_input('%s: %s\nEnter "e" to view the message, or anything else to continue.' % (e.__class__.__name__, e.message))
+            if res == 'e':
+                raise
+
+
+def wait_for_continue():
+    raw_input('<Press Enter to Continue>')
+
+
+def get_experiment_info(name):
+    experiment = GLOBAL_EXPERIMENT_LIBRARY[name]
+    return str(experiment)
+
+
+class Experiment(object):
+
+    def __init__(self, name, function, description, conclusion = ''):
+        self.name = name
+        self.function = function
+        self.description = description
+        self.conclusion = conclusion
+
+    def __str__(self):
+        return 'Experiment: %s\n  Defined in: %s\n  Description: %s\n  Conclusion: %s' % \
+            (self.name, inspect.getmodule(self.function).__name__, self.description, self.conclusion)
+
+    def run(self, **experiment_record_kwargs):
+        """
+        Run the experiment, and return the ExperimentRecord that is generated.
+        Note, if you want the output of the function, you should just run the function directly.
+        :param experiment_record_kwargs: See ExperimentRecord for kwargs
+        """
+        print '%s Running Experiment: %s %s' % ('='*10, self.name, '='*10)
+        with ExperimentRecord(name = self.name, **experiment_record_kwargs) as exp_rec:
+            self.function()
+        print '%s Done Experiment: %s %s' % ('-'*11, self.name, '-'*12)
+        return exp_rec
+
+
+if __name__ == '__main__':
+    browse_experiment_records()

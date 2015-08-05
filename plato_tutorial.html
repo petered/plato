@@ -197,7 +197,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -241,7 +241,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">theano</span>
@@ -296,7 +296,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">theano</span>
@@ -352,7 +352,7 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 <tbody>
 <tr>
 <td><code>out</code></td>
-<td style="text-align:left"><strong>stateless</strong>: An output tensor variable</td>
+<td style="text-align:left"><strong>simple</strong>: An output tensor variable</td>
 </tr>
 <tr>
 <td><code>(out_0, out_1, ...)</code></td>
@@ -372,7 +372,7 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 </tr>
 </tbody>
 </table>
-<p>See <em>Section 6: Enforcing Interfaces</em>, for more on the exciting topic of data formats.</p>
+<p>See <em>Section 7: Enforcing Interfaces</em>, for more on the exciting topic of data formats.</p>
 
 </div>
 </div>
@@ -382,14 +382,14 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="3.-Classes:-Multiple-functions-sharing-a-variable.">3. Classes: Multiple functions sharing a variable.<a class="anchor-link" href="#3.-Classes:-Multiple-functions-sharing-a-variable.">&#182;</a></h1><p>We often have situations where we have a variable that is shared between two functions (e.g. in a classifier, the weights may be modified by the <em>train</em> function and used by the <em>predict</em> function).  We usually deal with this using classes.  As a simple example, lets take the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz Conjecture</a>.</p>
+<h2 id="3.-Classes:-Multiple-functions-sharing-a-variable.">3. Classes: Multiple functions sharing a variable.<a class="anchor-link" href="#3.-Classes:-Multiple-functions-sharing-a-variable.">&#182;</a></h2><p>We often have situations where we have a variable that is shared between two functions (e.g. in a classifier, the weights may be modified by the <em>train</em> function and used by the <em>predict</em> function).  We usually deal with this using classes.  As a simple example, lets take the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz Conjecture</a>.</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -467,14 +467,14 @@ Note that since the value is attached to the class, it persists if functons are 
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="3.-Callable-Classes">3. Callable Classes<a class="anchor-link" href="#3.-Callable-Classes">&#182;</a></h2><p>In python, classes can also act as functions, if they implement a <code>__call__</code> method.  This can be useful when you want to make parameterized functions.  Therefore Plato also allows you to decorate callable classes.  For example:</p>
+<h2 id="4.-Callable-Classes">4. Callable Classes<a class="anchor-link" href="#4.-Callable-Classes">&#182;</a></h2><p>In python, classes can also act as functions, if they implement a <code>__call__</code> method.  This can be useful when you want to make parameterized functions.  Therefore Plato also allows you to decorate callable classes.  For example:</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -517,14 +517,14 @@ Note that since the value is attached to the class, it persists if functons are 
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="4.-Named-Arguments">4. Named Arguments<a class="anchor-link" href="#4.-Named-Arguments">&#182;</a></h2><p>Unlike Theano, Plato allows you to pass inputs into compiled functions by name.  The only requirement is that you are consistent with their usage (if you call the function as <code>f(3, y=4)</code> the first, time, you cannot call it as <code>f(3, 4)</code> the next time, otherwise you will get an error.  See the following example:</p>
+<h2 id="5.-Named-Arguments">5. Named Arguments<a class="anchor-link" href="#5.-Named-Arguments">&#182;</a></h2><p>Unlike Theano, Plato allows you to pass inputs into compiled functions by name.  The only requirement is that you are consistent with their usage (if you call the function as <code>f(3, y=4)</code> the first, time, you cannot call it as <code>f(3, 4)</code> the next time, otherwise you will get an error.  See the following example:</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -571,8 +571,8 @@ You were inconsistent - referenced x as a kwarg in the first call but not the se
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="5.-Debugging">5. Debugging<a class="anchor-link" href="#5.-Debugging">&#182;</a></h2><p>A big advantage of Plato is easier debugging.  There are two ways in which Plato helps you debug.</p>
-<h3 id="5A:-Test-values">5A: Test values<a class="anchor-link" href="#5A:-Test-values">&#182;</a></h3><p>Theano allows you to add "test-values" to your symbolic variables (<a href="http://deeplearning.net/software/theano/tutorial/debug_faq.html">see tutorial</a>).  This helps to catch shape-errors at compile-time instead of run-time, where it is difficult to find the line of code that caused them.  However, it can be a bit of extra work for the programmer, because they have to manually attach test values to their variables.  Fortunately, since Plato compiles your functions on the first pass, it can attach test-values "under the hood".</p>
+<h2 id="6.-Debugging">6. Debugging<a class="anchor-link" href="#6.-Debugging">&#182;</a></h2><p>A big advantage of Plato is easier debugging.  There are two ways in which Plato helps you debug.</p>
+<h3 id="6A:-Test-values">6A: Test values<a class="anchor-link" href="#6A:-Test-values">&#182;</a></h3><p>Theano allows you to add "test-values" to your symbolic variables (<a href="http://deeplearning.net/software/theano/tutorial/debug_faq.html">see tutorial</a>).  This helps to catch shape-errors at compile-time instead of run-time, where it is difficult to find the line of code that caused them.  However, it can be a bit of extra work for the programmer, because they have to manually attach test values to their variables.  Fortunately, since Plato compiles your functions on the first pass, it can attach test-values "under the hood".</p>
 <p>For example, lets look at a matrix multiplication, where we accidently get the shapes of our matrices wrong.  Since all inputs are given test values, we can easily track down the error - the traceback will lead back to the correct line.  This would not have been possible without test values, because the error would occur in the compiled code, which is no-longer linked to the source code.</p>
 
 </div>
@@ -580,7 +580,7 @@ You were inconsistent - referenced x as a kwarg in the first call but not the se
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
@@ -629,14 +629,14 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="5B:-Variable-Traces">5B: Variable Traces<a class="anchor-link" href="#5B:-Variable-Traces">&#182;</a></h3><p>It can also be useful to print/plot traces of intermediate values.  Ordinarily in theano, this would require setting those variables as outputs, and restructuring code to peek at what would normally be an internal variables.  Plato does a bit of magic which allows you to print/plot/do anything with internal variables.  The following example illustrates this:</p>
+<h3 id="6B:-Variable-Traces">6B: Variable Traces<a class="anchor-link" href="#6B:-Variable-Traces">&#182;</a></h3><p>It can also be useful to print/plot traces of intermediate values.  Ordinarily in theano, this would require setting those variables as outputs, and restructuring code to peek at what would normally be an internal variables.  Plato does a bit of magic which allows you to print/plot/do anything with internal variables.  The following example illustrates this:</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
@@ -676,8 +676,8 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
 
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Pre-Sigmoid Activation: [[-0.77177144  1.08824955  0.5318524 ]]
-Post Sigmoid Activation: [[ 0.31609603  0.74805196  0.62991505]]
+<pre>Pre-Sigmoid Activation: [[ 4.82051976  0.89245079  0.8168448 ]]
+Post Sigmoid Activation: [[ 0.99200189  0.70939567  0.69356617]]
 </pre>
 </div>
 </div>
@@ -701,9 +701,9 @@ Post Sigmoid Activation: [[ 0.31609603  0.74805196  0.62991505]]
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="6.-Enforcing-Interfaces">6. Enforcing Interfaces<a class="anchor-link" href="#6.-Enforcing-Interfaces">&#182;</a></h2><p>In larger programs, it can be useful to enforce interfaces - that is, functions are required to obey a certain contract.  This allows function A to use function B without knowing in particular which function it is.  For instance, you may have some code that iterates through a dataset and trains a predictor, but doesn't necessarily know what kind of predictor it is - just that it has a <em>train</em> function that accepts inputs and targets, and returns updates.</p>
+<h2 id="7.-Enforcing-Interfaces">7. Enforcing Interfaces<a class="anchor-link" href="#7.-Enforcing-Interfaces">&#182;</a></h2><p>In larger programs, it can be useful to enforce interfaces - that is, functions are required to obey a certain contract.  This allows function A to use function B without knowing in particular which function it is.  For instance, you may have some code that iterates through a dataset and trains a predictor, but doesn't necessarily know what kind of predictor it is - just that it has a <em>train</em> function that accepts inputs and targets, and returns updates.</p>
 <p>For this reason, we have an extended set of decorators which enforce type-checking on inputs/outputs.  Currently all these decorators just specify outputs, but this can easily be extended to to type-checking for inputs too.</p>
-<p><code>@symbolic_stateless</code> - Returns a single output variable.<br>
+<p><code>@symbolic_simple</code> - Returns a single output variable.<br>
 <code>@symbolic_updater</code> - Returns a list of updates.<br>
 <code>@symbolic_standard</code> - Returns a tuple of outputs and a list of updates.<br>
 <code>@symbolic_multi</code> - Returns multiple output variables.<br>
@@ -716,7 +716,7 @@ Post Sigmoid Activation: [[ 0.31609603  0.74805196  0.62991505]]
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic_standard</span><span class="p">,</span> <span class="n">SymbolicFormatError</span>
@@ -759,7 +759,7 @@ Post Sigmoid Activation: [[ 0.31609603  0.74805196  0.62991505]]
 <pre>Trying to run improperly formatted function...
   SymbolicFormatError: You did not return a 2-tuple of outputs, updates.  You returned Elemwise{mul,no_inplace}.0
 Lets try again with the correct format....
-  [3*2] = [array(6)]
+  [3*2] = [array(6, dtype=int32)]
 </pre>
 </div>
 </div>
@@ -773,7 +773,7 @@ Lets try again with the correct format....
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="7.-Converting-Formats">7. Converting Formats<a class="anchor-link" href="#7.-Converting-Formats">&#182;</a></h2><p>In the previous example, we saw that the <code>multiply_by_two</code> function was much cleaner than the <code>multiply_by_two_in_correct_format</code> function.  But if were to pass this function into some generic code that wants to treat functions interchangeably, we needed to implement it in the "standard" format.  To overcome the impracticality of forcing users to either implement functions in a messy way, or wrap them, symbolic functions have a <strong>to_format</strong> method to do format-conversion.</p>
+<h2 id="8.-Converting-Formats">8. Converting Formats<a class="anchor-link" href="#8.-Converting-Formats">&#182;</a></h2><p>In the previous example, we saw that the <code>multiply_by_two</code> function was much cleaner than the <code>multiply_by_two_in_correct_format</code> function.  But if were to pass this function into some generic code that wants to treat functions interchangeably, we needed to implement it in the "standard" format.  To overcome the impracticality of forcing users to either implement functions in a messy way, or wrap them, symbolic functions have a <strong>to_format</strong> method to do format-conversion.</p>
 <p>As an example, lets imaging you're making a generic "Chain" function.  Chain's job is to compose a list of (possible stateful) functions into a chain: $f_c = f_1 \circ f_2 \circ ... f_n$</p>
 <p>In our example, we'll have two functions - Multiply by two, and a cumulative sum.</p>
 <p>Note a few things here:</p>
@@ -788,10 +788,10 @@ Lets try again with the correct format....
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">symbolic_standard</span><span class="p">,</span> <span class="n">symbolic_stateless</span>
+<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">symbolic_standard</span><span class="p">,</span> <span class="n">symbolic_simple</span>
 <span class="kn">import</span> <span class="nn">theano</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 
@@ -809,7 +809,7 @@ Lets try again with the correct format....
             <span class="n">updates</span> <span class="o">+=</span> <span class="n">new_updates</span>  <span class="c"># Append the list of this function&#39;s state updates to the global list</span>
         <span class="k">return</span> <span class="n">args</span><span class="p">,</span> <span class="n">updates</span>
 
-<span class="nd">@symbolic_stateless</span>
+<span class="nd">@symbolic_simple</span>
 <span class="k">def</span> <span class="nf">multiply_by_two</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span><span class="o">*</span><span class="mi">2</span>
 
@@ -858,14 +858,14 @@ sum([0..9]*2) = [array(90)]
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="8.-Fixed-Arguments">8. Fixed Arguments<a class="anchor-link" href="#8.-Fixed-Arguments">&#182;</a></h2><p>When you use a numpy array on a theano symbolic function, it treats it as a constant.  We can use the <strong>fixed_args</strong> argument to <strong>compile()</strong> to partially-specify a function.  Theano will then compile the function with these arguments as fixed constants.  For example:</p>
+<h2 id="9.-Fixed-Arguments">9. Fixed Arguments<a class="anchor-link" href="#9.-Fixed-Arguments">&#182;</a></h2><p>When you use a numpy array on a theano symbolic function, it treats it as a constant.  We can use the <strong>fixed_args</strong> argument to <strong>compile()</strong> to partially-specify a function.  Theano will then compile the function with these arguments as fixed constants.  For example:</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -905,7 +905,7 @@ sum([0..9]*2) = [array(90)]
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Done.">Done.<a class="anchor-link" href="#Done.">&#182;</a></h1><p>Congratulations, you made it through the Plato tutorial.</p>
+<h2 id="10.-Done.">10. Done.<a class="anchor-link" href="#10.-Done.">&#182;</a></h2><p>Congratulations, you made it through the Plato tutorial.</p>
 
 </div>
 </div>

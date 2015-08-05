@@ -5,6 +5,7 @@ from matplotlib.scale import ScaleBase, register_scale
 from matplotlib.ticker import NullFormatter, AutoLocator, ScalarFormatter, NullLocator
 from matplotlib.transforms import Transform
 import numpy as np
+from utils.benchmarks.predictor_comparison import LearningCurveData
 
 __author__ = 'peter'
 
@@ -21,6 +22,9 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
     :param title: Title of the plot
     :return:
     """
+
+    if isinstance(learning_curves, LearningCurveData):
+        learning_curves = {'': learning_curves}
 
     colours = ['b', 'r', 'g', 'm', 'c', 'k']
 

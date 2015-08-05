@@ -1,4 +1,4 @@
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 from theano.tensor.shared_randomstreams import RandomStreams
 import numpy as np
 
@@ -17,7 +17,7 @@ def test_shared_random_streams():
 
     seed = 4
 
-    @symbolic_stateless
+    @symbolic_simple
     def so_random():
         rng = RandomStreams(seed = seed)
         return rng.uniform(high = 256, size = (10, ))

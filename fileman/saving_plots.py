@@ -1,5 +1,7 @@
 from datetime import datetime
 import pickle
+import sys
+import subprocess
 from fileman.local_dir import get_local_path, make_file_dir
 import os
 from matplotlib import pyplot as plt
@@ -45,6 +47,8 @@ def save_and_show(fig = None, name = '%T-%N', ext = 'pdf', base_dir = 'figures',
     subdir = subdir.replace('%T', now)
     name = name.replace('%T', now) + '.'+ext
     name = name.replace('%N', fig_name)
+
+    fig.canvas.set_window_title(name)
 
     is_interactive = plt.isinteractive()
     if block is None:
@@ -100,6 +104,13 @@ def always_save_figures(state = True, **save_and_show_args):
         set_show_callback(lambda fig = None: save_and_show(fig, **save_and_show_args))
     else:
         set_show_callback(None)
+
+
+def show_saved_figure(relative_loc):
+    _, ext = os.path.splitext(relative_loc)
+    abs_loc = get_local_path(relative_loc)
+    assert os.path.exists(abs_loc), '"%s" did not exist.  That is odd.' % (abs_loc, )
+    subprocess.call('open "%s"' % abs_loc, shell = True)
 
 
 _SERIALIZED_FIGURES = []

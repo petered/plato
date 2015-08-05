@@ -19,12 +19,13 @@ def memoize(fcn):
     """
     lookup = {}
 
-    def memoization_wrapper(*args):
-        if args in lookup:
-            return lookup[args]
+    def memoization_wrapper(*args, **kwargs):
+        arg_signature = args + ('5243643254_kwargs_start_here', ) + tuple((k, kwargs[k]) for k in sorted(kwargs.keys()))
+        if arg_signature in lookup:
+            return lookup[arg_signature]
         else:
-            out = fcn(*args)
-            lookup[args]=out
+            out = fcn(*args, **kwargs)
+            lookup[arg_signature]=out
             return out
 
     return memoization_wrapper

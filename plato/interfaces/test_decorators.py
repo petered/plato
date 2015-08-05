@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from pytest import raises
-from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
+from plato.core import symbolic_simple, symbolic_updater, symbolic_standard, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces
 import pytest
 import theano
@@ -102,7 +102,7 @@ def test_pure_updater():
 
 def test_function_format_checking():
 
-    @symbolic_stateless
+    @symbolic_simple
     def good_format_thing(a, b):
         return a+b
 
@@ -122,7 +122,7 @@ def test_function_format_checking():
 
 def test_callable_format_checking():
 
-    @symbolic_stateless
+    @symbolic_simple
     class GoodFormatThing(object):
 
         def __call__(self, a, b):
@@ -142,7 +142,7 @@ def test_callable_format_checking():
 
 def test_inhereting_from_decorated():
 
-    @symbolic_stateless
+    @symbolic_simple
     class AddSomething(object):
 
         def __call__(self, a):
@@ -166,7 +166,7 @@ def test_inhereting_from_decorated():
 
 def test_dual_decoration():
 
-    @symbolic_stateless
+    @symbolic_simple
     class Multiplier(object):
 
         def __init__(self, factor = 2):
@@ -175,7 +175,7 @@ def test_dual_decoration():
         def __call__(self, x):
             return x*self._factor
 
-        @symbolic_stateless
+        @symbolic_simple
         def inverse(self, y):
             return y/self._factor
 
@@ -205,13 +205,13 @@ def test_omniscence():
     with EnableOmbniscence():
 
         # Way 2
-        @symbolic_stateless
+        @symbolic_simple
         def average(a, b):
             sum_a_b = a+b
             return sum_a_b/2.
 
 
-        @symbolic_stateless
+        @symbolic_simple
         class Averager(object):
 
             def __call__(self, a, b):
@@ -220,7 +220,7 @@ def test_omniscence():
 
         class TwoNumberOperator(object):
 
-            @symbolic_stateless
+            @symbolic_simple
             def average(self, a, b):
                 sum_a_b = a+b
                 return sum_a_b/2.
