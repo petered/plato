@@ -42,6 +42,48 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
+def symbolic(fcn):
+    """
+    Use this to decorate a symbolic function with any return format (it will be detected automatically).
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
+
+
+def symbolic_stateless(fcn):
+    """
+    Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat)(fcn)
+
+
+def symbolic_multi(fcn):
+    """
+    Use this to decorate a symbolic function that takes theano tensors as inputs and returns a tuple of tensors.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
+
+
+def symbolic_single_output_updater(fcn):
+    """
+    Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor and a list of updates.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
+
+
+def symbolic_updater(fcn):
+    """
+    Use this to decorate a symbolic function that returns a list of updates.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=UpdateFormat)(fcn)
+
+
+def symbolic_standard(fcn):
+    """
+    Use this to decorate a symbolic function that returns a tuple of outputs and a list of updates.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=StandardFormat)(fcn)
+
+
 class SymbolicFunction(object):
 
     def __init__(self, input_format = None, output_format = None):
@@ -57,8 +99,8 @@ class SymbolicFunction(object):
             # This is class with a __call__ method
             return _decorate_callable_class(fcn, self.input_format, self.output_format)
 
-        elif inspect.isfunction(fcn):
-            # This may be:
+        elif hasattr(fcn, '__call__'):
+            # This is a function.  It may be:
             # 1) An ordinary function
             # 2) An unbound method.
             return SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format)
@@ -179,29 +221,6 @@ class SymbolicFunctionWrapper(object):
 
     def locals(self):
         return self._captured_locals
-
-def symbolic(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
-
-
-def symbolic_stateless(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat)(fcn)
-
-
-def symbolic_multi(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
-
-
-def symbolic_single_output_updater(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
-
-
-def symbolic_updater(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=UpdateFormat)(fcn)
-
-
-def symbolic_standard(fcn):
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=StandardFormat)(fcn)
 
 
 class IFormat(object):

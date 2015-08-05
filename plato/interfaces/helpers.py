@@ -1,4 +1,5 @@
 import numpy as np
+from plato.core import symbolic_stateless
 from plato.interfaces.decorators import find_shared_ancestors
 from plato.tools.common.basic import softmax
 import theano
@@ -172,20 +173,21 @@ normalize_safely= lambda x, axis = None, degree = 1: x/((x**degree).sum(axis=axi
 
 
 def get_named_activation_function(activation_name):
-    return {
-            'softmax': lambda x: softmax(x, axis = -1),
-            'sigm': tt.nnet.sigmoid,
-            'sig': tt.nnet.sigmoid,
-            'tanh': tt.tanh,
-            'lin': lambda x: x,
-            'exp': lambda x: tt.exp(x),
-            'relu': lambda x: tt.maximum(x, 0),
-            'rect-lin': lambda x: tt.maximum(0, x),
-            'linear': lambda x: x,
-            'softplus': lambda x: tt.nnet.softplus(x),
-            'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
-            'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
-            'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
-            'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
-            'linear': lambda x: x
-            }[activation_name]
+    fcn = {
+        'softmax': lambda x: softmax(x, axis = -1),
+        'sigm': tt.nnet.sigmoid,
+        'sig': tt.nnet.sigmoid,
+        'tanh': tt.tanh,
+        'lin': lambda x: x,
+        'exp': lambda x: tt.exp(x),
+        'relu': lambda x: tt.maximum(x, 0),
+        'rect-lin': lambda x: tt.maximum(0, x),
+        'linear': lambda x: x,
+        'softplus': lambda x: tt.nnet.softplus(x),
+        'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
+        'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
+        'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
+        'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
+        'linear': lambda x: x
+        }[activation_name]
+    return symbolic_stateless(fcn)

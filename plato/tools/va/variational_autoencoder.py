@@ -2,10 +2,10 @@ from abc import abstractproperty, abstractmethod
 from general.should_be_builtins import bad_value
 import numpy as np
 from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
-from plato.interfaces.helpers import get_theano_rng
+from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.linking import Chain, Branch
-from plato.tools.mlp.networks import FullyConnectedBridge, Nonlinearity
+from plato.tools.mlp.networks import FullyConnectedTransform
 from plato.tools.optimization.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'
@@ -165,17 +165,17 @@ class DistributionMLP(IParameterized):
         all_layer_activations = [hidden_activation] * len(hidden_sizes)
 
         processing_chain = sum([[
-             FullyConnectedBridge(w = w_init(pre_size, post_size)),
-             Nonlinearity(activation_fcn)
+             FullyConnectedTransform(w = w_init(pre_size, post_size)),
+             get_named_activation_function(activation_fcn)
              ] for (pre_size, post_size), activation_fcn in zip(zip(all_layer_sizes[:-1], all_layer_sizes[1:]), all_layer_activations)
              ], [])
 
         distribution_function = \
             Branch(
-                 FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)),
-                 FullyConnectedBridge(w_init(all_layer_sizes[-1], output_size))) \
+                 FullyConnectedTransform(w = w_init(all_layer_sizes[-1], output_size)),
+                 FullyConnectedTransform(w_init(all_layer_sizes[-1], output_size))) \
                  if distribution == 'gaussian' else \
-            Chain(FullyConnectedBridge(w = w_init(all_layer_sizes[-1], output_size)), Nonlinearity('sig')) \
+            Chain(FullyConnectedTransform(w = w_init(all_layer_sizes[-1], output_size)), get_named_activation_function('sig')) \
                  if distribution=='bernoulli' else \
             bad_value(distribution)
 
