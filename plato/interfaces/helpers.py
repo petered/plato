@@ -100,7 +100,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     if isinstance(shape, int):
         shape = (shape, )
 
-    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype=='float' else x
+    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype in ('float', 'float64', 'float32') else x
 
     if np.isscalar(initial_value):
         if shape is None:
@@ -136,13 +136,16 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     return variable, params, variable_shape
 
 
-def create_shared_variable(initializer_fcn, shape = None, name = None):
+def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True):
     """
-    :param initializer_fcn: A function that takes a shape and returns a numpy array.
+    :param initializer_fcn: Can be:
+        - An array.  It may be cast to floatX.  It's verified with shape if shape is provided
+        - A function which takes the shape and turns it into the array.
+        - A scalar, in which case it's broadcase over shape.
     :param shape: Either a tuple or an integer
     :return: A shared variable, containing the numpy array returned by the initializer.
     """
-    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name)
+    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX)
     return shared_var
 
 
@@ -166,9 +169,6 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
 normalize= lambda x, axis = None: x/(x.sum(axis=axis, keepdims = True) + 1e-9)
 
 normalize_safely= lambda x, axis = None, degree = 1: x/((x**degree).sum(axis=axis, keepdims = True) + 1)**(1./degree)
-
-
-
 
 def get_named_activation_function(activation_name):
     return {

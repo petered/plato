@@ -35,7 +35,7 @@ def demo_lstm_novelist(
 
     if is_test_mode():
         n_hidden=10
-        verse_duration=3
+        verse_duration=7
         generation_duration=5
         max_len = 40
 
@@ -59,14 +59,14 @@ def demo_lstm_novelist(
         gen = onehot_to_text(onehot_gen, decode_key)
         return '%s%s' % (primer, gen)
 
-    prime_and_generate(100, 'In the beginning, ')
+    prime_and_generate(generation_duration, 'In the beginning, ')
 
     for i, verse in enumerate(minibatch_iterate(onehot_text, minibatch_size=verse_duration, n_epochs=n_epochs)):
         if i % generate_every == 0:
             printer.write('[iter %s]%s' % (i, prime_and_generate(n_steps = generation_duration), ))
         training_fcn(verse)
 
-    display_generated('Final', prime_and_generate(n_steps=generation_duration))
+    printer.write('[iter %s]%s' % (i, prime_and_generate(n_steps = generation_duration), ))
 
 
 def display_generated(title, text):
@@ -99,9 +99,9 @@ EXPERIMENTS = dict()
 
 EXPERIMENTS['learn_bible'] = lambda: demo_lstm_novelist(book = 'bible')
 
-EXPERIMENTS['learn_fifty_shades'] = lambda: demo_lstm_novelist(book = 'fifty_shades_of_grey')
+EXPERIMENTS['learn_fifty_shades'] = lambda: demo_lstm_novelist(book = 'fifty_shades_of_grey', n_epochs = 4)
 
 
 if __name__ == '__main__':
 
-    EXPERIMENTS['learn_bible']()
+    EXPERIMENTS['learn_fifty_shades']()

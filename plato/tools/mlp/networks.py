@@ -1,3 +1,5 @@
+from plato.interfaces.decorators import symbolic_stateless, find_shared_ancestors
+from plato.interfaces.helpers import get_theano_rng, create_shared_variable
 from plato.interfaces.decorators import symbolic_stateless
 from plato.interfaces.helpers import initialize_param, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
@@ -115,6 +117,7 @@ class StochasticNonlinearity(IParameterized, IFreeEnergy):
         :param shape: Optionally, reshape the output to this shape.
         """
         rng = RandomStreams(rng.randint(1e9) if rng is not None else None)
+        self.activation_fcn = activation_fcn
         self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._params = \
             self._stochastic_layer_name_to_functions(activation_fcn, rng)
         self._shape = shape

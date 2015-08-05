@@ -1,3 +1,4 @@
+from plato.core import clear_tdb_traces
 from plato.interfaces.decorators import symbolic_stateless
 from plato.tools.misc.tdb_plotting import tdbplot
 from plotting.matplotlib_backend import ImagePlot, HistogramPlot
@@ -27,6 +28,9 @@ def test_tdb_plotting():
     for _ in xrange(5):
         f()
 
+    clear_tdb_traces()
+    # Otherwise there's a weird thing wehre this keeps getting called for every
+    # theano function call in this process..
 
 if __name__ == '__main__':
     test_tdb_plotting()
