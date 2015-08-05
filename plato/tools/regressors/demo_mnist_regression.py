@@ -1,7 +1,7 @@
 from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode
 from plato.tools.regressors.online_regressor import OnlineRegressor
-from plato.tools.optimizers import get_named_optimizer
+from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import assess_online_predictor
 from utils.datasets.mnist import get_mnist_dataset
@@ -10,7 +10,7 @@ from utils.tools.mymath import sqrtspace
 __author__ = 'peter'
 
 
-def demo_mnist_mlp(
+def demo_mnist_online_regression(
         minibatch_size = 10,
         learning_rate = 0.1,
         optimizer = 'sgd',
@@ -60,28 +60,28 @@ def demo_mnist_mlp(
 
 register_experiment(
     name = 'mnist-multinomial-regression',
-    function = lambda: demo_mnist_mlp(regressor_type='multinomial'),
+    function = lambda: demo_mnist_online_regression(regressor_type='multinomial'),
     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
     conclusion = 'Gets to about 92.5'
     )
 
 register_experiment(
     name = 'mnist-multinomial-regression-nobias',
-    function = lambda: demo_mnist_mlp(regressor_type='multinomial', include_biases=False),
+    function = lambda: demo_mnist_online_regression(regressor_type='multinomial', include_biases=False),
     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
     conclusion = "Also gets to about 92.5.  So at least for MNIST you don't really need a bias term."
     )
 
 register_experiment(
     name = 'mnist-linear-regression',
-    function = lambda: demo_mnist_mlp(regressor_type='linear', learning_rate=0.01),
+    function = lambda: demo_mnist_online_regression(regressor_type='linear', learning_rate=0.01),
     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
     conclusion = 'Requires a lower learning rate for stability, and then only makes it to around 86%'
     )
 
 register_experiment(
     name = 'mnist-logistic-regression',
-    function = lambda: demo_mnist_mlp(regressor_type='logistic'),
+    function = lambda: demo_mnist_online_regression(regressor_type='logistic'),
     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
     conclusion = 'Gets just over 92%'
     )

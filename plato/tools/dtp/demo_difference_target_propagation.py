@@ -1,6 +1,6 @@
 from fileman.experiment_record import run_experiment, register_experiment
 from general.test_mode import is_test_mode
-from plato.tools.difference_target_prop_variations import PerceptronLayer, ReversedDifferenceTargetLayer
+from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, ReversedDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.mlp.networks import normal_w_init, MultiLayerPerceptron

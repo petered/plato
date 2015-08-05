@@ -128,7 +128,7 @@ register_experiment(
 
 # register_experiment(
 #     name = 'MNIST_MLP[300,10]_all_relu-normweights',
-#     function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation= 'relu', output_activation='relu',
+#     function = lambda: demo_mnist_online_regression(hidden_sizes=[300], hidden_activation= 'relu', output_activation='relu',
 #         optimizer = 'sgd', learning_rate=0.03, onehot = True, cost = 'mse'),
 #     description='Lets try an all-rely MLP with the constraint that weights must sum to 1.',
 #     conclusion=''
