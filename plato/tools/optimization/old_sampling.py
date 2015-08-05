@@ -1,5 +1,5 @@
 from collections import namedtuple
-from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
+from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 import theano
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
@@ -43,7 +43,7 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
         w_new = tt.set_subtensor(w[alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(w, w_new), (alpha, (alpha+1) % n_dim_in)]
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(x):
         p_y = tt.nnet.sigmoid(x.dot(w))
         return rng.binomial(p = p_y) if sample_y else p_y
@@ -54,7 +54,7 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
 SamplingRegressor = namedtuple('SamplingRegressor', ('train', 'predict'))
 
 
-@symbolic_stateless
+@symbolic_simple
 def compute_p_wa(w, x, y, alpha):
     w_0 = tt.set_subtensor(w[alpha], 0)  # (n_dim_in, n_dim_out)
     w_1 = tt.set_subtensor(w[alpha], 1)  # (n_dim_in, n_dim_out)
@@ -88,7 +88,7 @@ def simple_herded_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, 
         # showloc()
         return [(w, w_new), (phi, new_phi), (alpha, (alpha+1) % n_dim_in)]
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(x):
         p_y = tt.nnet.sigmoid(x.dot(w))
         return rng.binomial(p = p_y) if sample_y else p_y
@@ -128,7 +128,7 @@ class OldGibbsRegressor(object):
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), (self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])]
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         p_y = tt.nnet.sigmoid(x.dot(self._w))
         return self._rng.binomial(p = p_y) if self._sample_y else p_y

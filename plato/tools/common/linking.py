@@ -25,7 +25,7 @@ class Chain(IParameterized):
     returns just a single output, Chain can also be called in the symbolic stateless
     format:
 
-        output = my_chain.symbolic_stateless(input_0, input_1, ...)
+        output = my_chain.symbolic_simple(input_0, input_1, ...)
 
     If, however, internals return updates, or the last function returns multiple
     updates, this will raise an Exception.

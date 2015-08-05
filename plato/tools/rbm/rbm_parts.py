@@ -1,4 +1,4 @@
-from plato.core import symbolic_stateless
+from plato.core import symbolic_simple
 from plato.interfaces.helpers import initialize_param, create_shared_variable
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 from theano import tensor as tt
@@ -11,7 +11,7 @@ __author__ = 'peter'
 
 
 
-@symbolic_stateless
+@symbolic_simple
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
     """
     An element which multiplies the input by some weight matrix w and adds a bias.
@@ -54,7 +54,7 @@ class FullyConnectedBridge(IParameterized, IFreeEnergy):
         return -visible.flatten(2).dot(self.b_rev) if self._use_bias else 0
 
 
-@symbolic_stateless
+@symbolic_simple
 class ConvolutionalBridge(IParameterized, IFreeEnergy):
 
     def __init__(self, w, b=0, b_rev=None, stride = (1, 1)):
@@ -82,7 +82,7 @@ class ConvolutionalBridge(IParameterized, IFreeEnergy):
         return -tt.sum(visible*self._b_rev.dimshuffle('x', 0, 'x', 'x'), axis = (2, 3))
 
 
-@symbolic_stateless
+@symbolic_simple
 class StochasticNonlinearity(IParameterized, IFreeEnergy):
     """
     A stochastic layer, which can also be called without the stochastic component

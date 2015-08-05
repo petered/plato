@@ -31,7 +31,7 @@ And feed it numeric data.
 assert f(3, 4) == 7
 
 You can also be more strict, and demand a specific interface from functions:
-@symbolic_stateless: If the function just returns a single variable and does not update state.
+@symbolic_simple: If the function just returns a single variable and does not update state.
 @symbolic_updater: If the function returns only state updates.
 @symbolic_standard: If the function returns (outputs, updates) as a tuple.
 
@@ -49,7 +49,7 @@ def symbolic(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
 
 
-def symbolic_stateless(fcn):
+def symbolic_simple(fcn):
     """
     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor.
     """

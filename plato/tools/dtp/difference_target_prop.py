@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import symbolic_updater, symbolic_stateless
+from plato.core import symbolic_updater, symbolic_simple
 from general.numpy_helpers import get_rng
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_squared_error
@@ -49,11 +49,11 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
         self.backward_optimizer = optimizer_constructor()
         self.cost_function = cost_function
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         return self.hidden_activation(x.dot(self.w)+self.b)
 
-    @symbolic_stateless
+    @symbolic_simple
     def backward(self, y):
         return self.input_activation(y.dot(self.w_rev) + self.b_rev)
 
@@ -72,7 +72,7 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
             parameters = [self.w_rev, self.b_rev])
         return forward_updates+backward_updates
 
-    @symbolic_stateless
+    @symbolic_simple
     def backpropagate_target(self, x, target):
         return x - self.backward(self.predict(x)) + self.backward(target)
 
@@ -162,7 +162,7 @@ class DifferenceTargetMLP(ISymbolicPredictor):
 
         return updates
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         for l in self.layers:
             x = l.predict(x)

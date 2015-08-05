@@ -1,5 +1,5 @@
 from plato.core import clear_tdb_traces
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 from plato.tools.misc.tdb_plotting import tdbplot
 from plotting.matplotlib_backend import ImagePlot, HistogramPlot
 from theano.tensor.shared_randomstreams import RandomStreams
@@ -10,7 +10,7 @@ __author__ = 'peter'
 
 def test_tdb_plotting():
 
-    @symbolic_stateless
+    @symbolic_simple
     def random_stuff():
 
         rng = RandomStreams(seed = None)

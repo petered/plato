@@ -1,5 +1,5 @@
 import numpy as np
-from plato.core import symbolic_stateless
+from plato.core import symbolic_simple
 from plato.interfaces.decorators import find_shared_ancestors
 from plato.tools.common.basic import softmax
 import theano
@@ -190,4 +190,4 @@ def get_named_activation_function(activation_name):
         'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
         'linear': lambda x: x
         }[activation_name]
-    return symbolic_stateless(fcn)
+    return symbolic_simple(fcn)

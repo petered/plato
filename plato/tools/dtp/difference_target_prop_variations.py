@@ -1,5 +1,5 @@
 from general.numpy_helpers import get_rng
-from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
+from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer
 import numpy as np
 import theano
@@ -19,7 +19,7 @@ class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
     We just want to see if this works (it does!  Maybe even better!)
     """
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         pre_sigmoid = x.dot(self.w)+self.b
         output = self.hidden_activation(pre_sigmoid)
@@ -43,14 +43,14 @@ class PerceptronLayer(ITargetPropLayer):
         self.b_rev = theano.shared(b_rev, name = 'b_rev')
         self.lin_dtp = lin_dtp
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         pre_sign = x.dot(self.w) + self.b
         output = (pre_sign > 0).astype('int32')
         output.pre_sign = pre_sign
         return output
 
-    @symbolic_stateless
+    @symbolic_simple
     def backward(self, x):
         pre_sign = x.dot(self.w_rev) + self.b_rev
         return (pre_sign > 0).astype('int32')

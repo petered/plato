@@ -1,11 +1,11 @@
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 from plato.interfaces.helpers import get_named_activation_function, create_shared_variable
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 import numpy as np
 
 
-@symbolic_stateless
+@symbolic_simple
 class MultiLayerPerceptron(IParameterized):
     """
     A Multi-Layer Perceptron
@@ -56,7 +56,7 @@ def normal_w_init(mag, seed = None):
     return lambda n_in, n_out: mag * rng.randn(n_in, n_out)
 
 
-@symbolic_stateless
+@symbolic_simple
 class Layer(IParameterized):
     """
     The composition of a linear transform and a nonlinearity.
@@ -85,7 +85,7 @@ class Layer(IParameterized):
         return self.linear_transform.parameters
 
 
-@symbolic_stateless
+@symbolic_simple
 class FullyConnectedTransform(IParameterized):
     """
     An element which multiplies the input by some weight matrix w and adds a bias.
@@ -125,7 +125,7 @@ class FullyConnectedTransform(IParameterized):
         return [self.w] + ([self.b] if self._use_bias else []) + ([self.log_scale] if self.log_scale is not None else [])
 
 
-@symbolic_stateless
+@symbolic_simple
 class ConvolutionalTransform(IParameterized):
 
     def __init__(self, w, b=0, stride = (1, 1)):

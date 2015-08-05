@@ -1,4 +1,4 @@
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 
 __author__ = 'peter'
 
@@ -18,7 +18,7 @@ class SupervisedTrainingFunction(object):
         return updates
 
 
-@symbolic_stateless
+@symbolic_simple
 class SupervisedTestFunction(object):
 
     def __init__(self, classifier, cost_function):

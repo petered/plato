@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 import numpy as np
-from plato.interfaces.decorators import symbolic_stateless, symbolic_standard
+from plato.interfaces.decorators import symbolic_simple, symbolic_standard
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.common.basic import softmax
 import theano
@@ -66,7 +66,7 @@ bernoulli_likelihood = lambda k, p: tt.switch(k, p, 1-p)  # or (p**k)*((1-p)**(1
 
 
 
-@symbolic_stateless
+@symbolic_simple
 def p_x_given(x, w, y, **p_w_given_kwargs):
     """
     Note that we can just switch around x and w if we want to sample x's.
@@ -86,7 +86,7 @@ def p_x_given(x, w, y, **p_w_given_kwargs):
 
 
 
-@symbolic_stateless
+@symbolic_simple
 def p_w_given(x, w, y, alpha=None, possible_vals = (0, 1), binary = True, prior = None, input2prob = tt.nnet.sigmoid):
     """
     We have the following situation:
@@ -127,7 +127,7 @@ def p_w_given(x, w, y, alpha=None, possible_vals = (0, 1), binary = True, prior 
         return p_w_alpha_wk
 
 
-@symbolic_stateless
+@symbolic_simple
 def compute_hypothetical_vs(x, w, alpha=None, possible_vals = (0, 1)):
     """
     We have v = x.dot(w)

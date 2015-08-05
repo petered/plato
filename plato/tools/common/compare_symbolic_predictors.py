@@ -1,5 +1,5 @@
 from collections import namedtuple
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -59,7 +59,7 @@ class CompareOnlinePredictors(object):
             classifier = cc()
             training_fcn = classifier.train.compile()
 
-            @symbolic_stateless
+            @symbolic_simple
             def symbolic_evaluation_fcn(inputs, labels):
                 predictions = classifier.predict(inputs)
                 score = self._evaluation_function(predictions, labels)

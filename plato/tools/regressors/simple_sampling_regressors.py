@@ -1,5 +1,5 @@
 import numpy as np
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.tools.common.online_predictors import ISymbolicPredictor
 from plato.tools.optimization.sampling import sample_categorical
 import theano
@@ -56,7 +56,7 @@ class GibbsRegressor(ISymbolicPredictor):
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
         return [(self._w, w_new), self._get_alpha_update()]
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         p_y = tt.nnet.sigmoid(x.dot(self._w))
         return self._rng.binomial(p = p_y) if self._sample_y else p_y

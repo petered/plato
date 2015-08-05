@@ -1,4 +1,4 @@
-from plato.interfaces.decorators import symbolic_updater, symbolic_stateless
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous, mean_xe, mean_squared_error
 from plato.tools.common.online_predictors import ISymbolicPredictor
@@ -29,7 +29,7 @@ class OnlineRegressor(ISymbolicPredictor, IParameterized):
             }[regressor_type]
         self.include_biases = include_biases
 
-    @symbolic_stateless
+    @symbolic_simple
     def predict(self, x):
         """
         :param x: An (n_samples, input_size) array of inputs

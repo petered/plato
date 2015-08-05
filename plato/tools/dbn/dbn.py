@@ -1,5 +1,5 @@
 from general.should_be_builtins import bad_value
-from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_stateless, SymbolicReturn
+from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_simple, SymbolicReturn
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import theano
 import theano.tensor as tt
@@ -141,7 +141,7 @@ class DeepBeliefNet(object):
 
         bridges = {(src, dest): b for (src, dest), b in self._bridges.iteritems() if src in visible_layers and dest in hidden_layers}
 
-        @symbolic_stateless
+        @symbolic_simple
         def free_energy(*visible_signals):
             """
             :param visible_signals: The inputs to the visible layer, each of shape (n_samples, n_dims)

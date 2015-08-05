@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from plato.interfaces.decorators import symbolic_stateless
+from plato.interfaces.decorators import symbolic_simple
 import theano.tensor as tt
 
 __author__ = 'peter'
@@ -17,7 +17,7 @@ class ICostFunction(object):
         :return: A symbolic scalar representing the cost
         """
 
-@symbolic_stateless
+@symbolic_simple
 def softmax_negative_log_likelihood(actual, target):
     """
     Do a softmax on the actual along axis 1 and then compute NLL
@@ -26,7 +26,7 @@ def softmax_negative_log_likelihood(actual, target):
     return negative_log_likelihood_dangerous(normalized_actual, target)
 
 
-@symbolic_stateless
+@symbolic_simple
 def negative_log_likelihood(actual, target):
     """
     :param actual: An (n_samples, n_labels) tensor where rows are normalized and actual[i,j] indicates the belief
@@ -38,13 +38,13 @@ def negative_log_likelihood(actual, target):
     return negative_log_likelihood_dangerous(actual, target)
 
 
-@symbolic_stateless
+@symbolic_simple
 def normalized_negative_log_likelihood(actual, target):
     normalized_actual = actual / tt.sum(actual, axis=1, keepdims=True)
     return negative_log_likelihood_dangerous(normalized_actual, target)
 
 
-@symbolic_stateless
+@symbolic_simple
 def negative_log_likelihood_dangerous(actual, target):
     """
     No assertion that your actual distribution is normalized here.  If you use this function and forget
@@ -57,33 +57,33 @@ def negative_log_likelihood_dangerous(actual, target):
     return -tt.log(actual[tt.arange(actual.shape[0]), target]).mean()
 
 
-@symbolic_stateless
+@symbolic_simple
 def mean_squared_error(actual, target):
     return tt.mean(tt.sum((actual-target)**2, axis = 1), axis = 0)
 
 
-@symbolic_stateless
+@symbolic_simple
 def mean_abs_error(actual, target):
     return tt.mean(tt.sum(abs(actual-target), axis = 1), axis = 0)
 
 
-@symbolic_stateless
+@symbolic_simple
 def percent_correct(actual, target):
     return tt.mean(tt.eq(tt.argmax(actual, axis=1), target), axis = 0) * 100
 
 
-@symbolic_stateless
+@symbolic_simple
 def mean_xe(actual, target):
     return tt.nnet.binary_crossentropy(actual, target).sum(axis=1).mean(axis=0)
 
 
-@symbolic_stateless
+@symbolic_simple
 def softmax_mean_xe(actual, target):
     normalized_actual = tt.nnet.softmax(actual)
     return mean_xe(normalized_actual, target)
 
 
-@symbolic_stateless
+@symbolic_simple
 def mean_cosine_distance(actual, target, eps = 1e-7):
     """
     Normalize each vector by their L2 and then return the negative-cosine-similarity.

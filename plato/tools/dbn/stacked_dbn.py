@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_stateless
+from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng, create_shared_variable
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 from theano.compile.sharedvalue import SharedVariable
@@ -148,7 +148,7 @@ class StackedDeepBeliefNet(IGenerativeNet):
     def __init__(self, rbms):
         self.rbms = rbms
 
-    @symbolic_stateless
+    @symbolic_simple
     def propup(self, visible, stochastic=True, to_layer = None):
         """
         :param visible: An (n_samples, n_visible_dims) tensor
@@ -161,7 +161,7 @@ class StackedDeepBeliefNet(IGenerativeNet):
             data = rbm.propup(data, stochastic = stochastic)
         return data
 
-    @symbolic_stateless
+    @symbolic_simple
     def propdown(self, hidden, stochastic=True, from_layer = None):
         """
         :param hidden: An (n_samples, n_hidden_dims) tensor
