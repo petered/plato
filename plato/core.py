@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from functools import partial
 import inspect
+import logging
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
@@ -384,44 +385,41 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
 
 class AutoCompilingFunction(object):
     """
-    Given a Symbolic function, turn it into a compiled function that will accept and return numpy arrays.
+    Given a Symbolic function, turn it into a compiled function that will accept and return numpy arrays.  Actual
+    compilation happens on the first use of the function, since it needs to see the arguments in order to instantiate
+    the input tensors. Generally you do not use this directly, instead, go:
 
-    Actual compilation happens on the first use of the function, since it needs to see the arguments in order to
-    instantiate the input tensors.
+        @symbolic
+        def my_function(x):
+            return x*2
+        f = my_function.compile()
+
+    f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', fixed_args = None):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
-        :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
-        :param mode: There are 3 modes:
-            'test_and_run': Same as run, but you pass through test values once before compilation.  This lets you
-                catch all sorts of errors.  You can also view test values by placing breakpoints, and viewing the
-                value var.tag.test_value where var is some tensor variable.
-        :param debug_vars: A dictionary of {debug_var_name: symbolic_debug_var}.  The values of these variables will
-            be accessible through the debug property.
+        :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
+            'float': Just cast floats to floatX
+            'all': Cast all inputs to floatX
+            None: Don't cast anything to floatX
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
         assert isinstance(fcn, SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
-        if mode == 'tr':
-            mode = 'test_and_run'
-        assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
 
-        self._fcn_class = type(fcn)
         self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
         self._original_fcn = fcn  # Needed for retrieveing locals hack
-        self._format = format
         self._compiled_fcn = None
-        self._cast_floats_to_floatX = cast_floats_to_floatX
-        self._mode = mode
+        self._cast_to_floatx = cast_to_floatx
         self._local_values = None
-
         self._callbacks = []
-        if mode in ('test_and_run', 'debug', 'omniscent'):
-            theano.config.compute_test_value = 'warn'
-            __builtins__['showloc'] = show_all_locals
-            __builtins__['locinfo'] = get_local_info
+
+        # Create convenient debugging functions: showloc() and locinfo()
+        theano.config.compute_test_value = 'warn'
+        __builtins__['showloc'] = show_all_locals
+        __builtins__['locinfo'] = get_local_info
 
     def __call__(self, *args, **kwargs):
         """
@@ -431,7 +429,7 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:
 
-            d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
+            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, test = True)
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
@@ -455,7 +453,7 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
 
         arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 
@@ -531,9 +529,30 @@ def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
-    # TODO:
+def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
+    """
+    Given the numpy data from the first function call, create the appropriate tensors
+    :param data: A numpy array, from the first call to the function.
+    :param name: Optionally, a name to give the variable.
+    :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
+        'float': Just cast floats to floatX
+        'all': Cast all inputs to floatX
+        None: Don't cast anything to floatX
+    :param test:
+    :return:
+    """
+    assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
+
+    warn_about_floatx = False  # Too many false positives.  Got to find a better way to give this warning.
+
+    if warn_about_floatx:
+        if isinstance(data, np.ndarray) and data.dtype in (int, bool) and theano.config.floatX == 'float32':
+            logging.warn("Your floatX (defined in ~/.theanorc) is float32, but you're passing in integer arrays to your function.  "
+                "The problem is that most operations involving a float32 array and an int array result in a float64 array.  So what "
+                "may happen is you may get a TypeError telling you that the update must have the same type as the original.  If you "
+                "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
+                "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
     is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, np.ndarray) and x.dtype == dtype
 
@@ -542,8 +561,8 @@ def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True
     # with 64 bit values.
 
     dtype = \
-        theano.config.floatX if (cast_floats_to_floatx and is_dtype(data, float)) else \
-        'int32' if (cast_floats_to_floatx and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
+        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_dtype(data, float))) else \
+        'int32' if (cast_to_floatx=='float' and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
         'int64' if isinstance(data, (bool, int)) else \
         'float64' if isinstance(data, float) else \
         'int8' if data.dtype==bool else \

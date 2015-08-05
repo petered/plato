@@ -29,7 +29,7 @@ def assert_online_predictor_not_broken(predictor_constructor, initial_score_unde
     :param n_extra_tests: Number of extra tests - you may set this to non-zero to see the progress of your predictor
         over training.
     """
-    dataset = get_synthetic_clusters_dataset()
+    dataset = get_synthetic_clusters_dataset(dtype = 'float32')
 
     if not categorical_target:
         dataset = dataset.process_with(targets_processor=multichannel(OneHotEncoding()))
