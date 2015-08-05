@@ -1,4 +1,5 @@
 import pickle
+from general.should_be_builtins import memoize
 
 from utils.datasets.datasets import DataSet, DataCollection
 from fileman.file_getter import get_file, unzip_gz
@@ -7,6 +8,7 @@ from fileman.file_getter import get_file, unzip_gz
 __author__ = 'peter'
 
 
+@memoize  # This should save time on tests and dataset should be immutable so it's all good.
 def get_mnist_dataset(n_training_samples = None, n_test_samples = None, flat = False, binarize = False):
     """
     The MNIST DataSet - the Drosophila of machine learning.

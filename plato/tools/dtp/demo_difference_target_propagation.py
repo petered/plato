@@ -42,8 +42,9 @@ def demo_run_dtp_on_mnist(
     if normalize_inputs:
         dataset = dataset.process_with(targets_processor=multichannel(lambda x: x/np.sum(x, axis = 1, keepdims=True)))
     if is_test_mode():
-        n_epochs = 0.001
-        minibatch_size=20
+        dataset = dataset.shorten(200)
+        n_epochs = 1
+        n_tests = 2
 
     predictor = DifferenceTargetMLP.from_initializer(
             input_size = dataset.input_size,
@@ -80,7 +81,14 @@ def demo_perceptron_dtp(
         minibatch_size=100,
         lin_dtp = True,
         ):
+
     dataset = get_mnist_dataset(flat = True).to_onehot()
+
+    if is_test_mode():
+        dataset = dataset.shorten(200)
+        n_epochs = 1
+        n_tests = 2
+
     predictor = DifferenceTargetMLP(
         layers=[PerceptronLayer.from_initializer(n_in, n_out, initial_mag=2, lin_dtp = lin_dtp)
                 for n_in, n_out in zip([dataset.input_size]+hidden_sizes, hidden_sizes+[dataset.target_size])],
@@ -109,9 +117,9 @@ def demo_compare_dtp_optimizers(
     dataset = get_mnist_dataset(flat = True).to_onehot()
 
     if is_test_mode():
-        dataset.shorten(200)
+        dataset = dataset.shorten(200)
         n_epochs = 1
-        n_tests = 3
+        n_tests = 2
 
     def make_dtp_net(optimizer_constructor, output_fcn):
         return DifferenceTargetMLP.from_initializer(
@@ -158,9 +166,9 @@ def demo_compare_dtp_methods(
         dataset = dataset.to_onehot()
 
     if is_test_mode():
-        dataset.shorten(200)
-        n_epochs = 0.1
-        n_tests = 3
+        dataset = dataset.shorten(200)
+        n_epochs = 1
+        n_tests = 2
 
     learning_curves = compare_predictors(
         dataset=dataset,

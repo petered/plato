@@ -1,3 +1,4 @@
+from fileman.experiment_record import run_experiment
 from general.test_mode import set_test_mode
 from plato.tools.rbm.demo_rbm_tutorial import demo_rbm_tutorial
 from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
@@ -7,8 +8,8 @@ from plato.examples.demo_prediction_example import compare_example_predictors
 from plato.tools.mlp.demo_mnist_mlp import demo_mnist_mlp
 from plato.tools.dbn.demo_dbn import demo_dbn_mnist
 from plato.tools.rbm.demo_rbm import demo_rbm_mnist
-from plato.tools.dtp.demo_difference_target_propagation import EXPERIMENTS as DTP_EXPERIMENTS
 from plato.tools.va.demo_gaussian_vae import demo_simple_vae_on_mnist
+import plato.tools.dtp.demo_difference_target_propagation  # Demo fetches experiments so don't remove.
 import pytest
 __author__ = 'peter'
 
@@ -48,9 +49,9 @@ def test_demo_lstm():
 
 def test_demo_difference_target_prop():
 
-    for exp, val in DTP_EXPERIMENTS.iteritems():
-        print 'Running %s' % (exp, )
-        val()
+    run_experiment('backprop-vs-dtp')
+    run_experiment('standard-dtp')
+    run_experiment('all-relu-LinDTP')
 
 
 def test_demo_simple_vae_on_mnist():
@@ -64,9 +65,9 @@ def test_rbm_tutorial():
 
 if __name__ == '__main__':
     set_test_mode(True)
+    test_demo_difference_target_prop()
     test_rbm_tutorial()
     test_demo_simple_vae_on_mnist()
-    test_demo_difference_target_prop()
     test_demo_lstm()
     test_demo_variational_autoencoder()
     test_demo_compare_optimizers()
