@@ -1,4 +1,5 @@
 from general.test_mode import set_test_mode
+from plato.tools.rbm import demo_rbm_tutorial
 from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
 from plato.tools.va import demo_variational_autoencoder
 from plato.tools.optimization.demo_compare_optimizers import get_experiments
@@ -55,6 +56,10 @@ def test_demo_difference_target_prop():
 def test_demo_simple_vae_on_mnist():
     demo_simple_vae_on_mnist(binary_x=True)
     demo_simple_vae_on_mnist(binary_x=False)
+
+
+def test_rbm_tutorial():
+    demo_rbm_tutorial()
 
 
 if __name__ == '__main__':

@@ -61,7 +61,6 @@ def demo_simple_dbn(
             dbplot(dbn2.rbms[1].w.get_value(), 'weights2')
             dbplot(sample_second_layer()[0].reshape(-1, 28, 28), 'samples2')
         train_second_layer(vis_data)
-        # dbn2.rbms[1].b_hid.set_value(np.zeros(n_hidden_2))
 
     # Project data to latent space.
     project_to_latent = dbn2.propup.compile(fixed_args = dict(stochastic = False))
@@ -75,5 +74,5 @@ def demo_simple_dbn(
 
 if __name__ == '__main__':
 
-    set_test_mode(True)
+    set_test_mode(False)
     demo_simple_dbn()

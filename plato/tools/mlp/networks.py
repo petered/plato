@@ -118,7 +118,7 @@ class StochasticNonlinearity(IParameterized, IFreeEnergy):
         """
         rng = RandomStreams(rng.randint(1e9) if rng is not None else None)
         self.activation_fcn = activation_fcn
-        self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._energy_fcn, self._params = \
+        self._smooth_activation_fcn, self._stochastic_activation_fcn, self._free_energy_fcn, self._params = \
             self._stochastic_layer_name_to_functions(activation_fcn, rng)
         self._shape = shape
 
@@ -170,17 +170,7 @@ class StochasticNonlinearity(IParameterized, IFreeEnergy):
         else:
             raise Exception('Unknown activation type: "%s"' (activation_type, ))
 
-        return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, energy_fcn, params
-
-
-# class LinearGaussianLayer(StochasticLayer(IParameterized)):
-#
-#     def __init__(self, rng = None, shape = None):
-#         rng = get_theano_rng(rng)
-#         self.mu = create_shared_variable(0, shape=shape)
-#
-#     def energy(self, state):
-#         return
+        return smooth_activation_fcn, stochastic_activation_fcn, free_energy_fcn, params
 
 
 @symbolic_stateless

@@ -8,6 +8,14 @@ import theano
 import numpy as np
 __author__ = 'peter'
 
+"""
+This file contains code for making a Deep Belief Net out of a stack of RBMs.
+See demo_stacked_dbn.py for usage.
+
+For a more complex DBN (in which you can configure your RBMs in an arbitrary graph and
+not just a chain) see dbn.py.  This one's more readable though.
+"""
+
 
 def bernoulli_activation(inputs, rng):
     """
@@ -142,28 +150,54 @@ class StackedDeepBeliefNet(IGenerativeNet):
 
     @symbolic_stateless
     def propup(self, visible, stochastic=True, to_layer = None):
+        """
+        :param visible: An (n_samples, n_visible_dims) tensor
+        :param stochastic: True if you want to stochastically propagate.  False otherwise.
+        :param to_layer: What layer to propagate to.  (None means top)
+        :return: An (n_samples, n_output_layer_dims) tensor
+        """
         data = visible
         for rbm in self.rbms[:to_layer]:
             data = rbm.propup(data, stochastic = stochastic)
         return data
 
     @symbolic_stateless
-    def propdown(self, hidden, stochastic=True, from_layer = -1):
+    def propdown(self, hidden, stochastic=True, from_layer = None):
+        """
+        :param hidden: An (n_samples, n_hidden_dims) tensor
+        :param stochastic: True if you want to stochastically propagate.  False otherwise.
+        :param from_layer: What layer to propagate down from (None means top)
+        :return: An (n_samples, n_hidden_dims) tensor
+        """
         data = hidden
         for rbm in self.rbms[from_layer::-1]:
             data = rbm.propdown(data)
         return data
 
     def get_training_fcn(self, **cd_params):
+        """
+        :param cd_params: named-args for function BaseRBM.get_training_fcn
+        :return: A symbolic function that takes a (n_samples, n_input_dims) tensor of visible data, and returns
+            state updates.
+        """
 
         @symbolic_updater
         def train(visible):
+            """
+            :param visible: A (n_samples, n_input_dims) tensor
+            :return: A list of updates
+            """
             top_rbm_visible = self.propup(visible, stochastic=False, to_layer=-1)
             top_rbm_training_fcn = self.rbms[-1].get_training_fcn(**cd_params)
             return top_rbm_training_fcn(top_rbm_visible)
         return train
 
     def get_sampling_fcn(self, initial_vis, n_steps):
+        """
+        :param initial_vis: An (n_samples, n_input_dims) array representing the initial visible samples
+        :param n_steps: Number of steps to bounce on each call.
+        :return: A function that returns an (n_samples, n_input_dims) tensor of samples.
+        """
         initial_vis = create_shared_variable(initial_vis)
         initial_top_vis = self.propup(initial_vis, to_layer=-1)
         top_sampling_fcn = self.rbms[-1].get_sampling_fcn(initial_vis= initial_top_vis, n_steps=n_steps)
@@ -176,7 +210,8 @@ class StackedDeepBeliefNet(IGenerativeNet):
 
     def stack_another(self, rbm):
         """
-        :param rbm: Return a stacked DBN with one more layer
-        :return:
+        Return a stacked DBN with one more layer
+        :param rbm: The new RBM
+        :return: The new StackedDeepBeliefNet (with the new RBM on top)
         """
         return StackedDeepBeliefNet(self.rbms + [rbm])
