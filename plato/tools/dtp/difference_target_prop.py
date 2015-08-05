@@ -1,5 +1,5 @@
 from general.numpy_helpers import get_rng
-from plato.core import symbolic_updater, symbolic_stateless, tdbprint
+from plato.core import symbolic_updater, symbolic_stateless
 from abc import abstractmethod
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_squared_error
@@ -187,8 +187,6 @@ class PerceptronLayer(object):
         recon = self.backward(out)
         delta_w_rev = out.T.dot(x - recon)
         delta_b_rev = (x - recon).sum(axis = 0)
-
-        tdbprint(tt.max(self.w), 'max-w')
 
         return [(self.w, self.w+delta_w), (self.b, self.b+delta_b), (self.w_rev, self.w_rev+delta_w_rev), (self.b_rev, self.b_rev+delta_b_rev)]
 

@@ -8,6 +8,9 @@ import numpy as np
 class DeepBeliefNet(object):
     """
     A Deep Belief Network.  This class contains methods for doing training and inference on a DBN.
+
+    This class is made to be highly configurable, but not necessairily "easy-to-read" so it's not recommended as tutorial
+    code.
     """
 
     def __init__(self, layers, bridges):

@@ -6,6 +6,7 @@ from utils.bureaucracy import minibatch_iterate
 from utils.datasets.books import read_book
 import numpy as np
 from utils.tools.processors import OneHotEncoding
+import theano
 
 
 def demo_lstm_novelist(
@@ -62,11 +63,10 @@ def demo_lstm_novelist(
 
     for i, verse in enumerate(minibatch_iterate(onehot_text, minibatch_size=verse_duration, n_epochs=n_epochs)):
         if i % generate_every == 0:
-            printer.write('[iter %s]%s' % (i, prime_and_generate(n_steps = 100), ))
+            printer.write('[iter %s]%s' % (i, prime_and_generate(n_steps = generation_duration), ))
         training_fcn(verse)
 
-    trained_verses, _, _ = generating_fcn(generation_duration)
-    display_generated('Final', onehot_to_text(trained_verses, decode_key))
+    display_generated('Final', prime_and_generate(n_steps=generation_duration))
 
 
 def display_generated(title, text):
@@ -85,7 +85,7 @@ def text_to_onehot(text, decode_key = None):
         decode_key, assignments = np.unique(text_array, return_inverse=True)
     else:
         assignments = np.searchsorted(decode_key, text_array)
-    onehot = OneHotEncoding(n_classes=len(decode_key), dtype = np.float32)(assignments)
+    onehot = OneHotEncoding(n_classes=len(decode_key), dtype = theano.config.floatX)(assignments)
     return onehot, decode_key
 
 

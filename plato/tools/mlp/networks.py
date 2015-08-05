@@ -1,5 +1,5 @@
 from plato.interfaces.decorators import symbolic_stateless
-from plato.interfaces.helpers import initialize_param
+from plato.interfaces.helpers import initialize_param, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
 import theano.tensor as tt
 import theano
@@ -56,16 +56,16 @@ def normal_w_init(mag, seed = None):
 class Layer(IParameterized):
 
     def __init__(self, linear_transform, nonlinearity):
+        """
+        linear_transform: Can be:
+            A callable (e.g. FullyConnectedBridge/ConvolutionalBridge) which does a linear transform on the data.
+            A numpy array - in which case it will be used to instantiate a linear transform.
+        """
+        if isinstance(linear_transform, np.ndarray):
+            assert linear_transform.ndim == 2, 'This just works for 2-d arrays right now.'
+            linear_transform = FullyConnectedBridge(w=linear_transform)
         if isinstance(nonlinearity, str):
-            nonlinearity = {
-                'sig': tt.nnet.sigmoid,
-                'lin': lambda x: x,
-                'tanh': tt.tanh,
-                'rect-lin': lambda x: tt.maximum(0, x),
-                'relu': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x),
-                'exp': lambda x: tt.exp(x)
-            }[nonlinearity]
+            nonlinearity = get_named_activation_function(nonlinearity)
         self.linear_transform = linear_transform
         self.nonlinearity = nonlinearity
 
@@ -91,15 +91,7 @@ class Nonlinearity(object):
             {'sig', 'lin', 'tanh', 'rect-lin', 'softmax'}
         """
         if isinstance(activation_fcn, str):
-            activation_fcn = {
-                'sig': tt.nnet.sigmoid,
-                'lin': lambda x: x,
-                'tanh': tt.tanh,
-                'rect-lin': lambda x: tt.maximum(0, x),
-                'relu': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x),
-                'exp': lambda x: tt.exp(x)
-            }[activation_fcn]
+            activation_fcn = get_named_activation_function(activation_fcn)
         self._activation_fcn = activation_fcn
 
     def __call__(self, *input_currents):
