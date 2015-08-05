@@ -51,6 +51,10 @@ def test_demo_difference_target_prop():
         val()
 
 
+def test_demo_simple_vae_on_mnist():
+    test_demo_simple_vae_on_mnist()
+
+
 if __name__ == '__main__':
     set_test_mode(True)
     test_demo_difference_target_prop()

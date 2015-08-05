@@ -198,6 +198,10 @@ def convert_formats(data, src_format, dest_format):
         assert len(updates) == 0, 'Cannot convert to single-return format if there are state updates.'
         assert len(outputs) == 1, "Can only convert to single-return format if there's a single return value.  Got %s" % (len(outputs), )
         return outputs[0]
+    elif src_format is StandardFormat and dest_format is MultiOutputFormat:
+        outputs, updates = data
+        assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
+        return outputs
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -376,7 +380,7 @@ class AutoCompilingFunction(object):
         assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
 
         self._fcn_class = type(fcn)
-        self._fcn = fcn if fixed_args is None else partial(fcn, **fixed_args)
+        self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
         self._original_fcn = fcn  # Needed for retrieveing locals hack
         self._format = format
         self._compiled_fcn = None

@@ -38,7 +38,7 @@ class Chain(IParameterized):
         out = args
         updates = []
         for p in self._processors:
-            out, these_updates = p.symbolic_standard(*out)
+            out, these_updates = p.to_format(symbolic_standard)(*out)
             updates += these_updates
         return out, updates
 
@@ -58,8 +58,10 @@ class Branch(IParameterized):
         self._processors = processors
 
     def __call__(self, x):
-        outputs = tuple(p.symbolic_stateless(x) for p in self._processors)
-        return outputs, []
+        results = tuple(p.to_format(symbolic_standard)(x) for p in self._processors)
+        outputs = sum([o for o, _ in results], ())
+        updates = sum([u for _, u in results], [])
+        return outputs, updates
 
     @property
     def parameters(self):
