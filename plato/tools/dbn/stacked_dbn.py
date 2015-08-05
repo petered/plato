@@ -17,7 +17,7 @@ def bernoulli_activation(inputs, rng):
     """
     p = tt.nnet.sigmoid(inputs)
     if rng is not None:
-        return rng.binomial(p=p, size = p.tag.test_value.shape, dtype = theano.config.floatX)
+        return rng.binomial(p=p, size = p.shape, dtype = theano.config.floatX)
     else:
         return p
 
@@ -26,7 +26,7 @@ def linear_gaussian_activation(inputs, rng):
     if rng is None:
         return inputs
     else:
-        return rng.normal(size = inputs.tag.test_value.shape, avg = inputs, std = 1, dtype = theano.config.floatX)
+        return rng.normal(size = inputs.shape, avg = inputs, std = 1, dtype = theano.config.floatX)
 
 
 class IGenerativeNet(object):
