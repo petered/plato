@@ -20,7 +20,7 @@ class GaussianVariationalAutoencoder(object):
     """
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],
-                 hidden_activation = 'tanh', w_init_mag = 0.01, x_distribution = 'gaussian',
+                 hidden_activation = 'tanh', w_init_mag = 0.01, binary_data = False,
                  optimizer = AdaMax(alpha = 0.01), rng = None):
         """
         :param x_dim: Dimensionsality of the data
@@ -29,7 +29,8 @@ class GaussianVariationalAutoencoder(object):
         :param decoder_hidden_sizes: A list of sizes of each hidden layer in the dencoder
         :param hidden_activation: Activation function for all hidden layers
         :param w_init_mag: Magnitude of initial weights
-        :param x_distribution: Data distribution.  Can be 'bernoilli' or 'gaussian'
+        :param binary_data: Chose if data is binary.  You can also use this if data is bound in [0, 1] - then we can think
+            of it as being the expected value.
         :param optimizer: An IGradientOptimizer object for doing parameter updates
             ... see plato.tools.optimization.optimizers
         :param rng: A random number generator or random seed.
@@ -38,23 +39,21 @@ class GaussianVariationalAutoencoder(object):
 
         encoder_layer_sizes = [x_dim]+encoder_hidden_sizes
         self.encoder_hidden_layers = [Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
-            for n_in, n_out in zip(encoder_layer_sizes[:-1], encoder_layer_sizes[1:])]
+                                      for n_in, n_out in zip(encoder_layer_sizes[:-1], encoder_layer_sizes[1:])]
         self.encoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
         self.encoder_log_var_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
 
         decoder_layer_sizes = [z_dim] + decoder_hidden_sizes
         self.decoder_hidden_layers = [Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
-            for n_in, n_out in zip(decoder_layer_sizes[:-1], decoder_layer_sizes[1:])]
-        if x_distribution == 'gaussian':
-            self.decoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
-            self.decoder_log_var_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
-        elif x_distribution == 'bernoulli':
+                                      for n_in, n_out in zip(decoder_layer_sizes[:-1], decoder_layer_sizes[1:])]
+        if binary_data:
             self.decoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='sigm')
         else:
-            bad_value(x_distribution, "Should be 'gaussian' or 'bernoulli'")
+            self.decoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
+            self.decoder_log_var_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
 
         self.rng = get_theano_rng(np_rng)
-        self.x_distribution = x_distribution
+        self.binary_data = binary_data
         self.x_size = x_dim
         self.z_size = z_dim
         self.optimizer = optimizer
@@ -71,15 +70,13 @@ class GaussianVariationalAutoencoder(object):
         z_sigma_sq = tt.exp(z_log_var)
         kl_divergence = -.5*tt.sum(1+tt.log(z_sigma_sq) - z_mean**2 - z_sigma_sq, axis = 1)
 
-        if self.x_distribution == 'gaussian':
-            x_mean, x_log_var = self.decode(z_sample)
-            x_sigma_sq = tt.exp(x_log_var)
-            log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-0.5*(x_samples-x_mean)**2/x_sigma_sq, axis = 1)
-        elif self.x_distribution == 'bernoulli':
+        if self.binary_data:
             x_mean = self.decode(z_sample)
             log_prop_data = tt.sum(x_samples*tt.log(x_mean) + (1-x_samples)*tt.log(1-x_mean), axis = 1)
         else:
-            bad_value(self.x_distribution)
+            x_mean, x_log_var = self.decode(z_sample)
+            x_sigma_sq = tt.exp(x_log_var)
+            log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-0.5*(x_samples-x_mean)**2/x_sigma_sq, axis = 1)
 
         lower_bound = -kl_divergence + log_prop_data
         updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
@@ -109,12 +106,12 @@ class GaussianVariationalAutoencoder(object):
         h=z
         for layer in self.decoder_hidden_layers:
             h = layer(h)
-        if self.x_distribution == 'gaussian':
+        if self.binary_data:
+            return self.decoder_mean_layer(h)
+        else:
             x_means = self.decoder_mean_layer(h)
             x_log_vars = self.decoder_log_var_layer(h)
             return x_means, x_log_vars
-        elif self.x_distribution == 'bernoulli':
-            return self.decoder_mean_layer(h)
 
     @symbolic_stateless
     def sample(self, n_samples):
@@ -124,19 +121,18 @@ class GaussianVariationalAutoencoder(object):
         :return:
         """
         z_samples = self.rng.normal(size = (n_samples, self.z_size))
-        if self.x_distribution == 'gaussian':
-            x_mean, x_log_var = self.decode(z_samples)
-            x_samples = x_mean + self.rng.normal(size = (n_samples, self.x_size)) * tt.exp(x_log_var)
-        elif self.x_distribution == 'bernoulli':
+
+        if self.binary_data:
             x_mean = self.decode(z_samples)
             x_samples = self.rng.binomial(p=x_mean, size = x_mean.shape)
         else:
-            bad_value(self.x_distribution)
+            x_mean, x_log_var = self.decode(z_samples)
+            x_samples = x_mean + self.rng.normal(size = (n_samples, self.x_size)) * tt.exp(x_log_var)
         return x_samples
 
     @property
     def parameters(self):
         all_params = sum([l.parameters for l in self.encoder_hidden_layers], []) + self.encoder_mean_layer.parameters + self.encoder_log_var_layer.parameters \
             + sum([l.parameters for l in self.decoder_hidden_layers], []) + self.decoder_mean_layer.parameters \
-            + (self.decoder_log_var_layer.parameters if self.x_distribution=='gaussian' else [])
+            + (self.decoder_log_var_layer.parameters if not self.binary_data else [])
         return all_params

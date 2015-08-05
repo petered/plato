@@ -17,6 +17,7 @@ def demo_simple_vae_on_mnist(
         hidden_sizes = [200],
         learning_rate = 0.003,
         hidden_activation = 'relu',
+        binary_x = True,
         w_init_mag = 0.01,
         manifold_grid_size = 11,
         manifold_grid_span = 2,
@@ -42,7 +43,7 @@ def demo_simple_vae_on_mnist(
         encoder_hidden_sizes = hidden_sizes,
         decoder_hidden_sizes = hidden_sizes[::-1],
         w_init_mag = w_init_mag,
-        x_distribution='bernoulli',
+        binary_data=binary_x,
         hidden_activation = hidden_activation,
         optimizer=AdaMax(alpha = learning_rate),
         rng = seed
@@ -64,7 +65,11 @@ def demo_simple_vae_on_mnist(
             print 'Epoch %s' % (i*minibatch_size/50000., )
             samples = sampling_fcn(25).reshape(5, 5, 28, 28)
             dbplot(samples, 'Samples from Model')
-            dbplot(decoder_mean_fcn().reshape(manifold_grid_size, manifold_grid_size, 28, 28), 'First 2-dimensions of manifold.')
+            if binary_x:
+                manifold_means = decoder_mean_fcn()
+            else:
+                manifold_means, _ = decoder_mean_fcn()
+            dbplot(manifold_means.reshape(manifold_grid_size, manifold_grid_size, 28, 28), 'First 2-dimensions of manifold.')
 
 
 if __name__ == '__main__':

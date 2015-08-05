@@ -300,6 +300,8 @@ def detect_return_value(return_info, return_outputs_in_tuple = False):
     """
     if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
         outputs, updates = return_info
+        if isinstance(updates, OrderedUpdates):
+            updates = [(k, v) for k, v in updates.iteritems()]
     elif isinstance(return_info, SymbolicReturn):
         outputs, updates = return_info
     elif _is_updates_list(return_info):

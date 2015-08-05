@@ -7,6 +7,7 @@ from plato.tools.mlp.demo_mnist_mlp import demo_mnist_mlp
 from plato.tools.dbn.demo_dbn import demo_dbn_mnist
 from plato.tools.rbm.demo_rbm import demo_rbm_mnist
 from plato.tools.dtp.demo_difference_target_propagation import EXPERIMENTS as DTP_EXPERIMENTS
+from plato.tools.va.demo_gaussian_vae import demo_simple_vae_on_mnist
 import pytest
 __author__ = 'peter'
 
@@ -52,16 +53,18 @@ def test_demo_difference_target_prop():
 
 
 def test_demo_simple_vae_on_mnist():
-    test_demo_simple_vae_on_mnist()
+    demo_simple_vae_on_mnist(binary_x=True)
+    demo_simple_vae_on_mnist(binary_x=False)
 
 
 if __name__ == '__main__':
     set_test_mode(True)
-    test_demo_difference_target_prop()
+    # test_demo_simple_vae_on_mnist()
+    # test_demo_difference_target_prop()
     test_demo_lstm()
-    test_demo_variational_autoencoder()
-    test_demo_compare_optimizers()
-    test_demo_prediction_example()
-    test_demo_mnist_mlp()
-    test_demo_rbm_mnist()
-    test_demo_dbn_mnist()
+    # test_demo_variational_autoencoder()
+    # test_demo_compare_optimizers()
+    # test_demo_prediction_example()
+    # test_demo_mnist_mlp()
+    # test_demo_rbm_mnist()
+    # test_demo_dbn_mnist()
