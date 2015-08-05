@@ -48,7 +48,7 @@ def demo_variational_autoencoder(
         rng = rng
         )
 
-    training_fcn = model.train.compile(mode = 'tr')
+    training_fcn = model.train.compile()
 
     sampling_fcn = model.sample.compile()
 

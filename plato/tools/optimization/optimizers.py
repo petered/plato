@@ -159,9 +159,9 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
 def get_named_optimizer(name, learning_rate):
     """
     Convenience function for easily specifying optimizers.
-    :param name:
-    :param learning_rate:
-    :return:
+    :param name: The name of the optimizer
+    :param learning_rate: A scalar, representing the parameter that's most equivalent to a learning rate.
+    :return: An IGradientOptimizer object.
     """
     return {
         'sgd': SimpleGradientDescent(eta = learning_rate),

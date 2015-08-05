@@ -48,7 +48,7 @@ class MultiLayerPerceptron(IParameterized):
 
     @property
     def parameters(self):
-         return sum([l.parameters for l in self.layers], [])
+        return sum([l.parameters for l in self.layers], [])
 
 
 def normal_w_init(mag, seed = None):

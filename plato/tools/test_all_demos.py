@@ -38,12 +38,10 @@ def test_demo_prediction_example():
     compare_example_predictors()
 
 
-@pytest.mark.skipif(True, reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
 def test_demo_variational_autoencoder():
     demo_variational_autoencoder()
 
 
-@pytest.mark.skipif(True, reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
 def test_demo_lstm():
     demo_lstm_novelist()
 

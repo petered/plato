@@ -9,8 +9,6 @@ from theano.tensor.shared_randomstreams import RandomStreams
 __author__ = 'peter'
 
 
-
-
 @symbolic_simple
 class FullyConnectedBridge(IParameterized, IFreeEnergy):
     """
