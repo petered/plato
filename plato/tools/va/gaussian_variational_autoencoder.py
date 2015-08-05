@@ -1,5 +1,4 @@
 from general.numpy_helpers import get_rng
-from general.should_be_builtins import bad_value
 import numpy as np
 from plato.core import symbolic, symbolic_updater, symbolic_stateless
 from plato.interfaces.helpers import get_theano_rng
@@ -38,19 +37,19 @@ class GaussianVariationalAutoencoder(object):
         np_rng = get_rng(rng)
 
         encoder_layer_sizes = [x_dim]+encoder_hidden_sizes
-        self.encoder_hidden_layers = [Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
+        self.encoder_hidden_layers = [Layer(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
                                       for n_in, n_out in zip(encoder_layer_sizes[:-1], encoder_layer_sizes[1:])]
-        self.encoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
-        self.encoder_log_var_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
+        self.encoder_mean_layer = Layer(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
+        self.encoder_log_var_layer = Layer(w_init=w_init_mag*np_rng.randn(encoder_layer_sizes[-1], z_dim), nonlinearity='linear')
 
         decoder_layer_sizes = [z_dim] + decoder_hidden_sizes
-        self.decoder_hidden_layers = [Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
+        self.decoder_hidden_layers = [Layer(w_init=w_init_mag*np_rng.randn(n_in, n_out), nonlinearity=hidden_activation)
                                       for n_in, n_out in zip(decoder_layer_sizes[:-1], decoder_layer_sizes[1:])]
         if binary_data:
-            self.decoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='sigm')
+            self.decoder_mean_layer = Layer(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='sigm')
         else:
-            self.decoder_mean_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
-            self.decoder_log_var_layer = Layer.from_initial_w(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
+            self.decoder_mean_layer = Layer(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
+            self.decoder_log_var_layer = Layer(w_init=w_init_mag*np_rng.randn(decoder_layer_sizes[-1], x_dim), nonlinearity='linear')
 
         self.rng = get_theano_rng(np_rng)
         self.binary_data = binary_data
@@ -117,11 +116,10 @@ class GaussianVariationalAutoencoder(object):
     def sample(self, n_samples):
         """
         Draw samples from the model
-        :param n_samples:
-        :return:
+        :param n_samples: The number of samples to draw
+        :return: An (n_samples, x_dims) array of model samples.
         """
         z_samples = self.rng.normal(size = (n_samples, self.z_size))
-
         if self.binary_data:
             x_mean = self.decode(z_samples)
             x_samples = self.rng.binomial(p=x_mean, size = x_mean.shape)

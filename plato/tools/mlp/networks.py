@@ -56,6 +56,14 @@ def normal_w_init(mag, seed = None):
 class Layer(IParameterized):
 
     def __init__(self, linear_transform, nonlinearity):
+        """
+        linear_transform: Can be:
+            A callable (e.g. FullyConnectedBridge/ConvolutionalBridge) which does a linear transform on the data.
+            A numpy array - in which case it will be used to instantiate a linear transform.
+        """
+        if isinstance(linear_transform, np.ndarray):
+            assert linear_transform.ndim == 2, 'This just works for 2-d arrays right now.'
+            linear_transform = FullyConnectedBridge(w=linear_transform)
         if isinstance(nonlinearity, str):
             nonlinearity = get_named_activation_function(nonlinearity)
         self.linear_transform = linear_transform
@@ -68,17 +76,6 @@ class Layer(IParameterized):
     @property
     def parameters(self):
         return self.linear_transform.parameters
-
-    @staticmethod
-    def from_initial_w(w_init, nonlinearity):
-        """
-        w_init is a numpy array.
-        """
-        return Layer(
-            linear_transform = FullyConnectedBridge(w=w_init),
-            nonlinearity = get_named_activation_function(nonlinearity)
-        )
-
 
 
 @symbolic_stateless
