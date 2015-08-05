@@ -1,8 +1,7 @@
 from general.numpy_helpers import get_rng
 from plato.interfaces.decorators import symbolic_stateless, symbolic_updater
-from plato.tools.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer
+from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer
 import numpy as np
-from plato.tools.optimizers import AdaMax
 import theano
 
 __author__ = 'peter'

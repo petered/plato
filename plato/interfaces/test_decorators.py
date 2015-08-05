@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from pytest import raises
 from plato.core import symbolic_stateless, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces
 import pytest
 import theano
 import numpy as np
@@ -293,6 +293,8 @@ def test_debug_trace():
 
     assert f(3, 5) == 4
     assert get_tdb_traces()['sum_a_b'] == 8
+    clear_tdb_traces()  # Needed due to unresolved thing where the drace callback happens on every symbolic function call in the future somehow.
+
 
 
 def test_named_arguments():
@@ -321,7 +323,52 @@ def test_named_arguments():
     assert f(2, y=4, z=3.) == 2
 
 
+def test_strrep():
+    """
+    Just make sure that our wrappers communicate what types they're wrapping - otherwise it becomes a pain to debug.
+    :return:
+    """
+
+    # Function
+    @symbolic
+    def do_thing(x):
+        return x*3
+
+    assert 'do_thing' in str(do_thing)
+    f = do_thing.compile()
+    assert 'do_thing' in str(f)
+
+    # Callable class
+    @symbolic
+    class Thing(object):
+
+        def __call__(self, x):
+            return x*2
+
+    t = Thing()
+    assert 'Thing' in str(t)
+
+    f_t = t.compile()
+    assert 'Thing' in str(f_t)
+
+    # Class with method
+    class MultiplyBy(object):
+
+        def __init__(self, x):
+            self.x=x
+
+        @symbolic
+        def mult(self, y):
+            return self.x*y
+
+    m = MultiplyBy(3)
+    assert 'MultiplyBy' in str(m.mult) and 'mult' in str(m.mult)
+    f_m = m.mult.compile()
+    assert 'MultiplyBy' in str(f_m) and 'mult' in str(f_m)
+
+
 if __name__ == '__main__':
+    test_strrep()
     test_omniscence()
     test_named_arguments()
     test_stateless_symbolic_function()

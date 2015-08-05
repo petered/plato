@@ -1,8 +1,8 @@
 from general.test_mode import is_test_mode
-from plato.tools.cost import negative_log_likelihood_dangerous
-from plato.tools.networks import MultiLayerPerceptron, normal_w_init
-from plato.tools.online_prediction.online_predictors import GradientBasedPredictor
-from plato.tools.optimizers import SimpleGradientDescent
+from plato.tools.optimization.cost import negative_log_likelihood_dangerous
+from plato.tools.mlp.networks import MultiLayerPerceptron, normal_w_init
+from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.optimization.optimizers import SimpleGradientDescent
 from sklearn.ensemble.forest import RandomForestClassifier
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors

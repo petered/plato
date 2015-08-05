@@ -1,6 +1,6 @@
 import numpy as np
 from plato.interfaces.decorators import find_shared_ancestors
-from plato.tools.basic import softmax
+from plato.tools.common.basic import softmax
 import theano
 from theano import Variable
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
@@ -100,7 +100,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     if isinstance(shape, int):
         shape = (shape, )
 
-    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype=='float' else x
+    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype in ('float', 'float64', 'float32') else x
 
     if np.isscalar(initial_value):
         if shape is None:
@@ -136,13 +136,16 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     return variable, params, variable_shape
 
 
-def create_shared_variable(initializer_fcn, shape = None, name = None):
+def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True):
     """
-    :param initializer_fcn: A function that takes a shape and returns a numpy array.
+    :param initializer_fcn: Can be:
+        - An array.  It may be cast to floatX.  It's verified with shape if shape is provided
+        - A function which takes the shape and turns it into the array.
+        - A scalar, in which case it's broadcase over shape.
     :param shape: Either a tuple or an integer
     :return: A shared variable, containing the numpy array returned by the initializer.
     """
-    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name)
+    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX)
     return shared_var
 
 

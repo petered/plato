@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from functools import partial
 import inspect
+import logging
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
@@ -89,31 +90,49 @@ def _decorate_callable_class(callable_class, input_format, output_format):
                 SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format)
                 callable_class.__init__(self, *args, **kwargs)
 
+            def fcn_str(self):
+                return '<%s object at %s>' % (callable_class.__name__, hex(id(self)))
+
     return CallableSymbolicFunction
 
 
 class SymbolicFunctionWrapper(object):
+    """
+    For internal use only.  Use decorators
+    """
 
-    def __init__(self, fcn, input_format = None, output_format = None):
+    def __init__(self, fcn, input_format = None, output_format = None, attached_instance = None):
+        """
+        :param fcn: The function being wrapped
+        :param input_format: An IFormat object representing the input format
+        :param output_format: An IFormat object representing the output format
+        :param attached_instance: Will be None, unless called from __get__ (for methods)
+        """
         self.fcn = fcn
         self.input_format = input_format
         self.output_format = output_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
         self._captured_locals = {}
+        self.attached_instance = attached_instance
 
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
 
         if ENABLE_OMNISCENCE:
             with CaptureLocals() as c:
-                symbolic_return = self.fcn(*args, **kwargs)
+                if self.attached_instance is None:
+                    symbolic_return = self.fcn(*args, **kwargs)
+                else:
+                    symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
             captured_anything = c.get_captured_locals()
             captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
             captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
             self._captured_locals = captured_locals
-
         else:
-            symbolic_return = self.fcn(*args, **kwargs)
+            if self.attached_instance is None:
+                symbolic_return = self.fcn(*args, **kwargs)
+            else:
+                symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
         self.output_format.check(symbolic_return)
         return symbolic_return
 
@@ -147,7 +166,16 @@ class SymbolicFunctionWrapper(object):
         if instance in self._dispatched_methods:
             return self._dispatched_methods[instance]
         else:
-            return SymbolicFunctionWrapper(lambda *args, **kwargs: self.fcn(instance, *args, **kwargs), input_format=self.input_format, output_format=self.output_format)
+            return SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, attached_instance=instance)
+
+    def fcn_str(self):
+        if self.attached_instance is None:
+            return self.fcn.__str__()
+        else:
+            return '%s.%s' % (self.attached_instance.__str__(), self.fcn.__str__())
+
+    def __str__(self):
+        return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
 
     def locals(self):
         return self._captured_locals
@@ -198,6 +226,10 @@ def convert_formats(data, src_format, dest_format):
         assert len(updates) == 0, 'Cannot convert to single-return format if there are state updates.'
         assert len(outputs) == 1, "Can only convert to single-return format if there's a single return value.  Got %s" % (len(outputs), )
         return outputs[0]
+    elif src_format is StandardFormat and dest_format is MultiOutputFormat:
+        outputs, updates = data
+        assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
+        return outputs
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -296,6 +328,8 @@ def detect_return_value(return_info, return_outputs_in_tuple = False):
     """
     if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
         outputs, updates = return_info
+        if isinstance(updates, OrderedUpdates):
+            updates = [(k, v) for k, v in updates.iteritems()]
     elif isinstance(return_info, SymbolicReturn):
         outputs, updates = return_info
     elif _is_updates_list(return_info):
@@ -351,44 +385,41 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
 
 class AutoCompilingFunction(object):
     """
-    Given a Symbolic function, turn it into a compiled function that will accept and return numpy arrays.
+    Given a Symbolic function, turn it into a compiled function that will accept and return numpy arrays.  Actual
+    compilation happens on the first use of the function, since it needs to see the arguments in order to instantiate
+    the input tensors. Generally you do not use this directly, instead, go:
 
-    Actual compilation happens on the first use of the function, since it needs to see the arguments in order to
-    instantiate the input tensors.
+        @symbolic
+        def my_function(x):
+            return x*2
+        f = my_function.compile()
+
+    f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_floats_to_floatX = True, mode = 'test_and_run', fixed_args = None):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
-        :param cast_floats_to_floatX: Case all floats to the global float type (define this in ~/.theanorc).
-        :param mode: There are 3 modes:
-            'test_and_run': Same as run, but you pass through test values once before compilation.  This lets you
-                catch all sorts of errors.  You can also view test values by placing breakpoints, and viewing the
-                value var.tag.test_value where var is some tensor variable.
-        :param debug_vars: A dictionary of {debug_var_name: symbolic_debug_var}.  The values of these variables will
-            be accessible through the debug property.
+        :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
+            'float': Just cast floats to floatX
+            'all': Cast all inputs to floatX
+            None: Don't cast anything to floatX
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
         assert isinstance(fcn, SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
-        if mode == 'tr':
-            mode = 'test_and_run'
-        assert mode in ('run', 'test_and_run', 'debug', 'omniscent')
 
-        self._fcn_class = type(fcn)
-        self._fcn = fcn if fixed_args is None else partial(fcn, **fixed_args)
+        self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
         self._original_fcn = fcn  # Needed for retrieveing locals hack
-        self._format = format
         self._compiled_fcn = None
-        self._cast_floats_to_floatX = cast_floats_to_floatX
-        self._mode = mode
+        self._cast_to_floatx = cast_to_floatx
         self._local_values = None
-
         self._callbacks = []
-        if mode in ('test_and_run', 'debug', 'omniscent'):
-            theano.config.compute_test_value = 'warn'
-            __builtins__['showloc'] = show_all_locals
-            __builtins__['locinfo'] = get_local_info
+
+        # Create convenient debugging functions: showloc() and locinfo()
+        theano.config.compute_test_value = 'warn'
+        __builtins__['showloc'] = show_all_locals
+        __builtins__['locinfo'] = get_local_info
 
     def __call__(self, *args, **kwargs):
         """
@@ -398,7 +429,7 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:
 
-            d2t = partial(_data_to_tensor, cast_floats_to_floatx = self._cast_floats_to_floatX, test = self._mode in ('test_and_run', 'debug', 'omniscent'))
+            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, test = True)
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
@@ -422,7 +453,7 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_floats_to_floatX)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
 
         arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 
@@ -449,6 +480,9 @@ class AutoCompilingFunction(object):
             c()
 
         return true_out
+
+    def __str__(self):
+        return 'Compiled form of %s' % (self._original_fcn.fcn_str(), )
 
     def add_callback(self, fcn):
         self._callbacks.append(fcn)
@@ -495,9 +529,30 @@ def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True):
-    # TODO:
+def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
+    """
+    Given the numpy data from the first function call, create the appropriate tensors
+    :param data: A numpy array, from the first call to the function.
+    :param name: Optionally, a name to give the variable.
+    :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
+        'float': Just cast floats to floatX
+        'all': Cast all inputs to floatX
+        None: Don't cast anything to floatX
+    :param test:
+    :return:
+    """
+    assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
+
+    warn_about_floatx = False  # Too many false positives.  Got to find a better way to give this warning.
+
+    if warn_about_floatx:
+        if isinstance(data, np.ndarray) and data.dtype in (int, bool) and theano.config.floatX == 'float32':
+            logging.warn("Your floatX (defined in ~/.theanorc) is float32, but you're passing in integer arrays to your function.  "
+                "The problem is that most operations involving a float32 array and an int array result in a float64 array.  So what "
+                "may happen is you may get a TypeError telling you that the update must have the same type as the original.  If you "
+                "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
+                "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
     is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, np.ndarray) and x.dtype == dtype
 
@@ -506,8 +561,8 @@ def _data_to_tensor(data, name = None, cast_floats_to_floatx = True, test = True
     # with 64 bit values.
 
     dtype = \
-        theano.config.floatX if (cast_floats_to_floatx and is_dtype(data, float)) else \
-        'int32' if (cast_floats_to_floatx and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
+        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_dtype(data, float))) else \
+        'int32' if (cast_to_floatx=='float' and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
         'int64' if isinstance(data, (bool, int)) else \
         'float64' if isinstance(data, float) else \
         'int8' if data.dtype==bool else \
@@ -623,6 +678,11 @@ def tdb_trace(var, name = None, callback = None):
     _TRACE_VARIABLES[name] = var
     if callback is not None:
         _TRACE_CALLBACKS[name] = callback
+
+
+def clear_tdb_traces():
+    _TRACE_CALLBACKS.clear()
+    _TRACE_VARIABLES.clear()
 
 
 def printit(var_name, var_val):
