@@ -323,7 +323,52 @@ def test_named_arguments():
     assert f(2, y=4, z=3.) == 2
 
 
+def test_strrep():
+    """
+    Just make sure that our wrappers communicate what types they're wrapping - otherwise it becomes a pain to debug.
+    :return:
+    """
+
+    # Function
+    @symbolic
+    def do_thing(x):
+        return x*3
+
+    assert 'do_thing' in str(do_thing)
+    f = do_thing.compile()
+    assert 'do_thing' in str(f)
+
+    # Callable class
+    @symbolic
+    class Thing(object):
+
+        def __call__(self, x):
+            return x*2
+
+    t = Thing()
+    assert 'Thing' in str(t)
+
+    f_t = t.compile()
+    assert 'Thing' in str(f_t)
+
+    # Class with method
+    class MultiplyBy(object):
+
+        def __init__(self, x):
+            self.x=x
+
+        @symbolic
+        def mult(self, y):
+            return self.x*y
+
+    m = MultiplyBy(3)
+    assert 'MultiplyBy' in str(m.mult) and 'mult' in str(m.mult)
+    f_m = m.mult.compile()
+    assert 'MultiplyBy' in str(f_m) and 'mult' in str(f_m)
+
+
 if __name__ == '__main__':
+    test_strrep()
     test_omniscence()
     test_named_arguments()
     test_stateless_symbolic_function()

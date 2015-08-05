@@ -89,31 +89,49 @@ def _decorate_callable_class(callable_class, input_format, output_format):
                 SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format)
                 callable_class.__init__(self, *args, **kwargs)
 
+            def fcn_str(self):
+                return '<%s object at %s>' % (callable_class.__name__, hex(id(self)))
+
     return CallableSymbolicFunction
 
 
 class SymbolicFunctionWrapper(object):
+    """
+    For internal use only.  Use decorators
+    """
 
-    def __init__(self, fcn, input_format = None, output_format = None):
+    def __init__(self, fcn, input_format = None, output_format = None, attached_instance = None):
+        """
+        :param fcn: The function being wrapped
+        :param input_format: An IFormat object representing the input format
+        :param output_format: An IFormat object representing the output format
+        :param attached_instance: Will be None, unless called from __get__ (for methods)
+        """
         self.fcn = fcn
         self.input_format = input_format
         self.output_format = output_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
         self._captured_locals = {}
+        self.attached_instance = attached_instance
 
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs))
 
         if ENABLE_OMNISCENCE:
             with CaptureLocals() as c:
-                symbolic_return = self.fcn(*args, **kwargs)
+                if self.attached_instance is None:
+                    symbolic_return = self.fcn(*args, **kwargs)
+                else:
+                    symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
             captured_anything = c.get_captured_locals()
             captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
             captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
             self._captured_locals = captured_locals
-
         else:
-            symbolic_return = self.fcn(*args, **kwargs)
+            if self.attached_instance is None:
+                symbolic_return = self.fcn(*args, **kwargs)
+            else:
+                symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
         self.output_format.check(symbolic_return)
         return symbolic_return
 
@@ -147,7 +165,16 @@ class SymbolicFunctionWrapper(object):
         if instance in self._dispatched_methods:
             return self._dispatched_methods[instance]
         else:
-            return SymbolicFunctionWrapper(lambda *args, **kwargs: self.fcn(instance, *args, **kwargs), input_format=self.input_format, output_format=self.output_format)
+            return SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, attached_instance=instance)
+
+    def fcn_str(self):
+        if self.attached_instance is None:
+            return self.fcn.__str__()
+        else:
+            return '%s.%s' % (self.attached_instance.__str__(), self.fcn.__str__())
+
+    def __str__(self):
+        return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
 
     def locals(self):
         return self._captured_locals
@@ -455,6 +482,9 @@ class AutoCompilingFunction(object):
             c()
 
         return true_out
+
+    def __str__(self):
+        return 'Compiled form of %s' % (self._original_fcn.fcn_str(), )
 
     def add_callback(self, fcn):
         self._callbacks.append(fcn)

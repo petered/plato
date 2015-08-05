@@ -91,15 +91,7 @@ class Nonlinearity(object):
             {'sig', 'lin', 'tanh', 'rect-lin', 'softmax'}
         """
         if isinstance(activation_fcn, str):
-            activation_fcn = {
-                'sig': tt.nnet.sigmoid,
-                'lin': lambda x: x,
-                'tanh': tt.tanh,
-                'rect-lin': lambda x: tt.maximum(0, x),
-                'relu': lambda x: tt.maximum(0, x),
-                'softmax': lambda x: tt.nnet.softmax(x),
-                'exp': lambda x: tt.exp(x)
-            }[activation_fcn]
+            activation_fcn = get_named_activation_function(activation_fcn)
         self._activation_fcn = activation_fcn
 
     def __call__(self, *input_currents):
