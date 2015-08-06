@@ -24,8 +24,8 @@ class GaussianVariationalAutoencoder(object):
         """
         :param x_dim: Dimensionsality of the data
         :param z_dim: Dimensionalality of the latent space
-        :param encoder_hidden_sizes: A list of sizes of each hidden layer in the encoder
-        :param decoder_hidden_sizes: A list of sizes of each hidden layer in the dencoder
+        :param encoder_hidden_sizes: A list of sizes of each hidden layer in the encoder (from X to Z)
+        :param decoder_hidden_sizes: A list of sizes of each hidden layer in the dencoder (from Z to X)
         :param hidden_activation: Activation function for all hidden layers
         :param w_init_mag: Magnitude of initial weights
         :param binary_data: Chose if data is binary.  You can also use this if data is bound in [0, 1] - then we can think
