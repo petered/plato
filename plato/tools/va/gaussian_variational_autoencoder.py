@@ -24,8 +24,8 @@ class GaussianVariationalAutoencoder(object):
         """
         :param x_dim: Dimensionsality of the data
         :param z_dim: Dimensionalality of the latent space
-        :param encoder_hidden_sizes: A list of sizes of each hidden layer in the encoder
-        :param decoder_hidden_sizes: A list of sizes of each hidden layer in the dencoder
+        :param encoder_hidden_sizes: A list of sizes of each hidden layer in the encoder (from X to Z)
+        :param decoder_hidden_sizes: A list of sizes of each hidden layer in the dencoder (from Z to X)
         :param hidden_activation: Activation function for all hidden layers
         :param w_init_mag: Magnitude of initial weights
         :param binary_data: Chose if data is binary.  You can also use this if data is bound in [0, 1] - then we can think
@@ -63,12 +63,21 @@ class GaussianVariationalAutoencoder(object):
         :param x_samples: An (n_samples, n_dims) array of inputs
         :return: A list of training updates
         """
+        lower_bound = self.compute_lower_bound(x_samples)
+        updates = self.optimizer(cost = -lower_bound, parameters = self.parameters)
+        return updates
+
+    @symbolic_simple
+    def compute_lower_bound(self, x_samples):
+        """
+        :param x_samples: An (n_samples, x_dim) array
+        :return: A scalar - the mean lower bound on the log-probability of the data
+        """
         z_mean, z_log_var = self.encode(x_samples)  # (n_samples, z_size), (n_samples, z_size)
-        epsilon = self.rng.normal(size = z_mean.tag.test_value.shape)
+        epsilon = self.rng.normal(size = z_mean.shape)
         z_sample = epsilon * tt.sqrt(tt.exp(z_log_var)) + z_mean  # (n_samples, z_size).  Reparametrization trick!
         z_sigma_sq = tt.exp(z_log_var)
         kl_divergence = -.5*tt.sum(1+tt.log(z_sigma_sq) - z_mean**2 - z_sigma_sq, axis = 1)
-
         if self.binary_data:
             x_mean = self.decode(z_sample)
             log_prop_data = tt.sum(x_samples*tt.log(x_mean) + (1-x_samples)*tt.log(1-x_mean), axis = 1)
@@ -76,15 +85,13 @@ class GaussianVariationalAutoencoder(object):
             x_mean, x_log_var = self.decode(z_sample)
             x_sigma_sq = tt.exp(x_log_var)
             log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-0.5*(x_samples-x_mean)**2/x_sigma_sq, axis = 1)
-
         lower_bound = -kl_divergence + log_prop_data
-        updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
-        return updates
+        return lower_bound.mean()
 
     @symbolic
     def encode(self, x):
         """
-        :param x: An (n_samples, n_dims) array
+        :param x: An (n_samples, x_dim) array
         :return: z_mean, z_log_var, each of which is an (n_samples, n_dims) array.
         """
         h=x

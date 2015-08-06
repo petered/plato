@@ -42,7 +42,7 @@ def demo_variational_autoencoder(
             w_init = lambda n_in, n_out: 0.01*np.random.randn(n_in, n_out),
             x_distribution='bernoulli',
             z_distribution='gaussian',
-            hidden_activation = 'rect-lin'
+            hidden_activation = 'softplus'
             ),
         optimizer=AdaMax(alpha = 0.003),
         rng = rng
@@ -56,9 +56,8 @@ def demo_variational_autoencoder(
 
         training_fcn(minibatch)
 
-        print i*minibatch_size/50000.
-
         if i % plot_interval == 0:
+            print 'Epoch %s' % (i*minibatch_size/float(len(data)), )
             samples = sampling_fcn(25).reshape(5, 5, 28, 28)
             dbplot(samples, 'Samples from Model')
             dbplot(model.pq_pair.p_net.parameters[-2].get_value()[:25].reshape(-1, 28, 28), 'dec')
