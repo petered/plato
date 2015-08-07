@@ -36,6 +36,7 @@ def demo_simple_vae_on_mnist(
         n_epochs=1
         minibatch_size = 10
         training_data = training_data[:100]
+        test_data = test_data[:100]
 
     model = GaussianVariationalAutoencoder(
         x_dim=training_data.shape[1],

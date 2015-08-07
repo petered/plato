@@ -98,10 +98,10 @@ def expected_sigm_of_norm(mean, std, method = 'probit'):
         raise Exception('Method "%s" not known' % method)
 
 
-l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = 1)
+l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = -1)
 
 
-def normalize(x, axis=None, degree = 2):
+def normalize(x, axis=None, degree = 2, avoid_nans = True):
     """
     Normalize vector x.  If norm is zero,
     :param x:
@@ -109,8 +109,14 @@ def normalize(x, axis=None, degree = 2):
     :param degree:
     :return:
     """
-    z = np.sum(x**degree, axis = axis, keepdims=True)
-    if z == 0:
+    assert degree in (1, 2), "Give me a reason and I'll give you more degrees"
+
+    if degree == 1:
+        z = np.sum(np.abs(x), axis = axis, keepdims=True)
+    else:
+        z = np.sum(x**degree, axis = axis, keepdims=True)**(1./degree)
+
+    if z == 0 and avoid_nans:
         return normalize(np.ones_like(x), axis = axis, degree=degree)
     else:
         return x/z
