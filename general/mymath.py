@@ -101,9 +101,9 @@ def expected_sigm_of_norm(mean, std, method = 'probit'):
 l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = -1)
 
 
-def normalize(x, axis=None, degree = 2, avoid_nans = True):
+def normalize(x, axis=None, degree = 2, avoid_nans = False):
     """
-    Normalize vector x.  If norm is zero,
+    Normalize array x.
     :param x:
     :param axis:
     :param degree:
@@ -115,11 +115,11 @@ def normalize(x, axis=None, degree = 2, avoid_nans = True):
         z = np.sum(np.abs(x), axis = axis, keepdims=True)
     else:
         z = np.sum(x**degree, axis = axis, keepdims=True)**(1./degree)
-
-    if z == 0 and avoid_nans:
-        return normalize(np.ones_like(x), axis = axis, degree=degree)
-    else:
-        return x/z
+    normed = x/z
+    if avoid_nans:
+        raise Exception("Is this being used?")
+        normed[np.isnan(normed)] = normalize(np.ones(x.shape[axis]), degree=degree).flatten()[0]  # Lazy...
+    return normed
 
 
 def mode(x, axis = None, keepdims = False):
@@ -129,7 +129,7 @@ def mode(x, axis = None, keepdims = False):
     return mode_x
 
 
-def cummode(x, axis = 1):
+def cummode(x, weights = None, axis = 1):
     """
     Cumulative mode along an axis.  Ties give priority to the first value to achieve the
     given count.
@@ -141,7 +141,11 @@ def cummode(x, axis = 1):
     element_ids = element_ids.reshape(x.shape)
     result = np.zeros(x.shape, dtype = int)
     counts = np.zeros(n_unique, dtype = int)
+    weighted = weights is not None
+    if weighted:
+        assert x.shape == weights.shape
     code = """
+    bool weighted = %s;
     int n_samples = Nelement_ids[0];
     int n_events = Nelement_ids[1];
     for (int i=0; i<n_samples; i++){
@@ -154,7 +158,7 @@ def cummode(x, axis = 1):
         for (int j=0; j<n_events; j++){
             int ix = i*n_events+j;
             int k = element_ids[ix];
-            counts[k]+=1;
+            counts[k] += weighted ? weights[ix] : 1;
             if (counts[k] > maxcount){
                 maxcount = counts[k];
                 maxel = k;
@@ -162,7 +166,7 @@ def cummode(x, axis = 1):
             result[ix]=maxel;
         }
     }
-    """
-    weave.inline(code, ['element_ids', 'result', 'n_unique', 'counts'], compiler = 'gcc')
+    """ % ('true' if weighted else 'false')
+    weave.inline(code, ['element_ids', 'result', 'n_unique', 'counts', 'weights'], compiler = 'gcc')
     mode_values = all_values[result]
     return mode_values
