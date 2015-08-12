@@ -50,8 +50,7 @@ def memoize_to_disk(fcn, local_cache = False):
                 if local_cache_signature in cached_local_results:
                     return cached_local_results[local_cache_signature]
             filepath = get_function_hash_filename(fcn, args, kwargs)
-            file_found = os.path.exists(filepath)
-            if file_found:
+            if os.path.exists(filepath):
                 with open(filepath) as f:
                     try:
                         result = pickle.load(f)
@@ -69,7 +68,7 @@ def memoize_to_disk(fcn, local_cache = False):
         if MEMO_WRITE_ENABLED:
             if local_cache:
                 cached_local_results[local_cache_signature] = result
-            if result_computed:  # Result was computed...
+            if result_computed:  # Result was computed, so write it down
                 filepath = get_function_hash_filename(fcn, args, kwargs)
                 make_file_dir(filepath)
                 with open(filepath, 'w') as f:
@@ -83,6 +82,9 @@ def memoize_to_disk(fcn, local_cache = False):
 
 
 def memoize_to_disk_and_cache(fcn):
+    """
+    Memoize to disk AND keep a local cache (as you would with the @memoize decorator).
+    """
     return memoize_to_disk(fcn, local_cache=True)
 
 
