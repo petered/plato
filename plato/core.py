@@ -352,7 +352,6 @@ def detect_return_value(return_info, return_outputs_in_tuple = False):
     elif _is_updates_list(return_info):
         outputs = ()
         updates = return_info
-
     elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
         outputs = return_info
         updates = []
