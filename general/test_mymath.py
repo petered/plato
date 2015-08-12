@@ -80,9 +80,29 @@ def test_cummode():
             assert np.all(n_elements_of_mode_class >= n_elements_of_this_class)
 
 
+def test_cummode_weighted():
+
+    arr = np.random.RandomState(0).randint(low=0, high=3, size=(5, 7))
+    w = np.random.rand(5, 7)
+
+    m = cummode(arr, weights=w, axis = 1)  # (n_samples, n_events)
+    assert m.shape == arr.shape
+
+    uniques = np.unique(arr)
+
+    for j in xrange(arr.shape[1]):
+        bool_ixs_of_mode_class = arr[:, :j+1] == m[:, j][:, None]  # (n_samples, j+1)
+        weights_of_mode_class = np.sum(w[:, :j+1]*bool_ixs_of_mode_class, axis = 1)  # (n_samples, )
+
+        for k, u in enumerate(uniques):
+            bool_ixs_of_this_class = arr[:, :j+1] == u  # (n_samples, j+1)
+            weights_of_this_class = np.sum(w[:, :j+1]*bool_ixs_of_this_class, axis = 1)  # (n_samples, )
+            assert np.all(weights_of_mode_class >= weights_of_this_class)
+
 
 if __name__ == '__main__':
 
+    test_cummode_weighted()
     test_cummode()
     test_mode()
     test_exp_sig_of_norm()

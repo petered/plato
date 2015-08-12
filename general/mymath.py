@@ -140,16 +140,16 @@ def cummode(x, weights = None, axis = 1):
     n_unique = len(all_values)
     element_ids = element_ids.reshape(x.shape)
     result = np.zeros(x.shape, dtype = int)
-    counts = np.zeros(n_unique, dtype = int)
     weighted = weights is not None
     if weighted:
         assert x.shape == weights.shape
+    counts = np.zeros(n_unique, dtype = float if weighted else int)
     code = """
     bool weighted = %s;
     int n_samples = Nelement_ids[0];
     int n_events = Nelement_ids[1];
     for (int i=0; i<n_samples; i++){
-        int maxcount = 0;
+        float maxcount = 0;
         int maxel = -1;
 
         for (int k=0; k<n_unique; k++)
