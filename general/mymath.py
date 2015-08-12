@@ -104,10 +104,11 @@ l1_error = lambda x1, x2: np.mean(np.abs(x1-x2), axis = -1)
 def normalize(x, axis=None, degree = 2, avoid_nans = False):
     """
     Normalize array x.
-    :param x:
-    :param axis:
-    :param degree:
-    :return:
+    :param x: An array
+    :param axis: Which axis to normalize along
+    :param degree: Degree of normalization (1 for L1-norm, 2 for L2-norm, etc)
+    :param avoid_nans: If, along an axis, there is a norm of zero, then normalize this to a uniform vector (instead of nans).
+    :return: An array the same shape as x, normalized along the given axis
     """
     assert degree in (1, 2), "Give me a reason and I'll give you more degrees"
 
