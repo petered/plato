@@ -13,7 +13,7 @@ MEMO_READ_ENABLED = True
 MEMO_DIR = get_local_path('memoize_to_disk')
 
 
-def memoize_to_disk(fcn):
+def memoize_to_disk(fcn, local_cache = False):
     """
     Save (memoize) computed results to disk, so that the same function, called with the
     same arguments, does not need to be recomputed.  This is useful if you have a long-running
@@ -39,34 +39,57 @@ def memoize_to_disk(fcn):
     :return: A wrapper around the function that checks for memos and loads old results if they exist.
     """
 
+    cached_local_results = {}
+
     def check_memos(*args, **kwargs):
+        result_computed = False
 
         if MEMO_READ_ENABLED:
+            if local_cache:
+                local_cache_signature = get_local_cache_signature(args, kwargs)
+                if local_cache_signature in cached_local_results:
+                    return cached_local_results[local_cache_signature]
             filepath = get_function_hash_filename(fcn, args, kwargs)
-            file_found = os.path.exists(filepath)
-            if file_found:
+            if os.path.exists(filepath):
                 with open(filepath) as f:
                     try:
                         result = pickle.load(f)
                     except ValueError as err:
                         logging.warn('Memo-file "%s" was corrupt.  (%s: %s).  Recomputing.' % (filepath, err.__class__.__name__, err.message))
-                        file_found = False
+                        result_computed = True
                         result = fcn(*args, **kwargs)
             else:
+                result_computed = True
                 result = fcn(*args, **kwargs)
         else:
+            result_computed = True
             result = fcn(*args, **kwargs)
 
-        if MEMO_WRITE_ENABLED and not file_found:
-            filepath = get_function_hash_filename(fcn, args, kwargs)
-            make_file_dir(filepath)
-            with open(filepath, 'w') as f:
-                pickle.dump(result, f)
+        if MEMO_WRITE_ENABLED:
+            if local_cache:
+                cached_local_results[local_cache_signature] = result
+            if result_computed:  # Result was computed, so write it down
+                filepath = get_function_hash_filename(fcn, args, kwargs)
+                make_file_dir(filepath)
+                with open(filepath, 'w') as f:
+                    pickle.dump(result, f)
+
         return result
 
     check_memos.wrapped_fcn = fcn
 
     return check_memos
+
+
+def memoize_to_disk_and_cache(fcn):
+    """
+    Memoize to disk AND keep a local cache (as you would with the @memoize decorator).
+    """
+    return memoize_to_disk(fcn, local_cache=True)
+
+
+def get_local_cache_signature(args, kwargs):
+    return args + ('5243643254_kwargs_start_here', ) + tuple((k, kwargs[k]) for k in sorted(kwargs.keys()))
 
 
 def get_function_hash_filename(fcn, args, kwargs):

@@ -1,5 +1,5 @@
 import time
-from fileman.disk_memoize import memoize_to_disk, clear_memo_files_for_function, DisableMemos
+from fileman.disk_memoize import memoize_to_disk, clear_memo_files_for_function, DisableMemos, memoize_to_disk_and_cache
 import numpy as np
 
 __author__ = 'peter'
@@ -63,6 +63,42 @@ def test_complex_args():
     assert t1!=t3
 
 
+@memoize_to_disk_and_cache
+def compute_slow_thing_again(a, b, c):
+    call_time = time.time()
+    time.sleep(0.01)
+    return (a+b)/float(c), call_time
+
+
+def test_memoize_to_disk_and_cache():
+
+    clear_memo_files_for_function(compute_slow_thing_again)
+
+    t = time.time()
+    num1, t1 = compute_slow_thing_again(1, 3, 3)
+    assert t-t1 < 0.01
+    assert num1 == (1+3)/3.
+
+    num2, t2 = compute_slow_thing_again(1, 3, 3)
+    assert num2 == (1+3)/3.
+    assert num2 is num1
+    assert t2==t1
+
+    num, t3 = compute_slow_thing_again(1, 3, 4)
+    assert num == (1+3)/4.
+    assert t3 != t1
+
+    with DisableMemos():
+        num, t4 = compute_slow_thing_again(1, 3, 4)
+        assert num == (1+3)/4.
+        assert t4 != t3
+
+    num, t5 = compute_slow_thing_again(1, 3, 4)
+    assert num == (1+3)/4.
+    assert t5 == t3
+
+
 if __name__ == '__main__':
+    test_memoize_to_disk_and_cache()
     test_memoize_to_disk()
     test_complex_args()
