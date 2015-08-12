@@ -1,4 +1,4 @@
-from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode
+from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode, normalize
 import numpy as np
 __author__ = 'peter'
 
@@ -100,8 +100,47 @@ def test_cummode_weighted():
             assert np.all(weights_of_mode_class >= weights_of_this_class)
 
 
+def test_normalize():
+
+    # L1 - positive values
+    arr = np.random.rand(5, 4)
+    norm_arr = normalize(arr, degree=1, axis = 1)
+    assert np.allclose(norm_arr.sum(axis=1), 1)
+
+    # L1 - with negative values
+    arr = np.random.randn(5, 4)
+    norm_arr = normalize(arr, degree=1, axis = 1)
+    assert np.allclose(np.abs(norm_arr).sum(axis=1), 1)
+
+    # L2
+    arr = np.random.randn(5, 4)
+    norm_arr = normalize(arr, degree=2, axis = 1)
+    assert np.allclose(np.sqrt((norm_arr**2).sum(axis=1)), 1)
+
+    # L1 - zero row with nan handling
+    arr = np.random.rand(5, 4)
+    arr[2, :] = 0
+    norm_arr = normalize(arr, degree=1, axis = 1)
+    assert np.all(np.isnan(norm_arr[2, :]))
+
+    # L1 - zero row with nan handling
+    arr = np.random.rand(5, 4)
+    arr[2, :] = 0
+    norm_arr = normalize(arr, degree=1, axis = 1, avoid_nans=True)
+    assert np.allclose(np.abs(norm_arr).sum(axis=1), 1)
+    assert np.allclose(norm_arr[2, :], 1./arr.shape[1])
+
+    # L2 - zero row with nan handling
+    arr = np.random.rand(5, 4)
+    arr[2, :] = 0
+    norm_arr = normalize(arr, degree=2, axis = 1, avoid_nans=True)
+    assert np.allclose(np.sqrt((norm_arr**2).sum(axis=1)), 1)
+    assert np.allclose(norm_arr[2, :], np.sqrt(1./arr.shape[1]))
+
+
 if __name__ == '__main__':
 
+    test_normalize()
     test_cummode_weighted()
     test_cummode()
     test_mode()
