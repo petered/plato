@@ -205,7 +205,7 @@ def demo_lin_dtp(
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
 
     if is_test_mode():
-        dataset.shorten(200)
+        dataset = dataset.shorten(200)
         n_epochs = 0.1
         n_tests = 3
 
