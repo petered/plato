@@ -1,4 +1,4 @@
-from general.should_be_builtins import memoize
+from general.should_be_builtins import memoize, bad_value
 import numpy as np
 from scipy import weave
 from scipy.stats import norm, mode as sp_mode
@@ -117,8 +117,8 @@ def normalize(x, axis=None, degree = 2, avoid_nans = False):
         z = np.sum(x**degree, axis = axis, keepdims=True)**(1./degree)
     normed = x/z
     if avoid_nans:
-        raise Exception("Is this being used?")
-        normed[np.isnan(normed)] = normalize(np.ones(x.shape[axis]), degree=degree).flatten()[0]  # Lazy...
+        uniform_vector_value = (1./x.shape[axis])**(1./degree)
+        normed[np.isnan(normed)] = uniform_vector_value
     return normed
 
 
