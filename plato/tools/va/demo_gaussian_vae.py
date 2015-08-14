@@ -1,3 +1,4 @@
+from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.gaussian_variational_autoencoder import GaussianVariationalAutoencoder
@@ -78,6 +79,31 @@ def demo_simple_vae_on_mnist(
                 (i*minibatch_size/float(len(training_data)), training_lower_bound, test_lower_bound)
 
 
+register_experiment(
+    name = 'mnist-vae-20d-binary_in',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = True),
+    description="Try encoding MNIST with a variational autoencoder.",
+    conclusion="Looks good.  Within about 20 epochs we're getting reasonablish samples, lower bound of -107."
+    )
+
+
+register_experiment(
+    name = 'mnist-vae-20d-continuous_in',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = False),
+    description="Try encoding MNIST with a variational autoencoder, this time treating the input as a continuous variable",
+    conclusion=""
+    )
+
+
+register_experiment(
+    name = 'mnist-vae-2latent',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 2, hidden_sizes = [400, 200], binary_x = True),
+    description='Try a deeper network with just a 2-dimensional latent space.'
+
+
+)
+
+
 if __name__ == '__main__':
 
-    demo_simple_vae_on_mnist()
+    run_experiment('mnist-vae-20d-continuous_in')
