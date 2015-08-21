@@ -21,6 +21,7 @@ def demo_simple_vae_on_mnist(
         hidden_activation = 'softplus',
         binary_x = True,
         w_init_mag = 0.01,
+        gaussian_min_var = None,
         manifold_grid_size = 11,
         manifold_grid_span = 2,
         seed = None
@@ -48,6 +49,7 @@ def demo_simple_vae_on_mnist(
         binary_data=binary_x,
         hidden_activation = hidden_activation,
         optimizer=AdaMax(alpha = learning_rate),
+        gaussian_min_var = gaussian_min_var,
         rng = seed
         )
 
@@ -89,9 +91,9 @@ register_experiment(
 
 register_experiment(
     name = 'mnist-vae-20d-continuous_in',
-    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = False),
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = False, gaussian_min_var = 0.01),
     description="Try encoding MNIST with a variational autoencoder, this time treating the input as a continuous variable",
-    conclusion=""
+    conclusion="Need to set minimum variance.  Recognieseable digits come out, but then instabilities."
     )
 
 

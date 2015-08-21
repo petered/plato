@@ -20,7 +20,7 @@ class GaussianVariationalAutoencoder(object):
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],
                  hidden_activation = 'tanh', w_init_mag = 0.01, binary_data = False,
-                 optimizer = AdaMax(alpha = 0.01), rng = None):
+                 optimizer = AdaMax(alpha = 0.01), rng = None, gaussian_min_var = None):
         """
         :param x_dim: Dimensionsality of the data
         :param z_dim: Dimensionalality of the latent space
@@ -56,6 +56,7 @@ class GaussianVariationalAutoencoder(object):
         self.x_size = x_dim
         self.z_size = z_dim
         self.optimizer = optimizer
+        self.gaussian_min_var = gaussian_min_var
 
     @symbolic_updater
     def train(self, x_samples):
@@ -82,9 +83,11 @@ class GaussianVariationalAutoencoder(object):
             log_prop_data = tt.sum(x_samples*tt.log(x_mean) + (1-x_samples)*tt.log(1-x_mean), axis = 1)
         else:
             x_mean, x_log_var = self.decode(z_sample)
-            x_sigma_sq = tt.maximum(tt.exp(x_log_var), 0.001)
-            log_prop_data_2 = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-((x_samples-x_mean)**2)/(2*x_sigma_sq), axis = 1)
-            log_prop_data = tt.sum(tt.log((1./tt.sqrt(2*np.pi*x_sigma_sq)) * tt.exp((x_samples-x_mean)**2/(2*x_sigma_sq))), axis = 1)
+            x_sigma_sq = tt.exp(x_log_var)
+            if self.gaussian_min_var is not None:
+                x_sigma_sq = tt.maximum(self.gaussian_min_var, x_sigma_sq)
+            log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-((x_samples-x_mean)**2)/(2*x_sigma_sq), axis = 1)
+            log_prop_data_2 = tt.sum(tt.log((1./tt.sqrt(2*np.pi*x_sigma_sq)) * tt.exp(-(x_samples-x_mean)**2/(2*x_sigma_sq))), axis = 1)
         tdbprint(log_prop_data.mean(), 'mean log-prop')
         tdbprint(log_prop_data_2.mean(), 'mean log-prop_2')
         tdbprint(kl_divergence.mean(), 'mean-kl-div')
