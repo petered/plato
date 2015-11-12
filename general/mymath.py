@@ -171,3 +171,21 @@ def cummode(x, weights = None, axis = 1):
     weave.inline(code, ['element_ids', 'result', 'n_unique', 'counts', 'weights'], compiler = 'gcc')
     mode_values = all_values[result]
     return mode_values
+
+
+def is_parallel(a, b, angular_tolerance):
+    """
+    Test whether two vectors are parallel to within a given tolerance.
+    Throws an exception for zero-vectors.
+
+    :param a: A vector
+    :param b: A vector the same size as a
+    :param angular_tolerance: The tolerance, in radians.
+    :return: A boolean, indicating that the vectors are parallel to within the specified tolerance.
+    """
+    # Credit to Pace: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    arccos_input = np.dot(a, b)/np.linalg.norm(a)/np.linalg.norm(b)
+    arccos_input = 1.0 if arccos_input > 1.0 else arccos_input
+    arccos_input = -1.0 if arccos_input < -1.0 else arccos_input
+    angle = np.acos(arccos_input)
+    return angle < angular_tolerance

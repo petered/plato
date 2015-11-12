@@ -138,6 +138,12 @@ def test_normalize():
     assert np.allclose(norm_arr[2, :], np.sqrt(1./arr.shape[1]))
 
 
+def test_is_parallel():
+
+    a = np.array([1, 2])
+
+
+
 if __name__ == '__main__':
 
     test_normalize()

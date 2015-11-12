@@ -43,7 +43,7 @@ def get_evaluation_function(name):
         'mean_squared_error': mean_squared_error,
         'percent_argmax_correct': percent_argmax_correct,
         'percent_correct': percent_correct,
-        }[name]
+         }[name]
 
 
 def mean_squared_error(actual, target):
