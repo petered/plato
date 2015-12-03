@@ -182,10 +182,18 @@ register_experiment(
     )
 
 
+register_experiment(
+    name = 'MNIST-relu-explode',
+    function = lambda: demo_mnist_mlp(hidden_sizes=[100], hidden_activation= 'relu', output_activation='relu',
+        optimizer = 'sgd', learning_rate=0.1, onehot = True, cost = 'mse', use_bias = False, w_init=0.01, n_epochs=10),
+    description='Here we try to find the parameters that will reveal the RELU exploding problem.',
+    conclusion=""
+    )
+
 
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST_MLP[300,10]_norm-relu'
+    which_experiment = 'MNIST-relu-explode'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)

@@ -1,5 +1,6 @@
 from pip._vendor.distlib.compat import OrderedDict
 from plotting.live_plotting import LiveStream
+from plotting.matplotlib_backend import LinePlot, ImagePlot
 
 __author__ = 'peter'
 
@@ -24,6 +25,12 @@ def dbplot(data, name = None, plot_constructor = None, **kwargs):
         name = str(name)
 
     if name not in PLOT_DATA and plot_constructor is not None:
+        if isinstance(plot_constructor, str):
+            plot_constructor = {
+                'line': LinePlot,
+                'img': ImagePlot,
+                }[plot_constructor]
+
         assert hasattr(plot_constructor, '__call__'), 'Plot constructor must be callable!'
         stream = get_dbplot_stream(**kwargs)
         # Following is a kludge - the data is flattened in LivePlot, so we reference

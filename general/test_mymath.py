@@ -1,4 +1,4 @@
-from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode, normalize
+from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode, normalize, is_parallel
 import numpy as np
 __author__ = 'peter'
 
@@ -140,17 +140,20 @@ def test_normalize():
 
 def test_is_parallel():
 
-    a = np.array([1, 2])
-
+    assert is_parallel([1, 2], [2, 4])
+    assert not is_parallel([1, 2], [2, 5])
+    assert is_parallel([1, 2], [2, 5], angular_tolerance=0.5)
+    assert not is_parallel([1, 2], [-2, -4])
 
 
 if __name__ == '__main__':
 
-    test_normalize()
-    test_cummode_weighted()
-    test_cummode()
-    test_mode()
-    test_exp_sig_of_norm()
-    test_cumvar()
-    test_cummean()
-    test_softmax()
+    test_is_parallel()
+    # test_normalize()
+    # test_cummode_weighted()
+    # test_cummode()
+    # test_mode()
+    # test_exp_sig_of_norm()
+    # test_cumvar()
+    # test_cummean()
+    # test_softmax()
