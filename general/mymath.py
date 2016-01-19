@@ -182,6 +182,8 @@ def angle_between(a, b, in_degrees = False):
 
     Credit to Pace: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
     """
+    a = np.array(a) if not isinstance(a, np.ndarray) else a
+    b = np.array(b) if not isinstance(b, np.ndarray) else b
     assert a.ndim == 1 and a.shape==b.shape
     arccos_input = np.dot(a, b)/np.linalg.norm(a)/np.linalg.norm(b)
     arccos_input = 1.0 if arccos_input > 1.0 else arccos_input
