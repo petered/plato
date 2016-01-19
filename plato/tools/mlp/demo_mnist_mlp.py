@@ -1,10 +1,10 @@
 import logging
 from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode, set_test_mode
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plotting.db_plotting import dbplot
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import assess_online_predictor
-from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.datasets.mnist import get_mnist_dataset
@@ -53,9 +53,8 @@ def demo_mnist_mlp(
 
     # Setup the training and test functions
     predictor = GradientBasedPredictor(
-        function = OldMultiLayerPerceptron(
-            layer_sizes=hidden_sizes+[10],
-            input_size = dataset.input_size,
+        function = MultiLayerPerceptron.from_init(
+            layer_sizes=[dataset.input_size]+hidden_sizes+[10],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             w_init = w_init,

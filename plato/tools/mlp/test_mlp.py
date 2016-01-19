@@ -2,13 +2,11 @@ from plato.interfaces.decorators import symbolic_updater
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.mlp.mlp import create_maxout_network, MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
-from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import pytest
 from utils.benchmarks.train_and_test import percent_argmax_correct
 from utils.bureaucracy import zip_minibatch_iterate
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
-import numpy as np
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
 
 __author__ = 'peter'

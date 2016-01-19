@@ -22,7 +22,7 @@ def train_online_predictor(predictor, training_set, minibatch_size, n_epochs = 1
     :param minibatch_size: An integer, or 'full' for full batch training
     :param n_epochs: Number of passes to make over the training set.
     """
-    print 'Training Predictor %s...' % (predictor, ),
+    print 'Training Predictor %s...' % (predictor, )
     for (_, data, target) in training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = n_epochs, single_channel = True):
         predictor.train(data, target)
     print 'Done.'
@@ -42,7 +42,7 @@ def get_evaluation_function(name):
         'mean_squared_error': mean_squared_error,
         'percent_argmax_correct': percent_argmax_correct,
         'percent_correct': percent_correct,
-         }[name]
+        }[name]
 
 
 def mean_squared_error(actual, target):

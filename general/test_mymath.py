@@ -148,12 +148,12 @@ def test_is_parallel():
 
 if __name__ == '__main__':
 
-    # test_is_parallel()
+    test_is_parallel()
     test_normalize()
-    # test_cummode_weighted()
-    # test_cummode()
-    # test_mode()
-    # test_exp_sig_of_norm()
-    # test_cumvar()
-    # test_cummean()
-    # test_softmax()
+    test_cummode_weighted()
+    test_cummode()
+    test_mode()
+    test_exp_sig_of_norm()
+    test_cumvar()
+    test_cummean()
+    test_softmax()

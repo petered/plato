@@ -87,10 +87,6 @@ class GaussianVariationalAutoencoder(object):
             if self.gaussian_min_var is not None:
                 x_sigma_sq = tt.maximum(self.gaussian_min_var, x_sigma_sq)
             log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-((x_samples-x_mean)**2)/(2*x_sigma_sq), axis = 1)
-            log_prop_data_2 = tt.sum(tt.log((1./tt.sqrt(2*np.pi*x_sigma_sq)) * tt.exp(-(x_samples-x_mean)**2/(2*x_sigma_sq))), axis = 1)
-        tdbprint(log_prop_data.mean(), 'mean log-prop')
-        tdbprint(log_prop_data_2.mean(), 'mean log-prop_2')
-        tdbprint(kl_divergence.mean(), 'mean-kl-div')
         lower_bound = -kl_divergence + log_prop_data
         return lower_bound.mean()
 
