@@ -246,10 +246,6 @@ class LearningCurveData(object):
         else:
             assert isinstance(scores, list) and all(len(s) == 2 for s in scores)
 
-        # self._times.append(time)
-        # if self._scores is None:
-        #     self._scores = OrderedDict((k, []) for k, _ in scores)
-
         for k, v in scores:
             if k not in self._scores:
                 self._times[k] = []
@@ -282,7 +278,3 @@ class LearningCurveData(object):
             assert which_test_set in results, 'You asked for results for the test set %s, but we only have test sets %s' \
                 % (which_test_set, results.keys())
             return results[which_test_set]
-
-    # @classmethod
-    # def merge(self, learning_curve_data_objects):
-

@@ -1,3 +1,4 @@
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
@@ -20,11 +21,11 @@ def test_symbolic_predicors():
     dataset = get_synthetic_clusters_dataset()
 
     symbolic_predictor = GradientBasedPredictor(
-        function = OldMultiLayerPerceptron(
-            layer_sizes = [100, dataset.n_categories],
-            input_size = dataset.input_size,
+        function = MultiLayerPerceptron.from_init(
+            layer_sizes = [dataset.input_size, 100, dataset.n_categories],
             output_activation='softmax',
-            w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
+            w_init = 0.1,
+            rng = 3252
             ),
         cost_function=negative_log_likelihood_dangerous,
         optimizer=SimpleGradientDescent(eta = 0.1),

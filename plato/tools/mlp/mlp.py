@@ -16,11 +16,15 @@ class MultiLayerPerceptron(IParameterized):
     def __init__(self, weights, hidden_activation = 'sig', output_activation = 'sig',
             normalize_minibatch = False, scale_param = False, use_bias = True):
         """
-        :param layer_sizes: A list indicating the sizes of each layer, including the input layer.
+        :param weights: A list of initial weight matrices of shapes:
+            [(n_in, n_hidden_0), (n_hidden_0, n_hidden_1), ... (n_hidden_N, n_out)]
         :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
             {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
         :param output_activation: A string (see above) identifying the activation function for the output layer
-        :param w_init: A function which, given input dims, output dims, return
+        :param normalize_minibatch: True to normalize by mean and standard-deviation over the minibatch.
+        :param scale_param: Add a parameter in addition to the biases for rescaling before the nonlinearity.  Only
+            really makes sense when normalize_minibatch is True.
+        :param use_bias: If False, do not use biases.
         """
 
         assert all(w_in.shape[-1]==w_out.shape[-2] for w_in, w_out in zip(weights[:-1], weights[1:]))
@@ -49,17 +53,27 @@ class MultiLayerPerceptron(IParameterized):
         return sum([l.parameters for l in self.layers], [])
 
     @staticmethod
-    def from_init(w_init_mag, layer_sizes, rng=None, last_layer_zero=False, **init_args):
-        rng = get_rng(rng)
-        weights = [w_init_mag*rng.randn(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
+    def from_init(w_init, layer_sizes, rng=None, last_layer_zero=False, **init_args):
+        """
+        :param w_init: Can be:
+            - A scalar, in which case w_init will be interpreted as the standard deviation for the Normally distributed initial weights.
+            - A function which accepts the shape of the weight matrix as separate arguments.
+        :param layer_sizes: A list of layer sizes, including the input layer
+        :param rng: A random number generator or seed to use for drawing weights (only when w_init is a scalar)
+        :param last_layer_zero: There is no need for the last layer to have initial weights.  If this is True, the weights of
+            the last layer will all be zero.
+        :param **init_args: See MultiLayerPerceptron constructor
+        """
+        if hasattr(w_init, '__call__'):
+            assert rng is None, "If w_init is callable, the random number generator (rng) doesn't do anything, and shouldn't be specified."
+        else:
+            rng = get_rng(rng)
+            w_init_mag = w_init
+            w_init = lambda n_inputs, n_outputs: w_init_mag * rng.randn(n_in, n_out)
+        weights = [w_init(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
         if last_layer_zero:
             weights[-1][:] = 0
         return MultiLayerPerceptron(weights=weights, **init_args)
-
-
-def normal_w_init(mag, seed = None):
-    rng = np.random.RandomState(seed)
-    return lambda n_in, n_out: mag * rng.randn(n_in, n_out)
 
 
 @symbolic_simple
@@ -149,7 +163,7 @@ class ConvolutionalTransform(IParameterized):
         return [self.w, self.b]
 
 
-def create_maxout_network(layer_sizes, maxout_widths, w_init_mag, output_activation = 'maxout', rng = None, **other_args):
+def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation = 'maxout', rng = None, **other_args):
 
     rng = get_rng(rng)
 
@@ -159,9 +173,9 @@ def create_maxout_network(layer_sizes, maxout_widths, w_init_mag, output_activat
     else:
         maxout_widths = [maxout_widths]*n_expected_maxout_widths
 
-    weights = [w_init_mag*rng.randn(n_maps, n_in, n_out) for n_maps, n_in, n_out in zip(maxout_widths, layer_sizes[:-1], layer_sizes[1:])]
+    weights = [w_init*rng.randn(n_maps, n_in, n_out) for n_maps, n_in, n_out in zip(maxout_widths, layer_sizes[:-1], layer_sizes[1:])]
     # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
     if output_activation != 'maxout':
-        weights.append(w_init_mag*rng.randn(layer_sizes[-2], layer_sizes[-1]))
+        weights.append(w_init*rng.randn(layer_sizes[-2], layer_sizes[-1]))
 
     return MultiLayerPerceptron(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)

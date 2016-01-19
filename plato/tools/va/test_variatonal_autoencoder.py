@@ -69,15 +69,11 @@ def test_gaussian_prob(n_samples = 10, n_dims = 784):
         return log_prop_data
 
     f = get_log_probs.compile()
-
     logp = f(x_samples=data, x_mean = means, x_log_var = log_vars)
-
-
-    # assert np.all(logp < 0)
+    assert np.all(logp < 0)
 
 
 if __name__ == '__main__':
 
     test_gaussian_prob()
-
-    # test_variational_autoencoder()
+    test_variational_autoencoder()

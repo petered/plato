@@ -1,6 +1,6 @@
 from plato.interfaces.decorators import symbolic_updater
 from plato.tools.common.online_predictors import GradientBasedPredictor
-from plato.tools.mlp.mlp import create_maxout_network
+from plato.tools.mlp.mlp import create_maxout_network, MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.optimization.optimizers import SimpleGradientDescent
@@ -22,13 +22,12 @@ def test_bare_bones_mlp(seed = 1234):
 
     dataset = get_synthetic_clusters_dataset()
 
-    rng = np.random.RandomState(seed)
-    mlp = OldMultiLayerPerceptron(
-        input_size = dataset.input_size,
-        layer_sizes = [20, dataset.n_categories],
+    mlp = MultiLayerPerceptron.from_init(
+        layer_sizes = [dataset.input_size, 20, dataset.n_categories],
         hidden_activation = 'relu',
         output_activation = 'softmax',
-        w_init = lambda n_in, n_out: 0.01*rng.randn(n_in, n_out)
+        w_init = 0.01,
+        rng = seed
         )
 
     fwd_fcn = mlp.compile()
@@ -60,11 +59,11 @@ def test_mlp():
     assert_online_predictor_not_broken(
         predictor_constructor = lambda n_dim_in, n_dim_out:
             GradientBasedPredictor(
-                function = OldMultiLayerPerceptron(
-                    layer_sizes = [100, n_dim_out],
-                    input_size = n_dim_in,
+                function = MultiLayerPerceptron.from_init(
+                    layer_sizes = [n_dim_in, 100, n_dim_out],
                     output_activation='softmax',
-                    w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
+                    w_init = 0.1,
+                    rng = 3252
                     ),
                 cost_function=negative_log_likelihood_dangerous,
                 optimizer=SimpleGradientDescent(eta = 0.1),
@@ -80,12 +79,12 @@ def test_mlp_with_scale_learning():
     assert_online_predictor_not_broken(
         predictor_constructor = lambda n_dim_in, n_dim_out:
             GradientBasedPredictor(
-                function = OldMultiLayerPerceptron(
-                    layer_sizes = [100, n_dim_out],
-                    input_size = n_dim_in,
+                function = MultiLayerPerceptron.from_init(
+                    layer_sizes = [n_dim_in, 100, n_dim_out],
                     output_activation='softmax',
                     scale_param = True,
-                    w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
+                    w_init = 0.1,
+                    rng = 3252
                     ),
                 cost_function=negative_log_likelihood_dangerous,
                 optimizer=SimpleGradientDescent(eta = 0.1),
@@ -105,7 +104,7 @@ def test_maxout_mlp():
                     layer_sizes = [n_dim_in, 100, n_dim_out],
                     maxout_widths = 4,
                     output_activation = 'softmax',
-                    w_init_mag=0.01,
+                    w_init=0.01,
                     rng = 1234,
                 ),
                 cost_function=negative_log_likelihood_dangerous,
@@ -127,7 +126,7 @@ def test_all_maxout_mlp():
                         layer_sizes = [n_dim_in, 100, n_dim_out],
                         maxout_widths = 4,
                         output_activation = 'maxout',
-                        w_init_mag=0.01,
+                        w_init=0.01,
                     ),
                     cost_function=negative_log_likelihood_dangerous,
                     optimizer=SimpleGradientDescent(eta = 0.005),

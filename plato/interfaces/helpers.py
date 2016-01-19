@@ -224,20 +224,6 @@ class SlowBatchNormalize(object):
         running_mean = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
         running_mean_sq = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
         new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant)
-
         new_running_mean_sq = running_mean_sq * self.decay_constant + (x[0]**2) * (1-self.decay_constant)
         running_std = tt.sqrt((new_running_mean_sq - new_running_mean**2))
-
-
-
-        # running_std = tt.std(x, axis = 0)
-
-        # tdbplot(running_std, 'running std: %s' % (self, ))
-        # tdbplot(new_running_mean, 'running mean: %s' % (self, ))
-        # tdbplot(x[0], 'x')
-
-        # return x, [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]
-        # return (x - new_running_mean), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]
-        # return x/(running_std+1e-9), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]
         return (x - running_mean)/(running_std+1e-7), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]
-        # return (x - running_mean)/(running_std+1), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]

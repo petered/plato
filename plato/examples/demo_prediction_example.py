@@ -1,6 +1,6 @@
 from general.test_mode import is_test_mode
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
-from plato.tools.mlp.mlp import normal_w_init
+from plato.tools.mlp.mlp import normal_w_init, MultiLayerPerceptron
 from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
@@ -50,9 +50,8 @@ def compare_example_predictors(
                 alpha = 0.001
                 ).to_categorical(n_categories = dataset.n_categories),  # .to_categorical allows the perceptron to be trained on integer labels.
             'MLP': GradientBasedPredictor(
-                function = OldMultiLayerPerceptron(
-                    layer_sizes=[500, dataset.n_categories],
-                    input_size = dataset.input_size,
+                function = MultiLayerPerceptron.from_init(
+                    layer_sizes=[dataset.input_size, 500, dataset.n_categories],
                     hidden_activation='sig',  # Sigmoidal hidden units
                     output_activation='softmax',  # Softmax output unit, since we're doing multinomial classification
                     w_init = normal_w_init(mag = 0.01, seed = 5)
