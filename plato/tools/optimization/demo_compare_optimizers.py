@@ -2,7 +2,8 @@ from fileman.experiment_record import run_experiment
 from general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.cost import softmax_negative_log_likelihood, mean_squared_error
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
-from plato.tools.mlp.networks import MultiLayerPerceptron, normal_w_init
+from plato.tools.mlp.mlp import normal_w_init
+from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 from plotting.matplotlib_backend import set_default_figure_size
@@ -31,7 +32,7 @@ def mnist_adamax_showdown(hidden_size = 300, n_epochs = 10, n_tests = 20):
         n_tests = 3
 
     make_mlp = lambda optimizer: GradientBasedPredictor(
-            function = MultiLayerPerceptron(
+            function = OldMultiLayerPerceptron(
                 layer_sizes=[hidden_size, dataset.n_categories],
                 input_size = dataset.input_size,
                 hidden_activation='sig',
@@ -76,7 +77,7 @@ def mlp_normalization(hidden_size = 300, n_epochs = 30, n_tests = 50, minibatch_
         n_tests = 3
 
     make_mlp = lambda normalize, scale: GradientBasedPredictor(
-            function = MultiLayerPerceptron(
+            function = OldMultiLayerPerceptron(
                 layer_sizes=[hidden_size, dataset.n_categories],
                 input_size = dataset.input_size,
                 hidden_activation='sig',
@@ -123,7 +124,7 @@ def backprop_vs_difference_target_prop(
         dataset=dataset,
         online_predictors = {
             'backprop-mlp': GradientBasedPredictor(
-                function = MultiLayerPerceptron(
+                function = OldMultiLayerPerceptron(
                     layer_sizes = hidden_sizes + [dataset.target_size],
                     input_size = dataset.input_size,
                     hidden_activation='tanh',

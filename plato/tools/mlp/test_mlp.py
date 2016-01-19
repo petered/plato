@@ -1,8 +1,10 @@
 from plato.interfaces.decorators import symbolic_updater
 from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.mlp.mlp import create_maxout_network
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
-from plato.tools.mlp.networks import MultiLayerPerceptron
+from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.optimization.optimizers import SimpleGradientDescent
+import pytest
 from utils.benchmarks.train_and_test import percent_argmax_correct
 from utils.bureaucracy import zip_minibatch_iterate
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
@@ -21,7 +23,7 @@ def test_bare_bones_mlp(seed = 1234):
     dataset = get_synthetic_clusters_dataset()
 
     rng = np.random.RandomState(seed)
-    mlp = MultiLayerPerceptron(
+    mlp = OldMultiLayerPerceptron(
         input_size = dataset.input_size,
         layer_sizes = [20, dataset.n_categories],
         hidden_activation = 'relu',
@@ -58,7 +60,7 @@ def test_mlp():
     assert_online_predictor_not_broken(
         predictor_constructor = lambda n_dim_in, n_dim_out:
             GradientBasedPredictor(
-                function = MultiLayerPerceptron(
+                function = OldMultiLayerPerceptron(
                     layer_sizes = [100, n_dim_out],
                     input_size = n_dim_in,
                     output_activation='softmax',
@@ -78,7 +80,7 @@ def test_mlp_with_scale_learning():
     assert_online_predictor_not_broken(
         predictor_constructor = lambda n_dim_in, n_dim_out:
             GradientBasedPredictor(
-                function = MultiLayerPerceptron(
+                function = OldMultiLayerPerceptron(
                     layer_sizes = [100, n_dim_out],
                     input_size = n_dim_in,
                     output_activation='softmax',
@@ -93,8 +95,53 @@ def test_mlp_with_scale_learning():
         n_epochs=2
         )
 
+
+def test_maxout_mlp():
+
+    assert_online_predictor_not_broken(
+        predictor_constructor = lambda n_dim_in, n_dim_out:
+            GradientBasedPredictor(
+                function = create_maxout_network(
+                    layer_sizes = [n_dim_in, 100, n_dim_out],
+                    maxout_widths = 4,
+                    output_activation = 'softmax',
+                    w_init_mag=0.01,
+                    rng = 1234,
+                ),
+                cost_function=negative_log_likelihood_dangerous,
+                optimizer=SimpleGradientDescent(eta = 0.1),
+                ).compile(),
+        categorical_target=True,
+        minibatch_size=10,
+        n_epochs=2
+        )
+
+
+def test_all_maxout_mlp():
+
+    with pytest.raises(AssertionError):
+        assert_online_predictor_not_broken(
+            predictor_constructor = lambda n_dim_in, n_dim_out:
+                GradientBasedPredictor(
+                    function = create_maxout_network(
+                        layer_sizes = [n_dim_in, 100, n_dim_out],
+                        maxout_widths = 4,
+                        output_activation = 'maxout',
+                        w_init_mag=0.01,
+                    ),
+                    cost_function=negative_log_likelihood_dangerous,
+                    optimizer=SimpleGradientDescent(eta = 0.005),
+                    ).compile(),
+            categorical_target=True,
+            minibatch_size=10,
+            n_epochs=20
+            )
+
+
 if __name__ == '__main__':
 
+    test_all_maxout_mlp()
+    test_maxout_mlp()
     test_bare_bones_mlp()
     test_mlp()
     test_mlp_with_scale_learning()

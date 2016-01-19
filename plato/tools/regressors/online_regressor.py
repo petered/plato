@@ -14,7 +14,7 @@ class OnlineRegressor(ISymbolicPredictor, IParameterized):
     A Predictor that does online (logistic, multinomial, linear) regression.
     This can also be considered to be a one-layer neural network.
 
-    For multi-layer extensions, see networks.py.
+    For multi-layer extensions, see mlp.py.
     """
     def __init__(self, input_size, output_size, regressor_type = 'multinomial', optimizer = SimpleGradientDescent(eta = 0.01),
             include_biases = True):

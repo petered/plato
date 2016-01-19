@@ -4,7 +4,7 @@ from general.test_mode import is_test_mode, set_test_mode
 from plotting.db_plotting import dbplot
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import assess_online_predictor
-from plato.tools.mlp.networks import MultiLayerPerceptron
+from plato.tools.deprecated.old_mlp import OldMultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.datasets.mnist import get_mnist_dataset
@@ -53,7 +53,7 @@ def demo_mnist_mlp(
 
     # Setup the training and test functions
     predictor = GradientBasedPredictor(
-        function = MultiLayerPerceptron(
+        function = OldMultiLayerPerceptron(
             layer_sizes=hidden_sizes+[10],
             input_size = dataset.input_size,
             hidden_activation=hidden_activation,

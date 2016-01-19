@@ -64,3 +64,4 @@ def funplot(func, xlims = None, n_points = 100):
     xs, xe = xlims
     x = np.linspace(xs, xe, n_points)
     eplt.plot(x, func(x))
+    eplt.gca().set_xbound(*xlims)

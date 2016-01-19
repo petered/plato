@@ -2,7 +2,7 @@ from general.numpy_helpers import get_rng
 import numpy as np
 from plato.core import symbolic, symbolic_updater, symbolic_simple, tdbprint
 from plato.interfaces.helpers import get_theano_rng
-from plato.tools.mlp.networks import Layer
+from plato.tools.mlp.mlp import Layer
 from plato.tools.optimization.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'

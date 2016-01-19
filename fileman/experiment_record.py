@@ -337,6 +337,7 @@ def browse_experiment_records():
                 break
             elif cmd == 'h':
                 print 'q: Quit\nfilter <text>: filter experiments\brmfilters: Remove all filters\nshow <number> show experiment with number'
+                wait_for_continue()
             elif cmd == 'filter':
                 filter_text, = args
                 ids = get_all_experiment_ids(filter_text)

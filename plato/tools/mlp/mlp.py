@@ -1,3 +1,5 @@
+from general.numpy_helpers import get_rng
+from general.should_be_builtins import bad_value
 from plato.interfaces.decorators import symbolic_simple
 from plato.interfaces.helpers import get_named_activation_function, create_shared_variable
 from plato.interfaces.interfaces import IParameterized
@@ -8,38 +10,34 @@ import numpy as np
 @symbolic_simple
 class MultiLayerPerceptron(IParameterized):
     """
-    A Multi-Layer Perceptron
+    A Multi-Layer Perceptron.
     """
 
-    def __init__(self, layer_sizes, input_size, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, scale_param = False, w_init = 0.1, use_bias = True):
+    def __init__(self, weights, hidden_activation = 'sig', output_activation = 'sig',
+            normalize_minibatch = False, scale_param = False, use_bias = True):
         """
-        :param layer_sizes: A list indicating the sizes of each layer.
-        :param input_size: An integer indicating the size of the input layer
+        :param layer_sizes: A list indicating the sizes of each layer, including the input layer.
         :param hidden_activation: A string or list of strings indicating the type of each hidden layer.
             {'sig', 'tanh', 'rect-lin', 'lin', 'softmax'}
         :param output_activation: A string (see above) identifying the activation function for the output layer
         :param w_init: A function which, given input dims, output dims, return
         """
-        if isinstance(w_init, (int, float)):
-            val = w_init
-            w_init = lambda n_in, n_out: val*np.random.randn(n_in, n_out)
+
+        assert all(w_in.shape[-1]==w_out.shape[-2] for w_in, w_out in zip(weights[:-1], weights[1:]))
+        n_layers = len(weights)
 
         self.layers = [
             Layer(
                 linear_transform = FullyConnectedTransform(
-                    w = w_init(pre_size, post_size),
+                    w = w,
                     normalize_minibatch=normalize_minibatch,
                     scale = scale_param,
                     use_bias = use_bias
                     ),
                 nonlinearity = nonlinearity
                 )
-            for pre_size, post_size, nonlinearity in zip(
-                [input_size]+layer_sizes[:-1],
-                layer_sizes,
-                [hidden_activation] * (len(layer_sizes)-1) + [output_activation]
-            )]
+            for w, nonlinearity in zip(weights, [hidden_activation] * (n_layers-1) + [output_activation])
+            ]
 
     def __call__(self, x):
         for lay in self.layers:
@@ -49,6 +47,14 @@ class MultiLayerPerceptron(IParameterized):
     @property
     def parameters(self):
         return sum([l.parameters for l in self.layers], [])
+
+    @staticmethod
+    def from_init(w_init_mag, layer_sizes, rng=None, last_layer_zero=False, **init_args):
+        rng = get_rng(rng)
+        weights = [w_init_mag*rng.randn(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
+        if last_layer_zero:
+            weights[-1][:] = 0
+        return MultiLayerPerceptron(weights=weights, **init_args)
 
 
 def normal_w_init(mag, seed = None):
@@ -69,7 +75,8 @@ class Layer(IParameterized):
             A numpy array - in which case it will be used to instantiate a linear transform.
         """
         if isinstance(linear_transform, np.ndarray):
-            assert linear_transform.ndim == 2, 'This just works for 2-d arrays right now.'
+            assert (linear_transform.ndim == 2 and nonlinearity!='maxout') or (linear_transform.ndim == 3 and nonlinearity=='maxout'), \
+                'Your weight matrix must be 2-D (or 3-D if you have maxout units)'
             linear_transform = FullyConnectedTransform(w=linear_transform)
         if isinstance(nonlinearity, str):
             nonlinearity = get_named_activation_function(nonlinearity)
@@ -106,7 +113,7 @@ class FullyConnectedTransform(IParameterized):
         :param use_bias: Use a bias term?  Generally, the answer is "True", a bias term helps.
         """
         self.w = create_shared_variable(w, name = 'w')
-        self.b = create_shared_variable(b, shape = w.shape[1], name = 'b')
+        self.b = create_shared_variable(b, shape = w.shape[1] if w.ndim==2 else (w.shape[0], w.shape[2]) if w.ndim==3 else bad_value(w.shape), name = 'b')
         self.log_scale = create_shared_variable(0 if scale else None, shape = w.shape[1], name = 'log_scale') if scale else None
         self._normalize_minibatch = normalize_minibatch
         self._use_bias = use_bias
@@ -140,3 +147,21 @@ class ConvolutionalTransform(IParameterized):
     @property
     def parameters(self):
         return [self.w, self.b]
+
+
+def create_maxout_network(layer_sizes, maxout_widths, w_init_mag, output_activation = 'maxout', rng = None, **other_args):
+
+    rng = get_rng(rng)
+
+    n_expected_maxout_widths = len(layer_sizes)-1 if output_activation=='maxout' else len(layer_sizes)-2
+    if isinstance(maxout_widths, (list, tuple)):
+        assert len(maxout_widths) == n_expected_maxout_widths
+    else:
+        maxout_widths = [maxout_widths]*n_expected_maxout_widths
+
+    weights = [w_init_mag*rng.randn(n_maps, n_in, n_out) for n_maps, n_in, n_out in zip(maxout_widths, layer_sizes[:-1], layer_sizes[1:])]
+    # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
+    if output_activation != 'maxout':
+        weights.append(w_init_mag*rng.randn(layer_sizes[-2], layer_sizes[-1]))
+
+    return MultiLayerPerceptron(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)
