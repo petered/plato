@@ -42,8 +42,10 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
-Variable.tval = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
-Variable.tshape = property(lambda self: self.tval.shape)
+# Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
+# the initial values that are attached to them.
+Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
+Variable.ishape = property(lambda self: self.ival.shape)
 
 
 def symbolic(fcn):

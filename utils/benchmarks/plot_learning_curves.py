@@ -34,7 +34,7 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
 
     for (record_name, record), colour in zip(learning_curves.iteritems(), cycle(colours)):
         times, scores = record.get_results()
-        if times.values()[0] is None:  # Offline result... make a horizontal line # TODO: Fix for new format...
+        if np.array_equal(times.values()[0], [None]):  # Offline result... make a horizontal line
             assert all(len(s)==1 for s in scores.values())
             if 'Training' in scores:
                 plt.axhline(scores['Training'], color=colour, linestyle = '--')
