@@ -1,8 +1,8 @@
 from general.numpy_helpers import get_rng
 import numpy as np
-from plato.core import symbolic, symbolic_updater, symbolic_simple
+from plato.core import symbolic, symbolic_updater, symbolic_simple, tdbprint
 from plato.interfaces.helpers import get_theano_rng
-from plato.tools.mlp.networks import Layer
+from plato.tools.mlp.mlp import Layer
 from plato.tools.optimization.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'
@@ -20,7 +20,7 @@ class GaussianVariationalAutoencoder(object):
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],
                  hidden_activation = 'tanh', w_init_mag = 0.01, binary_data = False,
-                 optimizer = AdaMax(alpha = 0.01), rng = None):
+                 optimizer = AdaMax(alpha = 0.01), rng = None, gaussian_min_var = None):
         """
         :param x_dim: Dimensionsality of the data
         :param z_dim: Dimensionalality of the latent space
@@ -56,6 +56,7 @@ class GaussianVariationalAutoencoder(object):
         self.x_size = x_dim
         self.z_size = z_dim
         self.optimizer = optimizer
+        self.gaussian_min_var = gaussian_min_var
 
     @symbolic_updater
     def train(self, x_samples):
@@ -74,8 +75,7 @@ class GaussianVariationalAutoencoder(object):
         :return: A scalar - the mean lower bound on the log-probability of the data
         """
         z_mean, z_log_var = self.encode(x_samples)  # (n_samples, z_size), (n_samples, z_size)
-        epsilon = self.rng.normal(size = z_mean.shape)
-        z_sample = epsilon * tt.sqrt(tt.exp(z_log_var)) + z_mean  # (n_samples, z_size).  Reparametrization trick!
+        z_sample = self._sample_z_given_z_dist(z_mean=z_mean, z_log_var=z_log_var)
         z_sigma_sq = tt.exp(z_log_var)
         kl_divergence = -.5*tt.sum(1+tt.log(z_sigma_sq) - z_mean**2 - z_sigma_sq, axis = 1)
         if self.binary_data:
@@ -84,7 +84,9 @@ class GaussianVariationalAutoencoder(object):
         else:
             x_mean, x_log_var = self.decode(z_sample)
             x_sigma_sq = tt.exp(x_log_var)
-            log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-0.5*(x_samples-x_mean)**2/x_sigma_sq, axis = 1)
+            if self.gaussian_min_var is not None:
+                x_sigma_sq = tt.maximum(self.gaussian_min_var, x_sigma_sq)
+            log_prop_data = tt.sum(-0.5*tt.log(2*np.pi*x_sigma_sq)-((x_samples-x_mean)**2)/(2*x_sigma_sq), axis = 1)
         lower_bound = -kl_divergence + log_prop_data
         return lower_bound.mean()
 
@@ -127,13 +129,37 @@ class GaussianVariationalAutoencoder(object):
         :return: An (n_samples, x_dims) array of model samples.
         """
         z_samples = self.rng.normal(size = (n_samples, self.z_size))
+        return self.sample_x_given_z(z_samples)
+
+    @symbolic_simple
+    def sample_x_given_z(self, z_samples):
+        """
+        Sample x given the distribution of the parameters
+        :param params:
+        :return:
+        """
         if self.binary_data:
             x_mean = self.decode(z_samples)
             x_samples = self.rng.binomial(p=x_mean, size = x_mean.shape)
         else:
             x_mean, x_log_var = self.decode(z_samples)
-            x_samples = x_mean + self.rng.normal(size = (n_samples, self.x_size)) * tt.exp(x_log_var)
+            x_samples = x_mean + tt.sqrt(tt.exp(x_log_var)) * self.rng.normal(size = (z_samples.shape[0], self.x_size))
         return x_samples
+
+    def _sample_z_given_z_dist(self, z_mean, z_log_var):
+        epsilon = self.rng.normal(size = z_mean.shape)
+        z_sample = epsilon * tt.sqrt(tt.exp(z_log_var)) + z_mean  # (n_samples, z_size).  Reparametrization trick!
+        return z_sample
+
+    @symbolic_simple
+    def recon(self, x_samples):
+        """
+        Stochastic reconstruction of input vectors.
+        """
+        z_mean, z_log_var = self.encode(x_samples)  # (n_samples, z_size), (n_samples, z_size)
+        z_samples = self._sample_z_given_z_dist(z_mean, z_log_var)
+        x_recon_samples = self.sample_x_given_z(z_samples)
+        return x_recon_samples
 
     @property
     def parameters(self):

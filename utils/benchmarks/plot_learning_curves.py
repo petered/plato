@@ -34,20 +34,23 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
 
     for (record_name, record), colour in zip(learning_curves.iteritems(), cycle(colours)):
         times, scores = record.get_results()
-        if len(times)==1 and times[0] is None:
+        if np.array_equal(times.values()[0], [None]):  # Offline result... make a horizontal line
             assert all(len(s)==1 for s in scores.values())
             if 'Training' in scores:
                 plt.axhline(scores['Training'], color=colour, linestyle = '--')
             if 'Test' in scores:
                 plt.axhline(scores['Test'], color=colour, linestyle = '-')
         else:
-            if 'Training' in scores:
-                plt.plot(times+(1 if xscale == 'log' else 0), scores['Training'], '--'+colour)
+            if 'Training' in scores:  # Online result... make a learning curve
+                plt.plot(times['Training']+(1 if xscale == 'log' else 0), scores['Training'], '--'+colour)
             if 'Test' in scores:
-                plt.plot(times+(1 if xscale == 'log' else 0), scores['Test'], '-'+colour)
+                plt.plot(times['Test']+(1 if xscale == 'log' else 0), scores['Test'], '-'+colour)
         plt.gca().set_xscale(xscale)
         plt.gca().set_yscale(yscale)
-        legend += ['%s-training' % record_name, '%s-test' % record_name]
+        if 'Training' in scores:
+            legend.append('%s-training' % record_name)
+        if 'Test' in scores:
+            legend.append('%s-test' % record_name)
 
     plt.xlabel('Epoch')
     plt.ylabel('Score')

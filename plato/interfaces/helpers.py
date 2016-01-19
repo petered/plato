@@ -1,7 +1,9 @@
 import numpy as np
-from plato.core import symbolic_simple
+from plato.core import symbolic_simple, symbolic_standard, symbolic_single_output_updater
 from plato.interfaces.decorators import find_shared_ancestors
+from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.basic import softmax
+from plato.tools.misc.tdb_plotting import tdbplot
 import theano
 from theano import Variable
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
@@ -188,6 +190,40 @@ def get_named_activation_function(activation_name):
         'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
         'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
         'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
-        'linear': lambda x: x
+        'linear': lambda x: x,
+        'leaky-relu-0.01': lambda x: tt.maximum(0.01*x, x),
+        'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
         }[activation_name]
     return symbolic_simple(fcn)
+
+
+def get_parameters_or_not(module):
+    """ Return parameters if the given module is an IParameterized object, else return an empty list."""
+    return module.parameters if isinstance(module, IParameterized) else []
+
+
+@symbolic_simple
+def batch_normalize(x):
+    return (x - x.mean(axis = 0, keepdims = True)) / (x.std(axis = 0, keepdims = True) + 1e-9)
+
+
+@symbolic_single_output_updater
+class SlowBatchNormalize(object):
+    """
+    Keeps a running mean and standard deviation, and normalizes the incoming data according to these.
+    This can be useful if you want to do something similar to minibatch-normalization, but without having
+    the batch-size tied to the normalization range.
+    """
+
+    def __init__(self, half_life):
+        self.decay_constant = np.exp(-np.log(2)/half_life)
+
+    def __call__(self, x):
+        # x should have
+        assert x.tag.test_value.shape[0]==1, "This method only works for minibatches of size 1, but you used a minibatch of size: %s" % (x.tag.test_value.shape[0])
+        running_mean = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
+        running_mean_sq = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
+        new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant)
+        new_running_mean_sq = running_mean_sq * self.decay_constant + (x[0]**2) * (1-self.decay_constant)
+        running_std = tt.sqrt((new_running_mean_sq - new_running_mean**2))
+        return (x - running_mean)/(running_std+1e-7), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]

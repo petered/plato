@@ -1,10 +1,10 @@
 import logging
 from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode, set_test_mode
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plotting.db_plotting import dbplot
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import assess_online_predictor
-from plato.tools.mlp.networks import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.datasets.mnist import get_mnist_dataset
@@ -53,9 +53,8 @@ def demo_mnist_mlp(
 
     # Setup the training and test functions
     predictor = GradientBasedPredictor(
-        function = MultiLayerPerceptron(
-            layer_sizes=hidden_sizes+[10],
-            input_size = dataset.input_size,
+        function = MultiLayerPerceptron.from_init(
+            layer_sizes=[dataset.input_size]+hidden_sizes+[10],
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             w_init = w_init,
@@ -182,10 +181,18 @@ register_experiment(
     )
 
 
+register_experiment(
+    name = 'MNIST-relu-explode',
+    function = lambda: demo_mnist_mlp(hidden_sizes=[100], hidden_activation= 'relu', output_activation='relu',
+        optimizer = 'sgd', learning_rate=0.1, onehot = True, cost = 'mse', use_bias = False, w_init=0.01, n_epochs=10),
+    description='Here we try to find the parameters that will reveal the RELU exploding problem.',
+    conclusion=""
+    )
+
 
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST_MLP[300,10]_norm-relu'
+    which_experiment = 'MNIST-relu-explode'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)

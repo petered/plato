@@ -27,6 +27,8 @@ def minibatch_iterate(data, minibatch_size, n_epochs=1):
     :param n_epochs: The number of epochs to run for
     :yield: (minibatch_size, ...) data arrays.
     """
+    if minibatch_size == 'full':
+        minibatch_size = len(data)
     end = len(data)*n_epochs
     ixs = np.arange(minibatch_size)
     while ixs[0] < end:

@@ -1,3 +1,4 @@
+from fileman.experiment_record import register_experiment, run_experiment
 from general.test_mode import is_test_mode
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.gaussian_variational_autoencoder import GaussianVariationalAutoencoder
@@ -20,6 +21,7 @@ def demo_simple_vae_on_mnist(
         hidden_activation = 'softplus',
         binary_x = True,
         w_init_mag = 0.01,
+        gaussian_min_var = None,
         manifold_grid_size = 11,
         manifold_grid_span = 2,
         seed = None
@@ -47,6 +49,7 @@ def demo_simple_vae_on_mnist(
         binary_data=binary_x,
         hidden_activation = hidden_activation,
         optimizer=AdaMax(alpha = learning_rate),
+        gaussian_min_var = gaussian_min_var,
         rng = seed
         )
 
@@ -78,6 +81,31 @@ def demo_simple_vae_on_mnist(
                 (i*minibatch_size/float(len(training_data)), training_lower_bound, test_lower_bound)
 
 
+register_experiment(
+    name = 'mnist-vae-20d-binary_in',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = True),
+    description="Try encoding MNIST with a variational autoencoder.",
+    conclusion="Looks good.  Within about 20 epochs we're getting reasonablish samples, lower bound of -107."
+    )
+
+
+register_experiment(
+    name = 'mnist-vae-20d-continuous_in',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = False, gaussian_min_var = 0.01),
+    description="Try encoding MNIST with a variational autoencoder, this time treating the input as a continuous variable",
+    conclusion="Need to set minimum variance.  Recognieseable digits come out, but then instabilities."
+    )
+
+
+register_experiment(
+    name = 'mnist-vae-2latent',
+    function = lambda: demo_simple_vae_on_mnist(z_dim = 2, hidden_sizes = [400, 200], binary_x = True),
+    description='Try a deeper network with just a 2-dimensional latent space.'
+
+
+)
+
+
 if __name__ == '__main__':
 
-    demo_simple_vae_on_mnist()
+    run_experiment('mnist-vae-20d-continuous_in')

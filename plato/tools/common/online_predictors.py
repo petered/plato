@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from plato.core import symbolic, symbolic_single_output_updater
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.optimization.cost import get_named_cost_function
@@ -57,15 +58,16 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
         self._cost_function = cost_function
         self._optimizer = optimizer
 
-    @symbolic_simple
+    @symbolic  # Allows stateful or non-stateful output
     def predict(self, inputs):
         return self._function(inputs)
 
     @symbolic_updater
     def train(self, inputs, labels):
-        cost = self._cost_function(self._function(inputs), labels)
+        outputs, state_updates = self._function.to_format(symbolic_single_output_updater)(inputs)
+        cost = self._cost_function(outputs, labels)
         updates = self._optimizer(cost = cost, parameters = self._function.parameters)
-        return updates
+        return updates + state_updates
 
     @property
     def parameters(self):

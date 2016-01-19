@@ -5,7 +5,7 @@ from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.linking import Chain, Branch
-from plato.tools.mlp.networks import FullyConnectedTransform
+from plato.tools.mlp.mlp import FullyConnectedTransform
 from plato.tools.optimization.optimizers import AdaMax
 import theano.tensor as tt
 __author__ = 'peter'

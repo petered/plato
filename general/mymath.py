@@ -171,3 +171,53 @@ def cummode(x, weights = None, axis = 1):
     weave.inline(code, ['element_ids', 'result', 'n_unique', 'counts', 'weights'], compiler = 'gcc')
     mode_values = all_values[result]
     return mode_values
+
+
+def angle_between(a, b, in_degrees = False):
+    """
+    Return the angle between two vectors a and b, in radians.  Raise an exception if one is a zero vector
+    :param a: A vector
+    :param b: A vector the same size as a
+    :return: The angle between these vectors, in radians.
+
+    Credit to Pace: http://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    """
+    a = np.array(a) if not isinstance(a, np.ndarray) else a
+    b = np.array(b) if not isinstance(b, np.ndarray) else b
+    assert a.ndim == 1 and a.shape==b.shape
+    arccos_input = np.dot(a, b)/np.linalg.norm(a)/np.linalg.norm(b)
+    arccos_input = 1.0 if arccos_input > 1.0 else arccos_input
+    arccos_input = -1.0 if arccos_input < -1.0 else arccos_input
+    angle = np.arccos(arccos_input)
+    if in_degrees:
+        angle = angle * 180/np.pi
+    return angle
+
+
+def magnitude_ratio(a, b):
+    """
+    Return the ratio of the L2-magnitudes of each vector
+    :param a: A vector
+    :param b: Another vector of the same size
+    :return: The ratio |a_mag
+    """
+    assert a.ndim == 1 and a.shape==b.shape
+    a_mag = np.sqrt(np.sum(a**2))
+    b_mag = np.sqrt(np.sum(b**2))
+    d_magnitude = a_mag/b_mag
+    return d_magnitude
+
+
+def is_parallel(a, b, angular_tolerance = 1e-7):
+    """
+    Test whether two vectors are parallel to within a given tolerance.
+    Throws an exception for zero-vectors.
+
+    :param a: A vector
+    :param b: A vector the same size as a
+    :param angular_tolerance: The tolerance, in radians.
+    :return: A boolean, indicating that the vectors are parallel to within the specified tolerance.
+    """
+    assert 0 <= angular_tolerance <= 2*np.pi, "It doesn't make sense to specity an angular tolerance outside of [0, 2*pi].  Why are you doing this?"
+    angle = angle_between(a, b)
+    return angle < angular_tolerance

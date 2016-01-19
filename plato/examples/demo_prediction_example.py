@@ -1,6 +1,6 @@
-from general.test_mode import is_test_mode
+from general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
-from plato.tools.mlp.networks import MultiLayerPerceptron, normal_w_init
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 from sklearn.ensemble.forest import RandomForestClassifier
@@ -49,12 +49,12 @@ def compare_example_predictors(
                 alpha = 0.001
                 ).to_categorical(n_categories = dataset.n_categories),  # .to_categorical allows the perceptron to be trained on integer labels.
             'MLP': GradientBasedPredictor(
-                function = MultiLayerPerceptron(
-                    layer_sizes=[500, dataset.n_categories],
-                    input_size = dataset.input_size,
+                function = MultiLayerPerceptron.from_init(
+                    layer_sizes=[dataset.input_size, 500, dataset.n_categories],
                     hidden_activation='sig',  # Sigmoidal hidden units
                     output_activation='softmax',  # Softmax output unit, since we're doing multinomial classification
-                    w_init = normal_w_init(mag = 0.01, seed = 5)
+                    w_init = 0.01,
+                    rng = 5
                 ),
                 cost_function = negative_log_likelihood_dangerous,  # "Dangerous" because it doesn't check to see that output is normalized, but we know it is because it comes from softmax.
                 optimizer = SimpleGradientDescent(eta = 0.1),
@@ -73,9 +73,9 @@ def compare_example_predictors(
 
 if __name__ == '__main__':
 
+    set_test_mode(False)
     records = compare_example_predictors(
         n_epochs=30,
         minibatch_size=20,
-        test_mode = False,
         )
     plot_learning_curves(records)

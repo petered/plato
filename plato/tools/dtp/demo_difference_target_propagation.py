@@ -3,7 +3,7 @@ from general.test_mode import is_test_mode
 from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, ReversedDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
-from plato.tools.mlp.networks import normal_w_init, MultiLayerPerceptron
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import AdaMax, SimpleGradientDescent, GradientDescent, RMSProp
 from plotting.db_plotting import dbplot
@@ -213,12 +213,12 @@ def demo_lin_dtp(
 
     all_predictors = {
             'backprop-MLP': GradientBasedPredictor(
-                function = MultiLayerPerceptron(
-                    layer_sizes = hidden_sizes + [dataset.target_size],
-                    input_size = dataset.input_size,
+                function = MultiLayerPerceptron.from_init(
+                    layer_sizes = [dataset.input_size] + hidden_sizes + [dataset.target_size],
                     hidden_activation=hidden_activation,
                     output_activation='sig',
-                    w_init = normal_w_init(mag = 0.01, seed = 5)
+                    w_init = 0.01,
+                    rng = 5
                     ),
                 cost_function = mean_squared_error,
                 optimizer = AdaMax(0.01),

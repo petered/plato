@@ -1,4 +1,4 @@
-from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode, normalize
+from general.mymath import softmax, cummean, cumvar, sigm, expected_sigm_of_norm, mode, cummode, normalize, is_parallel
 import numpy as np
 __author__ = 'peter'
 
@@ -138,8 +138,17 @@ def test_normalize():
     assert np.allclose(norm_arr[2, :], np.sqrt(1./arr.shape[1]))
 
 
+def test_is_parallel():
+
+    assert is_parallel([1, 2], [2, 4])
+    assert not is_parallel([1, 2], [2, 5])
+    assert is_parallel([1, 2], [2, 5], angular_tolerance=0.5)
+    assert not is_parallel([1, 2], [-2, -4])
+
+
 if __name__ == '__main__':
 
+    test_is_parallel()
     test_normalize()
     test_cummode_weighted()
     test_cummode()

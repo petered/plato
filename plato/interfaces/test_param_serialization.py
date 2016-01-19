@@ -1,9 +1,8 @@
 import pickle
 from pickle import PicklingError
-
 from plato.interfaces.param_serialzation import dumps_params, loads_params
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
-from plato.tools.mlp.networks import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import pytest
@@ -55,9 +54,8 @@ def test_param_serialization():
     dataset = get_synthetic_clusters_dataset()
 
     predictor_constructor = lambda: GradientBasedPredictor(
-        function = MultiLayerPerceptron(
-            layer_sizes = [100, dataset.n_categories],
-            input_size = dataset.input_shape[0],
+        function = MultiLayerPerceptron.from_init(
+            layer_sizes = [dataset.input_shape[0], 100, dataset.n_categories],
             output_activation='softmax',
             w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
             ),
@@ -90,9 +88,8 @@ def test_predictor_pickling():
     dataset = get_synthetic_clusters_dataset()
 
     predictor_constructor = lambda: GradientBasedPredictor(
-        function = MultiLayerPerceptron(
-            layer_sizes = [100, dataset.n_categories],
-            input_size = dataset.input_shape[0],
+        function = MultiLayerPerceptron.from_init(
+            layer_sizes = [dataset.input_shape[0], 100, dataset.n_categories],
             output_activation='softmax',
             w_init = lambda n_in, n_out, rng = np.random.RandomState(3252): 0.1*rng.randn(n_in, n_out)
             ),

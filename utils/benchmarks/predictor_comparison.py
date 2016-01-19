@@ -192,7 +192,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
                 print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
             record.add(current_epoch, scores)
             if test_callback is not None:
-                test_callback(predictor)
+                record.add(current_epoch, ('callback', test_callback(predictor)))
             if done:
                 break
 
@@ -228,8 +228,8 @@ class LearningCurveData(object):
     retrieve them as a whole.
     """
     def __init__(self):
-        self._times = []
-        self._scores = None
+        self._times = {}
+        self._scores = OrderedDict()
         self._latest_score = None
 
     def add(self, time, scores):
@@ -246,10 +246,11 @@ class LearningCurveData(object):
         else:
             assert isinstance(scores, list) and all(len(s) == 2 for s in scores)
 
-        self._times.append(time)
-        if self._scores is None:
-            self._scores = OrderedDict((k, []) for k, _ in scores)
         for k, v in scores:
+            if k not in self._scores:
+                self._times[k] = []
+                self._scores[k] = []
+            self._times[k].append(time)
             self._scores[k].append(v)
 
     def get_results(self):
@@ -259,7 +260,7 @@ class LearningCurveData(object):
             scores is a (length_N, n_scores) array indicating the each score at each time
                 OR a (length_N, n_scores, n_reps) array where n_reps indexes each repetition or the same experiment
         """
-        return np.array(self._times), OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
+        return {k: np.array(t) for k, t in self._times.iteritems()}, OrderedDict((k, np.array(v)) for k, v in self._scores.iteritems())
 
     def get_scores(self, which_test_set = None):
         """
@@ -277,7 +278,3 @@ class LearningCurveData(object):
             assert which_test_set in results, 'You asked for results for the test set %s, but we only have test sets %s' \
                 % (which_test_set, results.keys())
             return results[which_test_set]
-
-    # @classmethod
-    # def merge(self, learning_curve_data_objects):
-

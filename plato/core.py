@@ -42,6 +42,12 @@ These methods are described in the ISymbolicFunction interface below.
 __author__ = 'peter'
 
 
+# Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
+# the initial values that are attached to them.
+Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
+Variable.ishape = property(lambda self: self.ival.shape)
+
+
 def symbolic(fcn):
     """
     Use this to decorate a symbolic function with any return format (it will be detected automatically).
@@ -192,7 +198,6 @@ class SymbolicFunctionWrapper(object):
         raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
 
     def compile(self, **compilation_kwargs):
-
         return AutoCompilingFunction(self, **compilation_kwargs)
 
     def __get__(self, instance, other):
@@ -249,6 +254,9 @@ def convert_formats(data, src_format, dest_format):
         outputs, updates = data
         assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
         return outputs
+    elif src_format is SingleOutputFormat and dest_format is SingleOutputUpdater:
+        output = data
+        return output, []
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -481,7 +489,6 @@ class AutoCompilingFunction(object):
         if self._there_are_debug_variables:
             # Separate out the debug variables from the output.
             all_out = self._compiled_fcn(*arg_and_kwarg_values)
-
             true_out = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]

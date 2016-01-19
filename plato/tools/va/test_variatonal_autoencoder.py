@@ -1,7 +1,9 @@
+from plato.core import symbolic
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.variational_autoencoder import VariationalAutoencoder, EncoderDecoderNetworks
 from utils.bureaucracy import minibatch_iterate
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
+import theano.tensor as tt
 import numpy as np
 import pytest
 
@@ -23,7 +25,7 @@ def mean_closest_match(x, y, distance_measure = 'euclidian'):
     return np.mean(np.min(distances, axis = 1))
 
 
-@pytest.mark.skipif(True, reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
+@pytest.mark.skipif('True', reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
 def test_variational_autoencoder():
     """
     Just test that after training, samples are closer to the test data than they are before training.
@@ -51,6 +53,27 @@ def test_variational_autoencoder():
     assert final_mcm < initial_mcm / 2
 
 
+def test_gaussian_prob(n_samples = 10, n_dims = 784):
+
+    rng = np.random.RandomState(1234)
+
+    data = rng.randn(n_samples, n_dims)
+    means = rng.randn(n_samples, n_dims)
+    log_vars = rng.randn(n_samples, n_dims)
+
+    @symbolic
+    def get_log_probs(x_samples, x_mean, x_log_var):
+        x_sigma_sq = tt.exp(x_log_var)
+        elementwise_prob = (1./tt.sqrt(2*np.pi*x_sigma_sq)) * tt.exp(-(x_samples-x_mean)**2/(2*x_sigma_sq))
+        log_prop_data = tt.sum(tt.log(elementwise_prob), axis = 1)
+        return log_prop_data
+
+    f = get_log_probs.compile()
+    logp = f(x_samples=data, x_mean = means, x_log_var = log_vars)
+    assert np.all(logp < 0)
+
+
 if __name__ == '__main__':
 
+    test_gaussian_prob()
     test_variational_autoencoder()

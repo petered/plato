@@ -96,8 +96,9 @@ class DataSet(object):
         return DataSet(training_set=self.training_set.shorten(n_samples), test_set=self.test_set.shorten(n_samples),
             validation_set=self._validation_set.shorten(n_samples) if self._validation_set is not None else None)
 
-    def to_onehot(self, form = 'bin'):
-        n_categories = self.n_categories  # Will throw an exception if not a categorical target
+    def to_onehot(self, form = 'bin', n_categories = None):
+        if n_categories is None:
+            n_categories = self.n_categories  # Will throw an exception if not a categorical target
         encoder = OneHotEncoding(n_categories, form=form)
         return self.process_with(targets_processor=lambda (t, ): (encoder(t), ))
 
