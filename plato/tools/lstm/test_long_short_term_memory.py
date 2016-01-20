@@ -1,5 +1,6 @@
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
+import theano
 from utils.bureaucracy import minibatch_iterate
 from utils.datasets.bounce_data import get_bounce_data
 import numpy as np
@@ -15,7 +16,7 @@ def test_autoencoding_lstm(
         seed = 1234):
 
     data = get_bounce_data(width=width)
-    encoder = OneHotEncoding(n_classes=width, dtype = np.float32)
+    encoder = OneHotEncoding(n_classes=width, dtype = theano.config.floatX)
     onehot_data = encoder(data)
     rng = np.random.RandomState(seed)
     aelstm = AutoencodingLSTM(n_input = 8, n_hidden=50, initializer_fcn = lambda shape: 0.01*rng.randn(*shape))

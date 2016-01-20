@@ -1,4 +1,5 @@
-from plato.interfaces.decorators import symbolic_updater, symbolic_standard
+from plato.core import add_update, symbolic_multi, symbolic_simple
+from plato.interfaces.decorators import symbolic_updater
 from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_xe
 from plato.tools.optimization.optimizers import AdaMax
@@ -72,10 +73,10 @@ class LSTMLayer(object):
         h_next = o*self._hidden_activation(c_next)
         return h_next, c_next
 
-    @symbolic_standard
-    def multi_step(self, inputs, h_init = None, c_init = None):
+    @symbolic_simple
+    def multi_step(self, inputs, h_init = None, c_init = None, update_states = True):
         """
-        Do a chain of steps.
+        Do a chain of steps and update the internal states
         inputs is a symbolic (n_frames, ...) array
         outputs is a symbolic (n_frames, ...) array
         """
@@ -86,7 +87,10 @@ class LSTMLayer(object):
             outputs_info = [h_init, c_init],
             )
         h_sequence, c_sequence = all_states
-        return (h_sequence, ), [(h_init, h_sequence[-1]), (c_init, c_sequence[-1])]
+        if update_states:
+            add_update(h_init, h_sequence[-1])
+            add_update(c_init, c_sequence[-1])
+        return h_sequence
 
     @property
     def parameters(self):
@@ -151,7 +155,7 @@ class AutoencodingLSTM(object):
         x_init = create_shared_variable(0, shape = self.lstm.n_inputs)
         rng = get_theano_rng(rng)
 
-        @symbolic_standard
+        @symbolic_multi
         def generate(primer, n_steps):
             """
             Generate a sequence of outputs, and update the internal state.
@@ -175,9 +179,13 @@ class AutoencodingLSTM(object):
                 sequences = [tt.arange(n_total_steps)],
                 outputs_info = [x_init, h_init, c_init],
                 )
+
+            for var, val in updates.items():
+                add_update(var, val)
+
             if maintain_state:
                 updates += [(x_init, x_gen[-1]), (h_init, h_gen[-1]), (c_init, c_gen[-1])]
-            return (x_gen[n_primer_steps:], ), updates
+            return x_gen[n_primer_steps:],
 
         return generate
 
@@ -192,14 +200,10 @@ class AutoencodingLSTM(object):
         """
         @symbolic_updater
         def training_fcn(inputs):
-            (hidden_reps, ), state_updates = self.lstm.multi_step(inputs)
+            hidden_reps = self.lstm.multi_step(inputs, update_states = update_states)
             outputs = self.output_activation(hidden_reps.dot(self.w_hz)+self.b_z)
             cost = cost_func(actual = outputs[:-1], target = inputs[1:])
-            parameter_updates = optimizer(cost = cost, parameters = self.parameters)
-            if update_states:
-                return parameter_updates + state_updates
-            else:
-                return parameter_updates
+            optimizer(cost = cost, parameters = self.parameters)
         return training_fcn
 
     @property

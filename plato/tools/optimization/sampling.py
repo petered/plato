@@ -1,7 +1,8 @@
 from abc import abstractmethod
 
 import numpy as np
-from plato.interfaces.decorators import symbolic_simple, symbolic_standard
+from plato.core import symbolic_multi, add_update
+from plato.interfaces.decorators import symbolic_simple
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.common.basic import softmax
 import theano
@@ -172,7 +173,7 @@ class IIndexGenerator(object):
             updates contains whatever state updates are required.
         """
 
-@symbolic_standard
+@symbolic_multi
 class BaseIndexGenerator(IIndexGenerator):
 
     def __init__(self, size):
@@ -184,7 +185,9 @@ class BaseIndexGenerator(IIndexGenerator):
         full_indices = \
             (vector_ixs, ) if isinstance(self._size, int) else \
             ind2sub(vector_ixs, self._size)
-        return full_indices, updates
+        for var, val in updates:
+            add_update(var, val)
+        return full_indices
 
     @abstractmethod
     def _get_vector_indices_and_updates(self):

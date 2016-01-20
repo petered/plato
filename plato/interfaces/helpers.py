@@ -1,5 +1,5 @@
 import numpy as np
-from plato.core import symbolic_simple, symbolic_standard, symbolic_single_output_updater
+from plato.core import symbolic_simple, add_update
 from plato.interfaces.decorators import find_shared_ancestors
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.basic import softmax
@@ -207,7 +207,7 @@ def batch_normalize(x):
     return (x - x.mean(axis = 0, keepdims = True)) / (x.std(axis = 0, keepdims = True) + 1e-9)
 
 
-@symbolic_single_output_updater
+@symbolic_simple
 class SlowBatchNormalize(object):
     """
     Keeps a running mean and standard deviation, and normalizes the incoming data according to these.
@@ -225,5 +225,7 @@ class SlowBatchNormalize(object):
         running_mean_sq = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
         new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant)
         new_running_mean_sq = running_mean_sq * self.decay_constant + (x[0]**2) * (1-self.decay_constant)
+        add_update(running_mean, new_running_mean)
+        add_update(running_mean_sq, new_running_mean_sq)
         running_std = tt.sqrt((new_running_mean_sq - new_running_mean**2))
-        return (x - running_mean)/(running_std+1e-7), [(running_mean, new_running_mean), (running_mean_sq, new_running_mean_sq)]
+        return (x - running_mean)/(running_std+1e-7)

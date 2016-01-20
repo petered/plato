@@ -69,25 +69,25 @@ def symbolic_multi(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
 
 
-def symbolic_single_output_updater(fcn):
-    """
-    Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor and a list of updates.
-    """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
-
-
+# def symbolic_single_output_updater(fcn):
+#     """
+#     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor and a list of updates.
+#     """
+#     return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
+#
+#
 def symbolic_updater(fcn):
     """
     Use this to decorate a symbolic function that returns a list of updates.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=UpdateFormat)(fcn)
-
-
-def symbolic_standard(fcn):
-    """
-    Use this to decorate a symbolic function that returns a tuple of outputs and a list of updates.
-    """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=StandardFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat)(fcn)
+#
+#
+# def symbolic_standard(fcn):
+#     """
+#     Use this to decorate a symbolic function that returns a tuple of outputs and a list of updates.
+#     """
+#     return SymbolicFunction(input_format=PassAnythingFormat, output_format=StandardFormat)(fcn)
 
 
 class SymbolicFunction(object):
@@ -187,23 +187,18 @@ class SymbolicFunctionWrapper(object):
     def scan(self, **scan_kwargs):
         """
         Apply a scan to this function.  For arguments, see thr
-        :param scan_kwargs:
+        :param scan_kwargs: See theano.scan doc
         :return:
         """
-        return theano.scan(self._call_with_updates_returned, **scan_kwargs)
+        outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
+        for (shared_var, new_val) in updates.items():
+            add_update(shared_var, new_val)
+        return outputs
 
     def _call_with_updates_returned(self, *args, **kwargs):
-        """
-        Call the function and return all updates
-        :param args:
-        :param kwargs:
-        :return: outputs, updates.
-            outputs: A tuple of output variables
-            updates: A list of 2-tuples of (shared_variable, new_value)
-        """
         with StateCatcher() as sc:
-            outputs, updates = self.to_format(symbolic_standard)(*args, **kwargs)
-        return outputs, updates + sc.get_updates()
+            outputs = self(*args, **kwargs)
+        return outputs, sc.get_updates()
 
     def to_format(self, format_decorator):
 
@@ -245,6 +240,9 @@ class SymbolicFunctionWrapper(object):
     def __str__(self):
         return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
 
+    def __repr__(self):
+        return self.__str__()
+
     def locals(self):
         return self._captured_locals
 
@@ -256,28 +254,51 @@ class IFormat(object):
         """ Assert that data is in correct format.  Otherwise, throw SymbolicFormatError """
 
 
+def _detect_format(data):
+    if _is_tensor(data):
+        return SingleOutputFormat
+    elif _is_tuple_of_tensors(data):
+        return MultiOutputFormat
+    elif data is None:
+        return NoOutputFormat
+    else:
+        raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
+
+
 def convert_formats(data, src_format, dest_format):
 
     if src_format == dest_format:
         return data
-    elif src_format is AnyReturnFormat and dest_format is StandardFormat:
-        return detect_return_value(data, return_outputs_in_tuple=True)
-    elif src_format is SingleOutputFormat and dest_format is StandardFormat:
-        return (data, ), []
-    elif src_format is UpdateFormat and dest_format is StandardFormat:
-        return (), data
-    elif src_format is StandardFormat and dest_format is SingleOutputFormat:
-        outputs, updates = data
-        assert len(updates) == 0, 'Cannot convert to single-return format if there are state updates.'
-        assert len(outputs) == 1, "Can only convert to single-return format if there's a single return value.  Got %s" % (len(outputs), )
-        return outputs[0]
-    elif src_format is StandardFormat and dest_format is MultiOutputFormat:
-        outputs, updates = data
-        assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
-        return outputs
-    elif src_format is SingleOutputFormat and dest_format is SingleOutputUpdater:
-        output = data
-        return output, []
+    elif src_format is AnyReturnFormat:
+        actual_src_format = _detect_format(data)
+        return convert_formats(data, actual_src_format, dest_format)
+
+    # elif src_format is AnyReturnFormat and dest_format is StandardFormat:
+    #     return detect_return_value(data, return_outputs_in_tuple=True)
+    elif src_format is NoOutputFormat and dest_format is MultiOutputFormat:
+        return ()
+    elif src_format is SingleOutputFormat and dest_format is MultiOutputFormat:
+        return (data, )
+    elif src_format is MultiOutputFormat and dest_format is SingleOutputFormat:
+        assert len(data) == 1, "You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, )
+        return data[0]
+
+    # elif src_format is SingleOutputFormat and dest_format is StandardFormat:
+    #     return (data, ), []
+    # elif src_format is NoOutputFormat and dest_format is StandardFormat:
+    #     return (), data
+    # elif src_format is StandardFormat and dest_format is SingleOutputFormat:
+    #     outputs, updates = data
+    #     assert len(updates) == 0, 'Cannot convert to single-return format if there are state updates.'
+    #     assert len(outputs) == 1, "Can only convert to single-return format if there's a single return value.  Got %s" % (len(outputs), )
+    #     return outputs[0]
+    # elif src_format is StandardFormat and dest_format is MultiOutputFormat:
+    #     outputs, updates = data
+    #     assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
+    #     return outputs
+    # elif src_format is SingleOutputFormat and dest_format is SingleOutputUpdater:
+    #     output = data
+    #     return output, []
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -293,21 +314,24 @@ class AnyReturnFormat(IFormat):
 
     @staticmethod
     def check(data):
-        detect_return_value(data)  # This will check if the data is in any familiar format.
+        _detect_format(data)  # This will check if the data is in any familiar format.
+        # if not (_is_tensor(data) or _is_tuple_of_tensors(data) or data is None):
+        #     raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
+        # detect_return_value(data)
 
 
-class StandardFormat(IFormat):
-
-    @staticmethod
-    def check(data):
-        if isinstance(data, SymbolicReturn):
-            # Type checked already.
-            return
-        if not (isinstance(data, tuple) and len(data)==2):
-            raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
-        outputs, updates = data
-        MultiOutputFormat.check(outputs)
-        UpdateFormat.check(updates)
+# class StandardFormat(IFormat):
+#
+#     @staticmethod
+#     def check(data):
+#         if isinstance(data, SymbolicReturn):
+#             # Type checked already.
+#             return
+#         if not (isinstance(data, tuple) and len(data)==2):
+#             raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
+#         outputs, updates = data
+#         MultiOutputFormat.check(outputs)
+#         NoOutputFormat.check(updates)
 
 
 class SingleOutputFormat(IFormat):
@@ -318,15 +342,15 @@ class SingleOutputFormat(IFormat):
             raise SymbolicFormatError('You did not return a tensor output.  You returned: %s' % (data, ))
 
 
-class SingleOutputUpdater(IFormat):
-
-    @staticmethod
-    def check(data):
-        if not (isinstance(data, tuple) and len(data)==2):
-            raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
-        outputs, updates = data
-        SingleOutputFormat.check(outputs)
-        UpdateFormat.check(updates)
+# class SingleOutputUpdater(IFormat):
+#
+#     @staticmethod
+#     def check(data):
+#         if not (isinstance(data, tuple) and len(data)==2):
+#             raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
+#         outputs, updates = data
+#         SingleOutputFormat.check(outputs)
+#         NoOutputFormat.check(updates)
 
 
 class MultiOutputFormat(IFormat):
@@ -337,13 +361,20 @@ class MultiOutputFormat(IFormat):
             raise SymbolicFormatError('You did not return a tuple of outputs.  You returned: %s' % (data, ))
 
 
-class UpdateFormat(IFormat):
+# class UpdateFormat(IFormat):
+#
+#     @staticmethod
+#     def check(data):
+#         if not _is_updates_list(data):
+#             raise SymbolicFormatError('Updates were not in the format of a list of 2-tuples [(shared_0, new_val_0), (shared_1, new_val_1), ...].'
+#                 '\nThey were returned as: %s' % (data, ))
+
+
+class NoOutputFormat(IFormat):
 
     @staticmethod
     def check(data):
-        if not _is_updates_list(data):
-            raise SymbolicFormatError('Updates were not in the format of a list of 2-tuples [(shared_0, new_val_0), (shared_1, new_val_1), ...].'
-                '\nThey were returned as: %s' % (data, ))
+        assert data is None, "A symbolic updater should return nothing.  It should define its state updates via function add_update."
 
 
 class SymbolicFormatError(Exception):
@@ -358,51 +389,51 @@ def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
 
 
-def _is_updates_list(updates):
-    """
-    Return True if updates is a proper list of updates and False if not.
-    :return:
-    """
-    return (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
-        all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)))
+# def _is_updates_list(updates):
+#     """
+#     Return True if updates is a proper list of updates and False if not.
+#     :return:
+#     """
+#     return (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
+#         all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)))
 
 
-def detect_return_value(return_info, return_outputs_in_tuple = False):
-    """
-    :param return_info: Whatever is returned from a symbolic function.
-    :return: In one of two formats, depending on whether output is returned as a single or not.
-        output, [(shared_0, new_val_0), ...]
-        (output_0, ...), [(shared_0, new_val_0), ...]
-    """
-    if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
-        outputs, updates = return_info
-    elif isinstance(return_info, SymbolicReturn):
-        outputs, updates = return_info
-    elif _is_updates_list(return_info):
-        outputs = ()
-        updates = return_info
-    elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
-        outputs = return_info
-        updates = []
-    elif return_info is None:
-        outputs = ()
-        updates = []
-    else:
-        raise SymbolicFormatError('Return value was not in any known format: %s' % (return_info, ))
+# def detect_return_value(return_info, return_outputs_in_tuple = False):
+#     """
+#     :param return_info: Whatever is returned from a symbolic function.
+#     :return: In one of two formats, depending on whether output is returned as a single or not.
+#         output, [(shared_0, new_val_0), ...]
+#         (output_0, ...), [(shared_0, new_val_0), ...]
+#     """
+#     if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
+#         outputs, updates = return_info
+#     elif isinstance(return_info, SymbolicReturn):
+#         outputs, updates = return_info
+#     elif _is_updates_list(return_info):
+#         outputs = ()
+#         updates = return_info
+#     elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
+#         outputs = return_info
+#         updates = []
+#     elif return_info is None:
+#         outputs = ()
+#         updates = []
+#     else:
+#         raise SymbolicFormatError('Return value was not in any known format: %s' % (return_info, ))
+#
+#     if return_outputs_in_tuple and _is_tensor(outputs):
+#         outputs = (outputs, )
+#
+#     if isinstance(updates, OrderedUpdates):
+#         updates = [(k, v) for k, v in updates.iteritems()]
+#
+#     return outputs, updates
 
-    if return_outputs_in_tuple and _is_tensor(outputs):
-        outputs = (outputs, )
 
-    if isinstance(updates, OrderedUpdates):
-        updates = [(k, v) for k, v in updates.iteritems()]
-
-    return outputs, updates
-
-
-def _list_all_output_variables(return_info):
-    outputs, updates = detect_return_value(return_info, return_outputs_in_tuple=True)
-    out_and_up = outputs + tuple(new for old, new in updates)
-    return out_and_up
+# def _list_all_output_variables(return_info):
+#     outputs, updates = detect_return_value(return_info, return_outputs_in_tuple=True)
+#     out_and_up = outputs + tuple(new for old, new in updates)
+#     return out_and_up
 
 
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
@@ -488,11 +519,11 @@ class AutoCompilingFunction(object):
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
 
             with StateCatcher() as sc:
-                return_value = self._fcn(*tensor_args, **tensor_kwargs)
-            internal_updates = sc.get_updates()
-            outputs, updates = detect_return_value(return_value)
-            updates+=internal_updates  # For now we do this.  In the future, we will only allow internal updates.
-            all_outputs_and_updates = _list_all_output_variables(return_value)
+                outputs = self._fcn(*tensor_args, **tensor_kwargs)
+            updates = sc.get_updates()
+            # outputs, updates = detect_return_value(return_value)
+            # updates+=internal_updates  # For now we do this.  In the future, we will only allow internal updates.
+            all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
             self._callbacks += trace_callbacks

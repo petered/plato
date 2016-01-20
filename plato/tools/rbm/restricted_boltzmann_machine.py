@@ -1,6 +1,7 @@
 from collections import namedtuple
 
 import numpy as np
+from plato.core import add_update, symbolic_multi
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple, symbolic_standard, SymbolicReturn
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import theano
@@ -40,12 +41,10 @@ def simple_rbm(visible_layer, bridge, hidden_layer):
             cost = tt.mean(wake_energy - sleep_energy)
 
             params = visible_layer.parameters+bridge.parameters+hidden_layer.parameters
-            updates = optimizer(cost = cost, parameters = params, constants = [wake_visible, sleep_visible])
+            optimizer(cost = cost, parameters = params, constants = [wake_visible, sleep_visible])
 
             if persistent:
-                updates.append((persistent_state, sleep_hidden))
-
-            return updates
+                add_update(persistent_state, sleep_hidden)
 
         return train
 
@@ -66,21 +65,21 @@ def simple_rbm(visible_layer, bridge, hidden_layer):
     def get_bounce_fcn(start_from = 'visible', n_steps = 1, return_smooth_visible = False):
         assert start_from in ('visible', 'hidden')
 
-        @symbolic_standard
+        @symbolic_multi
         def bounce_from_visible(visible):
             for _ in xrange(n_steps):
                 hidden = propup(visible)
                 visible = propdown(hidden)
             visible = visible_layer.smooth(bridge.reverse(hidden)) if return_smooth_visible else visible
-            return SymbolicReturn(outputs = (visible, hidden))
+            return visible, hidden
 
-        @symbolic_standard
+        @symbolic_multi
         def bounce_from_hidden(hidden):
             for _ in xrange(n_steps):
                 visible = propdown(hidden)
                 hidden = propup(visible)
             visible = visible_layer.smooth(bridge.reverse(hidden)) if return_smooth_visible else visible
-            return SymbolicReturn(outputs = (visible, hidden))
+            return visible, hidden
 
         return bounce_from_visible if start_from == 'visible' else bounce_from_hidden
 

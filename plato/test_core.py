@@ -1,8 +1,9 @@
 from abc import abstractmethod
 from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
-from plato.core import symbolic_simple, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update
+from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update, \
+    symbolic_multi
 import pytest
 import theano
 import numpy as np
@@ -19,7 +20,7 @@ def test_stateless_symbolic_function():
 
     f1 = multiply_by_two
     assert f1.compile()(2) == 4
-    assert f1.to_format(symbolic_standard).compile()(2) == [4]
+    assert f1.to_format(symbolic_multi).compile()(2) == [4]
 
     # Case 2: Method
     class GenericClass(object):
@@ -34,7 +35,7 @@ def test_stateless_symbolic_function():
     obj = GenericClass()
     f2 = obj.multiply_by_two
     assert f2.compile()(2) == 4
-    assert f2.to_format(symbolic_standard).compile()(2) == [4]
+    assert f2.to_format(symbolic_multi).compile()(2) == [4]
 
     # Case 3: Callable class
     @symbolic
@@ -48,7 +49,7 @@ def test_stateless_symbolic_function():
 
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
-    assert f3.to_format(symbolic_standard).compile()(2) == [4]
+    assert f3.to_format(symbolic_multi).compile()(2) == [4]
 
 
 def test_stateful_symbolic_function():
@@ -61,7 +62,8 @@ def test_stateful_symbolic_function():
 
         def __call__(self):
             counter = theano.shared(np.zeros((), dtype = 'int')+self._initial_value)
-            return counter, [(counter, counter+1)]
+            add_update(counter, counter+1)
+            return counter
 
     c = Counter().compile()
 
@@ -110,7 +112,7 @@ def test_function_format_checking():
 
     assert good_format_thing.compile()(3, 5) == 8
 
-    @symbolic_standard
+    @symbolic_multi
     def bad_format_thing(a, b):
         """
         This function has the standard decorator, but fails to return values in the
@@ -132,7 +134,7 @@ def test_callable_format_checking():
 
     assert GoodFormatThing().compile()(3, 5) == 8
 
-    @symbolic_standard
+    @symbolic_multi
     class BadFormatThing(object):
 
         def __call__(self, a, b):
@@ -231,9 +233,9 @@ def test_omniscence():
                 ('function', average),
                 ('callable_class', Averager()),
                 ('method', TwoNumberOperator().average),
-                ('standard_function', average.to_format(symbolic_standard)),
-                ('standard_callable_class', Averager().to_format(symbolic_standard)),
-                ('standard_method', TwoNumberOperator().average.to_format(symbolic_standard))
+                ('standard_function', average.to_format(symbolic_multi)),
+                ('standard_callable_class', Averager().to_format(symbolic_multi)),
+                ('standard_method', TwoNumberOperator().average.to_format(symbolic_multi))
                 ]:
 
             if k != 'function':
@@ -261,7 +263,8 @@ def test_method_caching_bug():
 
         @symbolic
         def count(self):
-            return (self._count_var, ), [(self._count_var, self._count_var+1)]
+            add_update(self._count_var, self._count_var+1)
+            return self._count_var
 
         @symbolic
         def get_count(self):
@@ -269,13 +272,13 @@ def test_method_caching_bug():
 
     ca = Counter().count.compile()
     c1 = ca()
-    assert c1 == [0]
+    assert c1 == 0
     c2 = ca()
-    assert c2 == [1]
+    assert c2 == 1
 
     cb = Counter().count.compile()
     c1 = cb()
-    assert c1 == [0]  # Before the fix, this was [2]
+    assert c1 == 0  # Before the fix, this was [2]
 
 
 def test_debug_trace():
