@@ -184,6 +184,27 @@ class SymbolicFunctionWrapper(object):
         self.output_format.check(symbolic_return)
         return symbolic_return
 
+    def scan(self, **scan_kwargs):
+        """
+        Apply a scan to this function.  For arguments, see thr
+        :param scan_kwargs:
+        :return:
+        """
+        return theano.scan(self._call_with_updates_returned, **scan_kwargs)
+
+    def _call_with_updates_returned(self, *args, **kwargs):
+        """
+        Call the function and return all updates
+        :param args:
+        :param kwargs:
+        :return: outputs, updates.
+            outputs: A tuple of output variables
+            updates: A list of 2-tuples of (shared_variable, new_value)
+        """
+        with StateCatcher() as sc:
+            outputs, updates = self.to_format(symbolic_standard)(*args, **kwargs)
+        return outputs, updates + sc.get_updates()
+
     def to_format(self, format_decorator):
 
         @format_decorator
@@ -363,6 +384,9 @@ def detect_return_value(return_info, return_outputs_in_tuple = False):
     elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
         outputs = return_info
         updates = []
+    elif return_info is None:
+        outputs = ()
+        updates = []
     else:
         raise SymbolicFormatError('Return value was not in any known format: %s' % (return_info, ))
 
@@ -462,9 +486,12 @@ class AutoCompilingFunction(object):
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
-            return_value = self._fcn(*tensor_args, **tensor_kwargs)
 
+            with StateCatcher() as sc:
+                return_value = self._fcn(*tensor_args, **tensor_kwargs)
+            internal_updates = sc.get_updates()
             outputs, updates = detect_return_value(return_value)
+            updates+=internal_updates  # For now we do this.  In the future, we will only allow internal updates.
             all_outputs_and_updates = _list_all_output_variables(return_value)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
@@ -721,3 +748,42 @@ def tdbprint(var, name = None):
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
     tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
+
+
+STATE_CATCHER = None
+
+def _get_state_catcher():
+    return STATE_CATCHER
+
+def _set_state_catcher(val):
+    global STATE_CATCHER
+    STATE_CATCHER = val
+
+
+def add_update(shared_var, new_val):
+    """
+    :param shared_var: A theano SharedVariable object
+    :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
+    """
+    assert isinstance(shared_var, SharedVariable), 'shared_var must be a theano shared variable.'
+    state_catcher = _get_state_catcher()
+    assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
+    state_catcher.add_update(shared_var, new_val)
+
+
+class StateCatcher(object):
+
+    def __enter__(self):
+        self.old_catcher = _get_state_catcher()
+        _set_state_catcher(self)
+        self._updates = []
+        return self
+
+    def __exit__(self, *args):
+        _set_state_catcher(self.old_catcher)
+
+    def add_update(self, shared_var, new_val):
+        self._updates.append((shared_var, new_val))
+
+    def get_updates(self):
+        return self._updates

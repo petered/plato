@@ -1,7 +1,8 @@
 from abc import abstractmethod
+from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update
 import pytest
 import theano
 import numpy as np
@@ -85,9 +86,10 @@ def test_pure_updater():
         def get_val(self):
             return self._var.get_value()
 
-        @symbolic_updater
+        @symbolic
         def update(self):
-            return [(self._var, self._var+1)]
+            add_update(self._var, self._var+1)
+            # return [(self._var, self._var+1)]
 
     thing = MyThing()
     assert thing.get_val() == 0
@@ -367,7 +369,30 @@ def test_strrep():
     assert 'MultiplyBy' in str(f_m) and 'mult' in str(f_m)
 
 
+def test_scan():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0.)
+        new_s = s+x
+        add_update(s, new_s)
+        return new_s
+
+    @symbolic
+    def cumsum_and_remember(arr):
+        return running_sum.scan(sequences = [arr])
+
+    f = cumsum_and_remember.compile()
+
+    ar = np.random.randn(10)
+    csum = f(ar)
+    assert np.allclose(csum, np.cumsum(ar))
+    more_csum = f(ar)
+    assert np.allclose(more_csum, csum[-1]+np.cumsum(ar))
+
+
 if __name__ == '__main__':
+    test_scan()
     test_strrep()
     test_omniscence()
     test_named_arguments()
