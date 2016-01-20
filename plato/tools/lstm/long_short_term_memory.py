@@ -180,11 +180,12 @@ class AutoencodingLSTM(object):
                 outputs_info = [x_init, h_init, c_init],
                 )
 
+            if maintain_state:
+                updates += [(x_init, x_gen[-1]), (h_init, h_gen[-1]), (c_init, c_gen[-1])]
+
             for var, val in updates.items():
                 add_update(var, val)
 
-            if maintain_state:
-                updates += [(x_init, x_gen[-1]), (h_init, h_gen[-1]), (c_init, c_gen[-1])]
             return x_gen[n_primer_steps:],
 
         return generate
