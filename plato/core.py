@@ -440,8 +440,6 @@ class AutoCompilingFunction(object):
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
             updates = sc.get_updates()
-            # outputs, updates = detect_return_value(return_value)
-            # updates+=internal_updates  # For now we do this.  In the future, we will only allow internal updates.
             all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))

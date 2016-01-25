@@ -49,7 +49,6 @@ class GradientStepUpdater(UniformParameterOptimizer):
     """
     def _update_param(self, param, gradient):
         add_update(param, param - gradient)
-        # return [(param, param - gradient)]
 
 
 class SimpleGradientDescent(UniformParameterOptimizer):
@@ -79,14 +78,12 @@ class AdaMax(UniformParameterOptimizer):
     def _update_param(self, param, gradient):
         mom1 = theano.shared(np.zeros_like(param.get_value()))
         mom2 = theano.shared(np.zeros_like(param.get_value()))
-        # gradient = theano.grad(cost, param, consider_constant = constants)
         mom1_new = mom1 + self._beta_1 * (gradient - mom1)
         mom2_new = tt.maximum(abs(gradient) + self._eps, (1. - self._beta_2) * mom2)
         new_param = param - self._alpha * mom1_new / mom2_new
         add_update(param, new_param)
         add_update(mom1, mom1_new)
         add_update(mom2, mom2_new)
-        # return updates
 
 
 class RMSProp(UniformParameterOptimizer):
@@ -102,7 +99,6 @@ class RMSProp(UniformParameterOptimizer):
         delta_p = - self.learning_rate * gradient / tt.maximum(tt.sqrt(new_mean_squared_grad), self.epsilon)
         add_update(param, param + delta_p)
         add_update(mean_squared_grad, new_mean_squared_grad)
-        # return [(param, param + delta_p), (mean_squared_grad, new_mean_squared_grad)]
 
 
 class AdaGrad(UniformParameterOptimizer):
@@ -124,10 +120,8 @@ class AdaGrad(UniformParameterOptimizer):
         sum_squared_grad = theano.shared(param.get_value()*0)
         new_ssg = (1-self.decay_rate)*sum_squared_grad + gradient**2
         scale = tt.maximum(self.eps, tt.sqrt(new_ssg))
-        new_param = param - (self.learning_rate / scale) * gradient
-        add_update(param, new_param)
+        add_update(param, param - (self.learning_rate / scale) * gradient)
         add_update(sum_squared_grad, new_ssg)
-        # return [(param, new_param), (sum_squared_grad, new_ssg)]
 
 
 class GradientDescent(UniformParameterOptimizer):
@@ -146,15 +140,11 @@ class GradientDescent(UniformParameterOptimizer):
         if self.momentum != 0:
             mom = theano.shared(np.zeros_like(param.get_value()))
             new_mom = self.momentum * mom + gradient
-            # momentum_updates = [(mom, new_mom)]
             add_update(mom, new_mom)
             direction = new_mom  # Or mom, something about Nesterov...
         else:
             direction = gradient
-            # momentum_updates = []
-
         add_update(param, param - self.eta*direction - self.decay*param)
-        # return [(param, param - self.eta*direction - self.decay*param)] + momentum_updates
 
 
 class MultiplicativeGradientDescent(UniformParameterOptimizer):
@@ -165,7 +155,6 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
     def _update_param(self, param, gradient):
         multiplier = tt.exp(-tt.tanh(gradient)*self.factor)
         add_update(param, param*multiplier)
-        # return [(param, param*multiplier)]
 
 
 def get_named_optimizer(name, learning_rate):

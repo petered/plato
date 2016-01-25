@@ -389,9 +389,9 @@ def test_scan():
 
     ar = np.random.randn(10)
     csum = f(ar)
-    assert np.allclose(csum, np.cumsum(ar))
+    assert np.allclose(csum, np.cumsum(ar), atol=1e-6)
     more_csum = f(ar)
-    assert np.allclose(more_csum, csum[-1]+np.cumsum(ar))
+    assert np.allclose(more_csum, csum[-1]+np.cumsum(ar), atol=1e-6)
 
 
 def test_catch_non_updates():
@@ -474,19 +474,19 @@ def test_ival_ishape():
 
 
 if __name__ == '__main__':
-    test_ival_ishape()
-    test_catch_sneaky_updates()
-    test_catch_non_updates()
+    # test_ival_ishape()
+    # test_catch_sneaky_updates()
+    # test_catch_non_updates()
     test_scan()
-    test_strrep()
-    test_omniscence()
-    test_named_arguments()
-    test_stateless_symbolic_function()
-    test_stateful_symbolic_function()
-    test_debug_trace()
-    test_method_caching_bug()
-    test_pure_updater()
-    test_function_format_checking()
-    test_callable_format_checking()
-    test_inhereting_from_decorated()
-    test_dual_decoration()
+    # test_strrep()
+    # test_omniscence()
+    # test_named_arguments()
+    # test_stateless_symbolic_function()
+    # test_stateful_symbolic_function()
+    # test_debug_trace()
+    # test_method_caching_bug()
+    # test_pure_updater()
+    # test_function_format_checking()
+    # test_callable_format_checking()
+    # test_inhereting_from_decorated()
+    # test_dual_decoration()
