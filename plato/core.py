@@ -46,6 +46,8 @@ __author__ = 'peter'
 # the initial values that are attached to them.
 Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
 Variable.ishape = property(lambda self: self.ival.shape)
+Variable.indim = property(lambda self: self.ival.ndim)
+Variable.idtype = property(lambda self: (self.ival.dtype if isinstance(self.ival, np.ndarray) else type(self.ival)))
 
 
 def symbolic(fcn):
@@ -287,9 +289,6 @@ def convert_formats(data, src_format, dest_format):
     elif src_format is AnyReturnFormat:
         actual_src_format = _detect_format(data)
         return convert_formats(data, actual_src_format, dest_format)
-
-    # elif src_format is AnyReturnFormat and dest_format is StandardFormat:
-    #     return detect_return_value(data, return_outputs_in_tuple=True)
     elif src_format is NoOutputFormat and dest_format is MultiOutputFormat:
         return ()
     elif src_format is SingleOutputFormat and dest_format is MultiOutputFormat:
@@ -357,7 +356,7 @@ class SingleOutputFormat(IFormat):
     @staticmethod
     def check(data, f):
         if not _is_tensor(data):
-            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (data, ))
+            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (f, data))
 
 
 # class SingleOutputUpdater(IFormat):
@@ -566,9 +565,8 @@ class AutoCompilingFunction(object):
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                self._single_output = _is_tensor(outputs)
-                if self._single_output:
-                    outputs = (outputs, )
+                self._single_output = outputs is not None and _is_tensor(outputs)
+                outputs = (outputs, ) if self._single_output else () if outputs is None else outputs
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
@@ -768,19 +766,19 @@ def find_leaf_ancestors(variable):
     return leaf_ancestors
 
 
-class SymbolicReturn(object):
-
-    def __init__(self, outputs = (), updates = []):
-        if not (isinstance(outputs, (list, tuple)) and all(isinstance(out, Variable) for out in outputs)):
-            raise SymbolicFormatError('Outputs must a tuple of tensors.  They were %s instead' % (outputs, ))
-        if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
-                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
-            raise SymbolicFormatError('Updates must be a list of 2-tuples of (shared_variable, update_tensor).  We got %s instead' % (updates, ))
-        self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else outputs
-        self.updates = updates
-
-    def __iter__(self):
-        return (self.outputs, self.updates).__iter__()
+# class SymbolicReturn(object):
+#
+#     def __init__(self, outputs = (), updates = []):
+#         if not (isinstance(outputs, (list, tuple)) and all(isinstance(out, Variable) for out in outputs)):
+#             raise SymbolicFormatError('Outputs must a tuple of tensors.  They were %s instead' % (outputs, ))
+#         if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
+#                 all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
+#             raise SymbolicFormatError('Updates must be a list of 2-tuples of (shared_variable, update_tensor).  We got %s instead' % (updates, ))
+#         self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else outputs
+#         self.updates = updates
+#
+#     def __iter__(self):
+#         return (self.outputs, self.updates).__iter__()
 
 
 _TRACE_VARIABLES = OrderedDict()  # A dict of trace-variable-name: Trace Variable
@@ -819,8 +817,10 @@ def tdbprint(var, name = None):
 
 STATE_CATCHER = None
 
+
 def _get_state_catcher():
     return STATE_CATCHER
+
 
 def _set_state_catcher(val):
     global STATE_CATCHER

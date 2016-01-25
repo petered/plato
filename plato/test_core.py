@@ -441,7 +441,40 @@ def test_catch_sneaky_updates():
     assert g() == 1
 
 
+def test_ival_ishape():
+    """
+    ival, ishape, idim, idtype give the initial values, shapes, number of dimensions, and data types
+    of theano variables.  These properties are useful for input checking and debugging.
+    """
+
+    @symbolic
+    def mat_mult(a, b):
+        assert a.indim == 2 and b.indim == 2
+        assert a.idtype == theano.config.floatX and b.idtype == theano.config.floatX, 'We only take floats around these parts.'
+        assert a.ishape[1] == b.ishape[0], 'Matrices not aligned!'
+        c = a.dot(b)
+        assert c.ishape == (a.ishape[0], b.ishape[1])
+        return c
+
+    foo = np.random.randn(3, 4)
+    bar = np.random.randn(3, 3)
+    baz = np.random.randn(4, 5)
+    hap = np.random.randint(255, size = (4, 5))
+
+    f = mat_mult.compile()
+    with raises(AssertionError):
+        z = f(foo, bar)
+
+    f = mat_mult.compile()
+    with raises(AssertionError):
+        z = f(foo, hap)
+
+    z = f(foo, baz)
+    assert np.allclose(z, foo.dot(baz))
+
+
 if __name__ == '__main__':
+    test_ival_ishape()
     test_catch_sneaky_updates()
     test_catch_non_updates()
     test_scan()

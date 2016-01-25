@@ -184,11 +184,11 @@ class DistributionMLP(IParameterized):
     def __call__(self, x):
 
         if self.distribution == 'gaussian':
-            (mu, log_sigma), _ = self.chain(x)
+            (mu, log_sigma) = self.chain(x)
             dist = MultipleDiagonalGaussianDistribution(mu, sigma_sq = tt.exp(log_sigma)**2)
 
         elif self.distribution == 'bernoulli':
-            (p, ), _ = self.chain(x)
+            (p, ) = self.chain(x)
             dist = MultipleBernoulliDistribution(p)
         return dist
 

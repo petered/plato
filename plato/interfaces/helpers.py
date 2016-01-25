@@ -216,15 +216,15 @@ class SlowBatchNormalize(object):
     """
 
     def __init__(self, half_life):
-        self.decay_constant = np.exp(-np.log(2)/half_life)
+        self.decay_constant = np.exp(-np.log(2)/half_life).astype(theano.config.floatX)
 
     def __call__(self, x):
         # x should have
-        assert x.tag.test_value.shape[0]==1, "This method only works for minibatches of size 1, but you used a minibatch of size: %s" % (x.tag.test_value.shape[0])
-        running_mean = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
-        running_mean_sq = theano.shared(np.zeros(x.tag.test_value.shape[1:]))
-        new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant)
-        new_running_mean_sq = running_mean_sq * self.decay_constant + (x[0]**2) * (1-self.decay_constant)
+        assert x.ishape[0]==1, "This method only works for minibatches of size 1, but you used a minibatch of size: %s" % (x.tag.test_value.shape[0])
+        running_mean = create_shared_variable(np.zeros(x.tag.test_value.shape[1:]))
+        running_mean_sq = create_shared_variable(np.zeros(x.tag.test_value.shape[1:]))
+        new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant).astype(theano.config.floatX)
+        new_running_mean_sq = running_mean_sq * self.decay_constant + (x[0]**2) * (1-self.decay_constant).astype(theano.config.floatX)
         add_update(running_mean, new_running_mean)
         add_update(running_mean_sq, new_running_mean_sq)
         running_std = tt.sqrt((new_running_mean_sq - new_running_mean**2))
