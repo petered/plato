@@ -1,4 +1,5 @@
 from general.numpy_helpers import get_rng
+from plato.core import add_update
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer
 import numpy as np
@@ -66,11 +67,10 @@ class PerceptronLayer(ITargetPropLayer):
         delta_w_rev = out.T.dot(x - recon)
         delta_b_rev = (x - recon).sum(axis = 0)
 
-        return [(self.w, self.w+delta_w), (self.b, self.b+delta_b), (self.w_rev, self.w_rev+delta_w_rev), (self.b_rev, self.b_rev+delta_b_rev)]
-
-        # optimizer = AdaMax(alpha = 0.001)
-        # updates = optimizer.update_from_gradients(parameters = [self.w, self.b, self.w_rev, self.b_rev], gradients = [-delta_w, -delta_b, -delta_w_rev, -delta_b_rev])
-        # return updates
+        add_update(self.w, self.w+delta_w)
+        add_update(self.w, self.w_rev+delta_w_rev)
+        add_update(self.b, self.b+delta_b)
+        add_update(self.b_rev, self.b_rev+delta_b_rev)
 
     def backpropagate_target(self, x, target):
 

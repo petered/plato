@@ -25,7 +25,7 @@ class UniformParameterOptimizer(IGradientOptimizer):
 
     def __call__(self, cost, parameters, constants = []):
         gradients = theano.grad(cost, parameters, consider_constant = constants)  # Can be faster than [theano.grad(p) for p in parameters]
-        return self.update_from_gradients(parameters, gradients)
+        self.update_from_gradients(parameters, gradients)
 
     @symbolic_updater
     def update_from_gradients(self, parameters, gradients):
@@ -36,8 +36,6 @@ class UniformParameterOptimizer(IGradientOptimizer):
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
         for p, g in zip(parameters, gradients):
             self._update_param(p, g)
-
-        # return sum([self._update_param(p, g) for p, g in zip(parameters, gradients)], [])
 
     @abstractmethod
     def _update_param(self, param, gradient):
@@ -68,7 +66,6 @@ class SimpleGradientDescent(UniformParameterOptimizer):
 
     def _update_param(self, param, gradient):
         add_update(param, param - self._eta * gradient)
-        # return [(param, param - self._eta * gradient)]
 
 
 class AdaMax(UniformParameterOptimizer):

@@ -3,7 +3,7 @@ from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update, \
-    symbolic_multi
+    symbolic_multi, symbolic_stateless
 import pytest
 import theano
 import numpy as np
@@ -394,7 +394,56 @@ def test_scan():
     assert np.allclose(more_csum, csum[-1]+np.cumsum(ar))
 
 
+def test_catch_non_updates():
+
+    var = create_shared_variable(0)
+
+    @symbolic_updater
+    def lying_function_that_says_its_an_updater_but_isnt():
+        pass
+
+    f = lying_function_that_says_its_an_updater_but_isnt.compile()
+    with raises(SymbolicFormatError):
+        f()
+
+    @symbolic_updater
+    def honest_function_that_actually_updates():
+        add_update(var, var+1)
+
+    g = honest_function_that_actually_updates.compile()
+    g()
+    g()
+    assert var.get_value() == 2
+
+
+def test_catch_sneaky_updates():
+
+    var = create_shared_variable(0)
+
+    @symbolic_stateless
+    def lying_function_that_says_its_stateless_but_has_state():
+        add_update(var, var+1)
+        return var+1
+
+    f = lying_function_that_says_its_stateless_but_has_state.compile()
+
+    with raises(SymbolicFormatError):
+        f()
+
+    assert var.get_value() == 0
+
+    @symbolic_stateless
+    def honest_function_that_actually_is_stateless():
+        return var+1
+
+    g = honest_function_that_actually_is_stateless.compile()
+    assert g() == 1
+    assert g() == 1
+
+
 if __name__ == '__main__':
+    test_catch_sneaky_updates()
+    test_catch_non_updates()
     test_scan()
     test_strrep()
     test_omniscence()

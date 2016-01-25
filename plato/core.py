@@ -52,21 +52,28 @@ def symbolic(fcn):
     """
     Use this to decorate a symbolic function with any return format (it will be detected automatically).
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat, update_format=PassAnythingFormat)(fcn)
+
+
+def symbolic_stateless(fcn):
+    """
+    Use this to decorate symbolic functions that create no state updates.  It will check that they do not change state.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat, update_format=NoUpdatesFormat)(fcn)
 
 
 def symbolic_simple(fcn):
     """
     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat, update_format=PassAnythingFormat)(fcn)
 
 
 def symbolic_multi(fcn):
     """
     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a tuple of tensors.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat, update_format=PassAnythingFormat)(fcn)
 
 
 # def symbolic_single_output_updater(fcn):
@@ -78,9 +85,9 @@ def symbolic_multi(fcn):
 #
 def symbolic_updater(fcn):
     """
-    Use this to decorate a symbolic function that returns a list of updates.
+    Use this to decorate a symbolic function that returns a list of updates and no outputs.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat, update_format=SomeUpdatesFormat)(fcn)
 #
 #
 # def symbolic_standard(fcn):
@@ -92,30 +99,30 @@ def symbolic_updater(fcn):
 
 class SymbolicFunction(object):
 
-    def __init__(self, input_format = None, output_format = None):
+    def __init__(self, input_format = None, output_format = None, update_format = None):
 
         # Cases:
-        # 1) Ordinary function
-        self.input_format = input_format
-        self.output_format = output_format
+        self.input_format = PassAnythingFormat if input_format is None else input_format
+        self.output_format = PassAnythingFormat if output_format is None else output_format
+        self.update_format = PassAnythingFormat if update_format is None else update_format
 
     def __call__(self, fcn):
 
         if inspect.isclass(fcn):
             # This is class with a __call__ method
-            return _decorate_callable_class(fcn, self.input_format, self.output_format)
+            return _decorate_callable_class(fcn, self.input_format, self.output_format, self.update_format)
 
         elif hasattr(fcn, '__call__'):
             # This is a function.  It may be:
             # 1) An ordinary function
             # 2) An unbound method.
-            return SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format)
+            return _SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format, update_format=self.update_format)
 
         else:
             raise Exception('Should never get here.')
 
 
-def _decorate_callable_class(callable_class, input_format, output_format):
+def _decorate_callable_class(callable_class, input_format, output_format, update_format):
 
     assert hasattr(callable_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
         "be callable.  If there's a specific method you want to decorate, decorate that instead."
@@ -125,17 +132,17 @@ def _decorate_callable_class(callable_class, input_format, output_format):
 
     # Strategy 2: Bind the function_type as a base-class to the class - the __new__ method of function_type will then be
     # called when the object is instantiated.
-    class CallableSymbolicFunction(callable_class, SymbolicFunctionWrapper):
+    class CallableSymbolicFunction(callable_class, _SymbolicFunctionWrapper):
             """
             This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
             the callable class comply to the ISymbolicFunction interface.
             """
 
             # Also decorate the __call__ method, so that type checking is done.
-            __call__ = SymbolicFunctionWrapper(callable_class.__call__, input_format = input_format, output_format = output_format)
+            __call__ = _SymbolicFunctionWrapper(callable_class.__call__, input_format = input_format, output_format = output_format, update_format=update_format)
 
             def __init__(self, *args, **kwargs):
-                SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format)
+                _SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format, update_format=update_format)
                 callable_class.__init__(self, *args, **kwargs)
 
             def fcn_str(self):
@@ -144,44 +151,48 @@ def _decorate_callable_class(callable_class, input_format, output_format):
     return CallableSymbolicFunction
 
 
-class SymbolicFunctionWrapper(object):
+class _SymbolicFunctionWrapper(object):
     """
     For internal use only.  Use decorators
     """
 
-    def __init__(self, fcn, input_format = None, output_format = None, attached_instance = None):
+    def __init__(self, fcn, input_format, output_format, update_format, attached_instance = None):
         """
         :param fcn: The function being wrapped
         :param input_format: An IFormat object representing the input format
         :param output_format: An IFormat object representing the output format
+        :param update_format: An IFormat object representing the update format.
         :param attached_instance: Will be None, unless called from __get__ (for methods)
         """
         self.fcn = fcn
         self.input_format = input_format
         self.output_format = output_format
+        self.update_format = update_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
         self._captured_locals = {}
         self.attached_instance = attached_instance
 
     def __call__(self, *args, **kwargs):
-        self.input_format.check((args, kwargs))
+        self.input_format.check((args, kwargs), self.fcn)
 
-        if ENABLE_OMNISCENCE:
-            with CaptureLocals() as c:
+        with StateCatcher(swallow_updates=False) as sc:
+            if ENABLE_OMNISCENCE:
+                with CaptureLocals() as c:
+                    if self.attached_instance is None:
+                        symbolic_return = self.fcn(*args, **kwargs)
+                    else:
+                        symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
+                captured_anything = c.get_captured_locals()
+                captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
+                captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
+                self._captured_locals = captured_locals
+            else:
                 if self.attached_instance is None:
                     symbolic_return = self.fcn(*args, **kwargs)
                 else:
                     symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
-            captured_anything = c.get_captured_locals()
-            captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
-            captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
-            self._captured_locals = captured_locals
-        else:
-            if self.attached_instance is None:
-                symbolic_return = self.fcn(*args, **kwargs)
-            else:
-                symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
-        self.output_format.check(symbolic_return)
+        self.update_format.check(sc.get_updates(), self.fcn)
+        self.output_format.check(symbolic_return, self.fcn)
         return symbolic_return
 
     def scan(self, **scan_kwargs):
@@ -196,7 +207,7 @@ class SymbolicFunctionWrapper(object):
         return outputs
 
     def _call_with_updates_returned(self, *args, **kwargs):
-        with StateCatcher() as sc:
+        with StateCatcher(swallow_updates=True) as sc:
             outputs = self(*args, **kwargs)
         return outputs, sc.get_updates()
 
@@ -229,7 +240,7 @@ class SymbolicFunctionWrapper(object):
         if instance in self._dispatched_methods:
             return self._dispatched_methods[instance]
         else:
-            return SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, attached_instance=instance)
+            return _SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, update_format=self.update_format, attached_instance=instance)
 
     def fcn_str(self):
         if self.attached_instance is None:
@@ -250,8 +261,12 @@ class SymbolicFunctionWrapper(object):
 class IFormat(object):
 
     @staticmethod
-    def check(data):
-        """ Assert that data is in correct format.  Otherwise, throw SymbolicFormatError """
+    def check(data, f):
+        """
+        Assert that data is in correct format.  Otherwise, throw SymbolicFormatError.  f is the reference to the function
+        whose inputs/outputs/updates are being inspected.  f is passed in so that it can be used in the error message,
+        if any.
+        """
 
 
 def _detect_format(data):
@@ -306,15 +321,18 @@ def convert_formats(data, src_format, dest_format):
 class PassAnythingFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         pass
 
 
 class AnyReturnFormat(IFormat):
 
     @staticmethod
-    def check(data):
-        _detect_format(data)  # This will check if the data is in any familiar format.
+    def check(data, f):
+        try:
+            _detect_format(data)  # This will check if the data is in any familiar format.
+        except SymbolicFormatError:
+            raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
         # if not (_is_tensor(data) or _is_tuple_of_tensors(data) or data is None):
         #     raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
         # detect_return_value(data)
@@ -337,9 +355,9 @@ class AnyReturnFormat(IFormat):
 class SingleOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         if not _is_tensor(data):
-            raise SymbolicFormatError('You did not return a tensor output.  You returned: %s' % (data, ))
+            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (data, ))
 
 
 # class SingleOutputUpdater(IFormat):
@@ -356,9 +374,9 @@ class SingleOutputFormat(IFormat):
 class MultiOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         if not _is_tuple_of_tensors(data):
-            raise SymbolicFormatError('You did not return a tuple of outputs.  You returned: %s' % (data, ))
+            raise SymbolicFormatError('Function %s was should have returned a tuple-of-tensors output, but instead returned: %s' % (f, data))
 
 
 # class UpdateFormat(IFormat):
@@ -373,8 +391,26 @@ class MultiOutputFormat(IFormat):
 class NoOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
-        assert data is None, "A symbolic updater should return nothing.  It should define its state updates via function add_update."
+    def check(data, f):
+        assert data is None, "Function %s should have returned no output, but it returned %s.  If your intention was to return updates, use add_update instead." % (f, data)
+
+
+class NoUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data)!=0:
+            raise SymbolicFormatError("Function %s should have created no state updates, but it created updates: %s" % (f, data))
+
+
+class SomeUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if isinstance(data, list): "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data) == 0:
+            raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
 
 
 class SymbolicFormatError(Exception):
@@ -490,7 +526,7 @@ class AutoCompilingFunction(object):
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
-        assert isinstance(fcn, SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
+        assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
 
         self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
         self._original_fcn = fcn  # Needed for retrieveing locals hack
@@ -518,7 +554,7 @@ class AutoCompilingFunction(object):
             self._kwarg_order = tensor_kwargs.keys()
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
 
-            with StateCatcher() as sc:
+            with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
             updates = sc.get_updates()
             # outputs, updates = detect_return_value(return_value)
@@ -803,18 +839,35 @@ def add_update(shared_var, new_val):
 
 
 class StateCatcher(object):
+    """
+    Used to catch updates.  Usage:
+
+    with StateCatcher() as sc:
+        # Code here
+    updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
+    """
+
+    def __init__(self, swallow_updates = False):
+        """
+        :param swallow_updates: A boolean.  True if you'd like to "swallow" all updates produced, and not pass them on to any
+            outer state-catcher.  False if you'd like to pass updates to the outer StateCatcher.
+        :return:
+        """
+        self.swallow_updates = swallow_updates
 
     def __enter__(self):
-        self.old_catcher = _get_state_catcher()
+        self._outer_catcher = _get_state_catcher()
         _set_state_catcher(self)
         self._updates = []
         return self
 
     def __exit__(self, *args):
-        _set_state_catcher(self.old_catcher)
+        _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
         self._updates.append((shared_var, new_val))
+        if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+            self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
         return self._updates

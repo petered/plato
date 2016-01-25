@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from plato.interfaces.decorators import symbolic_updater, symbolic_standard, symbolic_simple
+from plato.core import symbolic_multi, add_update
+from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng, create_shared_variable
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 from theano.compile.sharedvalue import SharedVariable
@@ -82,12 +83,9 @@ class BaseRBM(IGenerativeNet):
             wake_energy = self.energy(wake_visible)
             sleep_energy = self.energy(sleep_visible)
             cost = wake_energy - sleep_energy
-            updates = optimizer(cost = cost, parameters = self.parameters, constants = [wake_visible, sleep_visible])
-
+            optimizer(cost = cost, parameters = self.parameters, constants = [wake_visible, sleep_visible])
             if persistent:
-                updates.append((persistent_state, sleep_hidden))
-
-            return updates
+                add_update(persistent_state, sleep_hidden)
 
         return train
 
@@ -98,13 +96,14 @@ class BaseRBM(IGenerativeNet):
             initial_vis if isinstance(initial_vis, SharedVariable) else \
             create_shared_variable(initial_vis.tag.test_value)
 
-        @symbolic_standard
+        @symbolic_multi
         def sample():
             vis = initial_vis
             for i in xrange(n_steps):
                 hid = self.propup(vis)
                 vis = self.propdown(hid)
-            return (vis, hid), [(initial_vis, vis)]
+            add_update(initial_vis, vis)
+            return vis, hid
         return sample
 
     @classmethod
@@ -146,6 +145,9 @@ class BernoulliGaussianRBM(BaseRBM):
 class StackedDeepBeliefNet(IGenerativeNet):
 
     def __init__(self, rbms):
+        """
+        :param rbms: A List<IGenerativeNet> representing the stacked RBMs in the model.
+        """
         self.rbms = rbms
 
     @symbolic_simple
@@ -201,11 +203,11 @@ class StackedDeepBeliefNet(IGenerativeNet):
         initial_vis = create_shared_variable(initial_vis)
         initial_top_vis = self.propup(initial_vis, to_layer=-1)
         top_sampling_fcn = self.rbms[-1].get_sampling_fcn(initial_vis= initial_top_vis, n_steps=n_steps)
-        @symbolic_standard
+        @symbolic_simple
         def sample():
-            (top_sample, _), updates = top_sampling_fcn()
+            top_sample, _ = top_sampling_fcn()
             bottom_sample = self.propdown(top_sample, stochastic = True, from_layer = -2)
-            return (bottom_sample, ), updates
+            return bottom_sample
         return sample
 
     def stack_another(self, rbm):
