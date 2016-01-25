@@ -200,14 +200,14 @@ div#notebook {
 <div class="prompt input_prompt">In&nbsp;[3]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">add_two_numbers</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span><span class="o">+</span><span class="n">y</span>
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">add_two_numbers</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;3+4=</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;3+4=%s&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -241,18 +241,18 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">theano</span>
-<span class="kn">from</span> <span class="nn">theano.tensor</span> <span class="kn">import</span> <span class="n">scalar</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">import</span> <span class="nn">theano</span>
+<span class="kn">from</span> <span class="nn">theano.tensor</span> <span class="k">import</span> <span class="n">scalar</span>
 
 <span class="n">x</span> <span class="o">=</span> <span class="n">scalar</span><span class="p">(</span><span class="n">dtype</span> <span class="o">=</span> <span class="s">&#39;int32&#39;</span><span class="p">)</span>
 <span class="n">y</span> <span class="o">=</span> <span class="n">scalar</span><span class="p">(</span><span class="n">dtype</span> <span class="o">=</span> <span class="s">&#39;int32&#39;</span><span class="p">)</span>
 <span class="n">z</span> <span class="o">=</span> <span class="n">x</span><span class="o">+</span><span class="n">y</span>
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">theano</span><span class="o">.</span><span class="n">function</span><span class="p">(</span><span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">],</span> <span class="n">outputs</span> <span class="o">=</span> <span class="n">z</span><span class="p">)</span>
-<span class="k">print</span> <span class="s">&#39;3+4=</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;3+4=%s&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -266,6 +266,16 @@ div#notebook {
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>3+4=7
+</pre>
+</div>
+</div>
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/Users/peter/projects/argmaxlab/venv/src/theano/theano/tensor/var.py:128: UserWarning: Warning, Cannot compute test value: input 0 (&lt;TensorType(int32, scalar)&gt;) of Op Elemwise{add,no_inplace}(&lt;TensorType(int32, scalar)&gt;, &lt;TensorType(int32, scalar)&gt;) missing default value
+  return theano.tensor.basic.add(self, other)
+/Users/peter/projects/argmaxlab/venv/src/theano/theano/tensor/var.py:128: UserWarning: Warning, Cannot compute test value: input 1 (&lt;TensorType(int32, scalar)&gt;) of Op Elemwise{add,no_inplace}(&lt;TensorType(int32, scalar)&gt;, &lt;TensorType(int32, scalar)&gt;) missing default value
+  return theano.tensor.basic.add(self, other)
 </pre>
 </div>
 </div>
@@ -296,11 +306,11 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">theano</span>
-<span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">import</span> <span class="nn">theano</span>
+<span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">counter</span><span class="p">():</span>
@@ -310,10 +320,10 @@ div#notebook {
     <span class="k">return</span> <span class="n">new_count</span>
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">counter</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;I can count to ten.  See: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">())</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">10</span><span class="p">)])</span>
+<span class="nb">print</span> <span class="s">&#39;I can count to ten.  See: %s&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">())</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">10</span><span class="p">)])</span>
 
 <span class="n">f2</span> <span class="o">=</span> <span class="n">counter</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;I can too: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f2</span><span class="p">())</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">10</span><span class="p">)])</span>
+<span class="nb">print</span> <span class="s">&#39;I can too: %s&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f2</span><span class="p">())</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">10</span><span class="p">)])</span>
 <span class="c"># Note that we start from scratch when we compile the function a new time, </span>
 <span class="c"># because the shared variable is initialized within the function call.  If we</span>
 <span class="c"># had declaired counter outside the function, the second count would run from </span>
@@ -352,10 +362,10 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span>
 <span class="kn">import</span> <span class="nn">theano</span>
 
 <span class="k">class</span> <span class="nc">Collatz</span><span class="p">:</span>
@@ -380,18 +390,18 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 <span class="n">mul_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">multiply_by_3_and_add_one</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
 <span class="n">value</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">get_value</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;Demonstrate Collatz conjecture for initial value of </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">c</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">get_value</span><span class="p">()</span>
+<span class="nb">print</span> <span class="s">&#39;Demonstrate Collatz conjecture for initial value of %s&#39;</span> <span class="o">%</span> <span class="n">c</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">get_value</span><span class="p">()</span>
 
 <span class="k">while</span> <span class="n">value</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
     <span class="n">value</span> <span class="o">=</span> <span class="n">div_fcn</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">mul_fcn</span><span class="p">()</span>
-    <span class="k">print</span> <span class="n">value</span>
+    <span class="nb">print</span> <span class="n">value</span>
 
-<span class="k">print</span> <span class="s">&#39;Note that since the value is attached to the instance, it persists if functons are recompiled.&#39;</span>
+<span class="nb">print</span> <span class="s">&#39;Note that since the value is attached to the instance, it persists if functons are recompiled.&#39;</span>
 <span class="n">new_div_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">divide_by_2</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 <span class="n">new_mul_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">multiply_by_3_and_add_one</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
     <span class="n">value</span> <span class="o">=</span> <span class="n">new_div_fcn</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">new_mul_fcn</span><span class="p">()</span>
-    <span class="k">print</span> <span class="n">value</span>
+    <span class="nb">print</span> <span class="n">value</span>
 </pre></div>
 
 </div>
@@ -439,10 +449,10 @@ Note that since the value is attached to the instance, it persists if functons a
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">class</span> <span class="nc">MultiplyBySomething</span><span class="p">:</span>
@@ -455,7 +465,7 @@ Note that since the value is attached to the instance, it persists if functons a
     
 <span class="n">f</span> <span class="o">=</span> <span class="n">MultiplyBySomething</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
-<span class="k">print</span> <span class="s">&#39;3*4=</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;3*4=%s&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -489,24 +499,24 @@ Note that since the value is attached to the instance, it persists if functons a
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">add_and_div</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="o">+</span><span class="n">y</span><span class="p">)</span><span class="o">/</span><span class="n">z</span>
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">add_and_div</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;(2+4)/3 = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-<span class="k">print</span> <span class="s">&#39;(1+3)/2 = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;(2+4)/3 = %s&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;(1+3)/2 = %s&#39;</span> <span class="o">%</span> <span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="k">try</span><span class="p">:</span>
-    <span class="k">print</span> <span class="s">&#39;Lets try again, but leave x as an unnamed arg...&#39;</span>
+    <span class="nb">print</span> <span class="s">&#39;Lets try again, but leave x as an unnamed arg...&#39;</span>
     <span class="n">f</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mf">3.</span><span class="p">)</span>
 <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="k">print</span> <span class="s">&#39;You were inconsistent - referenced x as a kwarg in the first call but not the second.&#39;</span>
+    <span class="nb">print</span> <span class="s">&#39;You were inconsistent - referenced x as a kwarg in the first call but not the second.&#39;</span>
 </pre></div>
 
 </div>
@@ -550,16 +560,16 @@ You were inconsistent - referenced x as a kwarg in the first call but not the se
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">forward_pass</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
-    <span class="k">print</span> <span class="s">&#39;x-shape: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ishape</span><span class="p">,</span> <span class="p">)</span>
-    <span class="k">print</span> <span class="s">&#39;w-shape: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">ishape</span><span class="p">,</span> <span class="p">)</span>
+    <span class="nb">print</span> <span class="s">&#39;x-shape: %s&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ishape</span><span class="p">,</span> <span class="p">)</span>
+    <span class="nb">print</span> <span class="s">&#39;w-shape: %s&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">ishape</span><span class="p">,</span> <span class="p">)</span>
     <span class="c"># Note that the above test-values only display on the first iteration.</span>
     <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
 
@@ -570,7 +580,7 @@ You were inconsistent - referenced x as a kwarg in the first call but not the se
     <span class="n">h</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>  
 <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
     <span class="c"># If you do not catch the error, you get a stacktrace which points to the line at fault.</span>
-    <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s">&#39;%s: %s&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -606,12 +616,12 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">tdbprint</span>
-<span class="kn">import</span> <span class="nn">theano.tensor</span> <span class="kn">as</span> <span class="nn">tt</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">tdbprint</span>
+<span class="kn">import</span> <span class="nn">theano.tensor</span> <span class="k">as</span> <span class="nn">tt</span>
 <span class="kn">import</span> <span class="nn">theano</span>
 
 <span class="k">class</span> <span class="nc">Layer</span><span class="p">:</span>
@@ -622,7 +632,7 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
     <span class="nd">@symbolic</span>
     <span class="k">def</span> <span class="nf">forward_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">pre_sigmoid</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">)</span>
-        <span class="n">tdbprint</span><span class="p">(</span><span class="n">pre_sigmoid</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;Pre-Sigmoid Activation&#39;</span><span class="p">)</span>
+        <span class="n">tdbprint</span><span class="p">(</span><span class="n">pre_sigmoid</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s">&#39;Pre-Sigmoid Activation&#39;</span><span class="p">)</span>  <span class="c"># Here we make a trace of an internal variable</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">tt</span><span class="o">.</span><span class="n">nnet</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">pre_sigmoid</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span>
     
@@ -632,9 +642,9 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
     
 <span class="n">layer</span> <span class="o">=</span> <span class="n">Layer</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">))</span>
 <span class="n">fwd_fcn</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">forward_pass</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">fwd_fcn</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_in</span><span class="p">))</span>
-    <span class="k">print</span> <span class="s">&#39;Post Sigmoid Activation: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s">&#39;Post Sigmoid Activation: %s&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">y</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -647,12 +657,12 @@ ValueError: shapes (5,4) and (3,4) not aligned: 4 (dim 1) != 3 (dim 0)
 
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Pre-Sigmoid Activation: [[ 0.00305122  1.05723461 -1.9052578 ]]
-Post Sigmoid Activation: [[ 0.50076281  0.74216172  0.12951455]]
-Pre-Sigmoid Activation: [[-0.07490342 -0.68868457  1.11345533]]
-Post Sigmoid Activation: [[ 0.4812829   0.33432576  0.75277273]]
-Pre-Sigmoid Activation: [[-0.94163796  1.2349249  -4.65812509]]
-Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
+<pre>Pre-Sigmoid Activation: [[ 4.40823978 -3.22244603  2.0160825 ]]
+Post Sigmoid Activation: [[ 0.98796989  0.03832972  0.88247532]]
+Pre-Sigmoid Activation: [[-0.84914375  1.78727461  1.03616111]]
+Post Sigmoid Activation: [[ 0.29961251  0.85659281  0.73810861]]
+Pre-Sigmoid Activation: [[-0.31623953  1.34197376  1.74131986]]
+Post Sigmoid Activation: [[ 0.42159248  0.79281434  0.85085463]]
 </pre>
 </div>
 </div>
@@ -678,12 +688,13 @@ Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
 <div class="text_cell_render border-box-sizing rendered_html">
 <h2 id="7.-Enforcing-Interfaces">7. Enforcing Interfaces<a class="anchor-link" href="#7.-Enforcing-Interfaces">&#182;</a></h2><p>In larger programs, it can be useful to enforce interfaces - that is, functions are required to obey a certain contract.  This allows function A to use function B without knowing in particular which function it is.  For instance, you may have some code that iterates through a dataset and trains a predictor, but doesn't necessarily know what kind of predictor it is - just that it has a <em>train</em> function that accepts inputs and targets, and returns updates.</p>
 <p>For this reason, we have an extended set of decorators which enforce type-checking on inputs, outputs, and updates.</p>
-<p><code>@symbolic</code> - No format requirements.
-<code>@symbolic_simple</code> - Returns a single output variable.<br>
-<code>@symbolic_multi</code> - Returns a tuple of output tensors.<br>
-<code>@symbolic_stateless</code> - Makes no state updates.
-<code>@symbolic_updater</code> - Returns nothing and produces at least one state update.</p>
-<p>Functions decorated with one of the above decorators throw a <code>SymbolicFormatError</code> when the function does not obey the contract specified by its decorator.</p>
+<p><strong><code>@symbolic</code></strong> - No format requirements.<br>
+<strong><code>@symbolic_simple</code></strong> - Returns a single output variable.<br>
+<strong><code>@symbolic_multi</code></strong> - Returns a tuple of output tensors.<br>
+<strong><code>@symbolic_stateless</code></strong> - Makes no state updates.<br>
+<strong><code>@symbolic_updater</code></strong> - Returns nothing and produces at least one state update.</p>
+<p>To make custom function con you can decorate with <strong><code>@SymbolicFunction(input_format, output_format, update_format)</code></strong>, where each of the arguments is an <code>IFormat</code> object.  See <code>plato.core</code> for examples.</p>
+<p>When function fail to obey the contract specified by their decorators, a <code>SymbolicFormatError</code> is raised.</p>
 <p>For example:</p>
 
 </div>
@@ -691,12 +702,13 @@ Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic_stateless</span><span class="p">,</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">SymbolicFormatError</span><span class="p">,</span> <span class="n">add_update</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic_stateless</span><span class="p">,</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">SymbolicFormatError</span><span class="p">,</span> <span class="n">add_update</span>
+<span class="kn">import</span> <span class="nn">theano</span>
 
-<span class="nd">@symbolic_stateless</span> <span class="c"># Bad! We decorated with &quot;symbolic_stateless&quot; but we make a state update inside</span>
+<span class="nd">@symbolic_stateless</span> <span class="c"># Bad! We decorated with &quot;symbolic_stateless&quot;, but we make a state update inside</span>
 <span class="k">def</span> <span class="nf">running_sum</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">shared_var</span> <span class="o">=</span> <span class="n">theano</span><span class="o">.</span><span class="n">shared</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">shared_var</span>
@@ -704,13 +716,13 @@ Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
     <span class="k">return</span> <span class="n">y</span> 
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">running_sum</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;Trying to run incorrectly-decorated function...&#39;</span>
+<span class="nb">print</span> <span class="s">&#39;Trying to run incorrectly-decorated function...&#39;</span>
 <span class="k">try</span><span class="p">:</span> 
     <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
 <span class="k">except</span> <span class="n">SymbolicFormatError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-    <span class="k">print</span> <span class="s">&#39;  </span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s">&#39;  %s: %s&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">err</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 
-<span class="k">print</span> <span class="s">&#39;Lets try again with the correct format....&#39;</span>
+<span class="nb">print</span> <span class="s">&#39;Lets try again with the correct format....&#39;</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">running_sum</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -721,7 +733,7 @@ Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
 
 <span class="n">f</span> <span class="o">=</span> <span class="n">running_sum</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
-<span class="k">print</span> <span class="s">&#39;  cumsum([1,2,3,4]) = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span> <span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;  cumsum([1,2,3,4]) = %s&#39;</span> <span class="o">%</span> <span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span> <span class="p">)</span>
 </pre></div>
 
 </div>
@@ -735,7 +747,7 @@ Post Sigmoid Activation: [[ 0.2805696   0.77467938  0.00939512]]
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>Trying to run incorrectly-decorated function...
-  SymbolicFormatError: Function &lt;function running_sum at 0x10e8120c8&gt; should have created no state updates, but it created updates: [(&lt;TensorType(int64, scalar)&gt;, Elemwise{add,no_inplace}.0)]
+  SymbolicFormatError: Function &lt;function running_sum at 0x107169ed8&gt; should have created no state updates, but it created updates: [(&lt;TensorType(int64, scalar)&gt;, Elemwise{add,no_inplace}.0)]
 Lets try again with the correct format....
   cumsum([1,2,3,4]) = [1, 3, 6, 10]
 </pre>
@@ -758,10 +770,10 @@ Lets try again with the correct format....
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
+<div class=" highlight hl-ipython3"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="k">import</span> <span class="n">symbolic</span>
 
 <span class="nd">@symbolic</span>
 <span class="k">def</span> <span class="nf">multiply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
@@ -769,8 +781,8 @@ Lets try again with the correct format....
 
 <span class="n">f_mult_by_3</span> <span class="o">=</span> <span class="n">multiply</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">fixed_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
 
-<span class="k">print</span> <span class="s">&#39;3*2 = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f_mult_by_3</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<span class="k">print</span> <span class="s">&#39;3*5 = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">f_mult_by_3</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;3*2 = %s&#39;</span> <span class="o">%</span> <span class="n">f_mult_by_3</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span> <span class="s">&#39;3*5 = %s&#39;</span> <span class="o">%</span> <span class="n">f_mult_by_3</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -808,7 +820,7 @@ Lets try again with the correct format....
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre> 
+<div class=" highlight hl-ipython3"><pre> 
 </pre></div>
 
 </div>
