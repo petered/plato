@@ -1,7 +1,7 @@
 from general.numpy_helpers import get_rng
 from general.should_be_builtins import bad_value
-from plato.interfaces.decorators import symbolic_simple
-from plato.interfaces.helpers import get_named_activation_function, create_shared_variable
+from plato.interfaces.helpers import get_named_activation_function, batch_normalize
+from plato.core import create_shared_variable, symbolic_simple
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 import numpy as np
@@ -34,13 +34,13 @@ class MultiLayerPerceptron(IParameterized):
             Layer(
                 linear_transform = FullyConnectedTransform(
                     w = w,
-                    normalize_minibatch=normalize_minibatch,
+                    normalize_minibatch = normalize_minibatch if layer_no<(n_layers-1) else None,
                     scale = scale_param,
                     use_bias = use_bias
                     ),
                 nonlinearity = nonlinearity
                 )
-            for w, nonlinearity in zip(weights, [hidden_activation] * (n_layers-1) + [output_activation])
+            for w, nonlinearity, layer_no in zip(weights, [hidden_activation] * (n_layers-1) + [output_activation], xrange(n_layers))
             ]
 
     def __call__(self, x):
@@ -52,8 +52,8 @@ class MultiLayerPerceptron(IParameterized):
     def parameters(self):
         return sum([l.parameters for l in self.layers], [])
 
-    @staticmethod
-    def from_init(w_init, layer_sizes, rng=None, last_layer_zero=False, **init_args):
+    @classmethod
+    def from_init(cls, w_init, layer_sizes, rng=None, last_layer_zero=False, **init_args):
         """
         :param w_init: Can be:
             - A scalar, in which case w_init will be interpreted as the standard deviation for the Normally distributed initial weights.
@@ -73,7 +73,7 @@ class MultiLayerPerceptron(IParameterized):
         weights = [w_init(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
         if last_layer_zero:
             weights[-1][:] = 0
-        return MultiLayerPerceptron(weights=weights, **init_args)
+        return cls(weights=weights, **init_args)
 
 
 @symbolic_simple
@@ -129,13 +129,15 @@ class FullyConnectedTransform(IParameterized):
         self.w = create_shared_variable(w, name = 'w')
         self.b = create_shared_variable(b, shape = w.shape[1] if w.ndim==2 else (w.shape[0], w.shape[2]) if w.ndim==3 else bad_value(w.shape), name = 'b')
         self.log_scale = create_shared_variable(0 if scale else None, shape = w.shape[1], name = 'log_scale') if scale else None
-        self._normalize_minibatch = normalize_minibatch
+        self.normalizer = \
+            batch_normalize if normalize_minibatch is True else \
+            None if normalize_minibatch is False else \
+            normalize_minibatch
         self._use_bias = use_bias
 
     def __call__(self, x):
         current = x.flatten(2).dot(self.w)
-        if self._normalize_minibatch:
-            current = (current - current.mean(axis = 0, keepdims = True)) / (current.std(axis = 0, keepdims = True) + 1e-9)
+        current = self.normalizer(current) if self.normalizer is not None else current
         if self.log_scale is not None:
             current = current * tt.exp(self.log_scale)
         y = (current + self.b) if self._use_bias else current

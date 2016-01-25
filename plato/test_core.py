@@ -1,7 +1,9 @@
 from abc import abstractmethod
+from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
-from plato.core import symbolic_simple, symbolic_updater, symbolic_standard, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces
+from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update, \
+    symbolic_multi, symbolic_stateless, create_shared_variable
 import pytest
 import theano
 import numpy as np
@@ -18,7 +20,7 @@ def test_stateless_symbolic_function():
 
     f1 = multiply_by_two
     assert f1.compile()(2) == 4
-    assert f1.to_format(symbolic_standard).compile()(2) == [4]
+    assert f1.to_format(symbolic_multi).compile()(2) == [4]
 
     # Case 2: Method
     class GenericClass(object):
@@ -33,7 +35,7 @@ def test_stateless_symbolic_function():
     obj = GenericClass()
     f2 = obj.multiply_by_two
     assert f2.compile()(2) == 4
-    assert f2.to_format(symbolic_standard).compile()(2) == [4]
+    assert f2.to_format(symbolic_multi).compile()(2) == [4]
 
     # Case 3: Callable class
     @symbolic
@@ -47,7 +49,7 @@ def test_stateless_symbolic_function():
 
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
-    assert f3.to_format(symbolic_standard).compile()(2) == [4]
+    assert f3.to_format(symbolic_multi).compile()(2) == [4]
 
 
 def test_stateful_symbolic_function():
@@ -60,7 +62,8 @@ def test_stateful_symbolic_function():
 
         def __call__(self):
             counter = theano.shared(np.zeros((), dtype = 'int')+self._initial_value)
-            return counter, [(counter, counter+1)]
+            add_update(counter, counter+1)
+            return counter
 
     c = Counter().compile()
 
@@ -85,9 +88,10 @@ def test_pure_updater():
         def get_val(self):
             return self._var.get_value()
 
-        @symbolic_updater
+        @symbolic
         def update(self):
-            return [(self._var, self._var+1)]
+            add_update(self._var, self._var+1)
+            # return [(self._var, self._var+1)]
 
     thing = MyThing()
     assert thing.get_val() == 0
@@ -108,7 +112,7 @@ def test_function_format_checking():
 
     assert good_format_thing.compile()(3, 5) == 8
 
-    @symbolic_standard
+    @symbolic_multi
     def bad_format_thing(a, b):
         """
         This function has the standard decorator, but fails to return values in the
@@ -130,7 +134,7 @@ def test_callable_format_checking():
 
     assert GoodFormatThing().compile()(3, 5) == 8
 
-    @symbolic_standard
+    @symbolic_multi
     class BadFormatThing(object):
 
         def __call__(self, a, b):
@@ -229,9 +233,9 @@ def test_omniscence():
                 ('function', average),
                 ('callable_class', Averager()),
                 ('method', TwoNumberOperator().average),
-                ('standard_function', average.to_format(symbolic_standard)),
-                ('standard_callable_class', Averager().to_format(symbolic_standard)),
-                ('standard_method', TwoNumberOperator().average.to_format(symbolic_standard))
+                ('standard_function', average.to_format(symbolic_multi)),
+                ('standard_callable_class', Averager().to_format(symbolic_multi)),
+                ('standard_method', TwoNumberOperator().average.to_format(symbolic_multi))
                 ]:
 
             if k != 'function':
@@ -259,7 +263,8 @@ def test_method_caching_bug():
 
         @symbolic
         def count(self):
-            return (self._count_var, ), [(self._count_var, self._count_var+1)]
+            add_update(self._count_var, self._count_var+1)
+            return self._count_var
 
         @symbolic
         def get_count(self):
@@ -267,13 +272,13 @@ def test_method_caching_bug():
 
     ca = Counter().count.compile()
     c1 = ca()
-    assert c1 == [0]
+    assert c1 == 0
     c2 = ca()
-    assert c2 == [1]
+    assert c2 == 1
 
     cb = Counter().count.compile()
     c1 = cb()
-    assert c1 == [0]  # Before the fix, this was [2]
+    assert c1 == 0  # Before the fix, this was [2]
 
 
 def test_debug_trace():
@@ -367,16 +372,121 @@ def test_strrep():
     assert 'MultiplyBy' in str(f_m) and 'mult' in str(f_m)
 
 
+def test_scan():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0.)
+        new_s = s+x
+        add_update(s, new_s)
+        return new_s
+
+    @symbolic
+    def cumsum_and_remember(arr):
+        return running_sum.scan(sequences = [arr])
+
+    f = cumsum_and_remember.compile()
+
+    ar = np.random.randn(10)
+    csum = f(ar)
+    assert np.allclose(csum, np.cumsum(ar), atol=1e-6)
+    more_csum = f(ar)
+    assert np.allclose(more_csum, csum[-1]+np.cumsum(ar), atol=1e-6)
+
+
+def test_catch_non_updates():
+
+    var = create_shared_variable(0)
+
+    @symbolic_updater
+    def lying_function_that_says_its_an_updater_but_isnt():
+        pass
+
+    f = lying_function_that_says_its_an_updater_but_isnt.compile()
+    with raises(SymbolicFormatError):
+        f()
+
+    @symbolic_updater
+    def honest_function_that_actually_updates():
+        add_update(var, var+1)
+
+    g = honest_function_that_actually_updates.compile()
+    g()
+    g()
+    assert var.get_value() == 2
+
+
+def test_catch_sneaky_updates():
+
+    var = create_shared_variable(0)
+
+    @symbolic_stateless
+    def lying_function_that_says_its_stateless_but_has_state():
+        add_update(var, var+1)
+        return var+1
+
+    f = lying_function_that_says_its_stateless_but_has_state.compile()
+
+    with raises(SymbolicFormatError):
+        f()
+
+    assert var.get_value() == 0
+
+    @symbolic_stateless
+    def honest_function_that_actually_is_stateless():
+        return var+1
+
+    g = honest_function_that_actually_is_stateless.compile()
+    assert g() == 1
+    assert g() == 1
+
+
+def test_ival_ishape():
+    """
+    ival, ishape, idim, idtype give the initial values, shapes, number of dimensions, and data types
+    of theano variables.  These properties are useful for input checking and debugging.
+    """
+
+    @symbolic
+    def mat_mult(a, b):
+        assert a.indim == 2 and b.indim == 2
+        assert a.idtype == theano.config.floatX and b.idtype == theano.config.floatX, 'We only take floats around these parts.'
+        assert a.ishape[1] == b.ishape[0], 'Matrices not aligned!'
+        c = a.dot(b)
+        assert c.ishape == (a.ishape[0], b.ishape[1])
+        return c
+
+    foo = np.random.randn(3, 4)
+    bar = np.random.randn(3, 3)
+    baz = np.random.randn(4, 5)
+    hap = np.random.randint(255, size = (4, 5))
+
+    f = mat_mult.compile()
+    with raises(AssertionError):
+        z = f(foo, bar)
+
+    f = mat_mult.compile()
+    with raises(AssertionError):
+        z = f(foo, hap)
+
+    z = f(foo, baz)
+    assert np.allclose(z, foo.dot(baz))
+
+
 if __name__ == '__main__':
-    test_strrep()
-    test_omniscence()
-    test_named_arguments()
-    test_stateless_symbolic_function()
-    test_stateful_symbolic_function()
-    test_debug_trace()
-    test_method_caching_bug()
-    test_pure_updater()
-    test_function_format_checking()
-    test_callable_format_checking()
-    test_inhereting_from_decorated()
-    test_dual_decoration()
+    # test_ival_ishape()
+    # test_catch_sneaky_updates()
+    # test_catch_non_updates()
+    test_scan()
+    # test_strrep()
+    # test_omniscence()
+    # test_named_arguments()
+    # test_stateless_symbolic_function()
+    # test_stateful_symbolic_function()
+    # test_debug_trace()
+    # test_method_caching_bug()
+    # test_pure_updater()
+    # test_function_format_checking()
+    # test_callable_format_checking()
+    # test_inhereting_from_decorated()
+    # test_dual_decoration()

@@ -60,17 +60,16 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
     @symbolic_updater
     def train(self, x, target):
         out = self.predict(x)
-        forward_updates = self.forward_optimizer(
+        self.forward_optimizer(
             cost = self.cost_function(out, target),
             parameters = [self.w, self.b],
             constants = [target]
             )  # The "constants" (above) is really important - otherwise it can just try to change the target (which is a function of the weights too).
         noisy_x = x + self.noise*self.rng.normal(size = x.tag.test_value.shape)
         recon = self.backward(self.predict(noisy_x))
-        backward_updates = self.backward_optimizer(
+        self.backward_optimizer(
             cost = self.cost_function(recon, noisy_x),
             parameters = [self.w_rev, self.b_rev])
-        return forward_updates+backward_updates
 
     @symbolic_simple
     def backpropagate_target(self, x, target):
@@ -152,15 +151,10 @@ class DifferenceTargetMLP(ISymbolicPredictor):
             # Note: This 0.5 thing is not always the way it should be done.
             # 0.5 is chosen because this makes it equivalent to the regular loss with MSE,
             # but it's unknown whether this is the best way to go.
-
-        updates = []
         for i, l in reversed(list(enumerate(self.layers))):
-            local_updates = l.train(xs[i], top_target)
-            updates+=local_updates
+            l.train(xs[i], top_target)
             if i>0:  # No need to go to initial layer
                 top_target = l.backpropagate_target(xs[i], top_target)
-
-        return updates
 
     @symbolic_simple
     def predict(self, x):

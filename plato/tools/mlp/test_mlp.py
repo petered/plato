@@ -36,8 +36,7 @@ def test_bare_bones_mlp(seed = 1234):
     def train(x, y):
         output = mlp(x)
         cost = negative_log_likelihood_dangerous(output, y)
-        updates = optimizer(cost, mlp.parameters)
-        return updates
+        optimizer(cost, mlp.parameters)
 
     train_fcn = train.compile()
 

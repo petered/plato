@@ -1,4 +1,5 @@
 import numpy as np
+from plato.core import add_update
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.tools.common.online_predictors import ISymbolicPredictor
 from plato.tools.optimization.sampling import sample_categorical
@@ -25,11 +26,11 @@ class GibbsRegressor(ISymbolicPredictor):
         assert alpha_update_policy in ('sequential', 'random')
         self._alpha_update_policy = alpha_update_policy
 
-    def _get_alpha_update(self):
+    def _add_alpha_update(self):
         new_alpha = (self._alpha+self._n_alpha) % self._w.shape[0] \
             if self._alpha_update_policy == 'sequential' else \
             self._rng.choice(a=self._w.shape[0], size = (self._n_alpha, ), replace = False).reshape([-1])  # Reshape is for some reason necessary when n_alpha=1
-        return self._alpha, new_alpha
+        add_update(self._alpha, new_alpha)
 
     @staticmethod
     def compute_p_wa(w, x, y, alpha, possible_ws = np.array([0, 1])):
@@ -54,7 +55,8 @@ class GibbsRegressor(ISymbolicPredictor):
         p_wa = self.compute_p_wa(self._w, x, y, self._alpha, self._possible_ws)  # (n_alpha, n_dim_out, n_possible_ws)
         w_sample = sample_categorical(self._rng, p_wa, values = self._possible_ws)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), self._get_alpha_update()]
+        add_update(self._w, w_new)
+        self._add_alpha_update()
 
     @symbolic_simple
     def predict(self, x):
@@ -79,4 +81,6 @@ class HerdedGibbsRegressor(GibbsRegressor):
         w_sample = self._possible_ws[k_chosen]  # (n_alpha, n_dim_out)
         new_phi = tt.set_subtensor(self._phi[self._alpha], new_phi_alpha)  # (n_dim_in, n_dim_out, n_possible_ws)
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), (self._phi, new_phi), self._get_alpha_update()]
+        add_update(self._w, w_new)
+        add_update(self._phi, new_phi)
+        self._add_alpha_update()
