@@ -19,6 +19,24 @@ def multichannel(fcn):
     return lambda args: (fcn(*args), )
 
 
+def single_to_batch(fcn, *batch_inputs, **batch_kwargs):
+    """
+    :param fcn: A function
+    :param batch_inputs: A collection of batch-form (n_samples, input_dims_i) inputs
+    :return: batch_outputs, an (n_samples, output_dims) array
+    """
+    n_samples = len(batch_inputs[0])
+    assert all(len(b) == n_samples for b in batch_inputs)
+    first_out = fcn(*[b[0] for b in batch_inputs], **{k: b[0] for k, b in batch_kwargs.iteritems()})
+    if n_samples==1:
+        return first_out[None]
+    out = np.empty((n_samples, )+first_out.shape)
+    out[0] = n_samples
+    for i in xrange(1, n_samples):
+        out[i] = fcn(*[b[i] for b in batch_inputs], **{k: b[i] for k, b in batch_kwargs.iteritems()})
+    return out
+
+
 def minibatch_iterate(data, minibatch_size, n_epochs=1):
     """
     Yields minibatches in sequence.

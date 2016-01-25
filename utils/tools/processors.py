@@ -1,4 +1,6 @@
+from abc import abstractmethod
 import numpy as np
+from utils.bureaucracy import single_to_batch
 
 __author__ = 'peter'
 
@@ -54,3 +56,83 @@ class RunningAverageWithBurnin(object):
             return x
         else:
             return self.averager(x)
+
+
+class IDifferentiableFunction(object):
+
+    @abstractmethod
+    def __call__(self, *args):
+        pass
+
+    @abstractmethod
+    def backprop_delta(self, delta_y):
+        pass
+
+    def batch_call(self, *args, **kwargs):
+        return single_to_batch(self, *args, **kwargs)
+
+    def batch_backprop_delta(self, *args, **kwargs):
+        return single_to_batch(self.backprop_delta, *args, **kwargs)
+
+
+class NonNormalize(IDifferentiableFunction):
+
+    def __call__(self, x):
+        return x
+
+    def backprop_delta(self, delta_y):
+        return delta_y
+
+
+class RunningCenter(IDifferentiableFunction):
+    """
+    Keep an exponentially decaying running mean, subtract this from the value.
+    """
+    def __init__(self, half_life):
+        self.decay_constant = np.exp(-np.log(2)/half_life)
+        self.one_minus_decay_constant = 1-self.decay_constant
+        self.running_mean = None
+
+    def __call__(self, x):
+        if self.running_mean is None:
+            self.running_mean = np.zeros_like(x)
+        self.running_mean[:] = self.decay_constant * self.running_mean + self.one_minus_decay_constant * x
+        return x - self.running_mean
+
+    def backprop_delta(self, delta_y):
+        return self.decay_constant * delta_y
+
+
+class RunningNormalize(IDifferentiableFunction):
+
+    def __init__(self, half_life, eps = 1e-7, initial_std=1):
+        self.decay_constant = np.exp(-np.log(2)/half_life)
+        self.one_minus_decay_constant = 1-self.decay_constant
+        self.running_mean = None
+        self.eps = eps
+        self.initial_std = initial_std
+
+    def __call__(self, x):
+        if self.running_mean is None:
+            self.running_mean = np.zeros_like(x)
+            self.running_mean_sq = np.zeros_like(x) + self.initial_std**2
+        self.running_mean[:] = self.decay_constant * self.running_mean + self.one_minus_decay_constant * x
+        self.running_mean_sq[:] = self.decay_constant * self.running_mean_sq + self.one_minus_decay_constant * x**2
+        std = np.sqrt(self.running_mean_sq - self.running_mean**2)
+        return (x - self.running_mean) / (std+self.eps)
+
+    def backprop_delta(self, delta_y):
+        """
+        Ok, we're not doing this right at all, but lets just ignore the contribution of the current
+        sample to the mean/std.  This makes the gradient waaaaaay simpler.  If you want to see the real thing, put
+
+        (x-(a*u+(1-a)*x))/sqrt((a*s+(1-a)*x^2 - (a*u+(1-a)*x)^2))
+        into http://www.derivative-calculator.net/
+        (a stands for lambda here)
+
+        :param delta_y: The derivative of the cost wrt the output of this normalizer
+        :return: delta_x: The derivative of the cost wrt the input of this normalizer
+        """
+        std = np.sqrt(self.running_mean_sq - self.running_mean**2)
+        return delta_y/std
+
