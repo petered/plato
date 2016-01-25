@@ -1,7 +1,7 @@
 from general.numpy_helpers import get_rng
 from general.should_be_builtins import bad_value
-from plato.interfaces.decorators import symbolic_simple
-from plato.interfaces.helpers import get_named_activation_function, create_shared_variable, batch_normalize
+from plato.interfaces.helpers import get_named_activation_function, batch_normalize
+from plato.core import create_shared_variable, symbolic_simple
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 import numpy as np

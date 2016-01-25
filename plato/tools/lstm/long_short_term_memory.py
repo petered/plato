@@ -1,4 +1,4 @@
-from plato.core import add_update, symbolic_multi, symbolic_simple
+from plato.core import add_update, symbolic_multi, symbolic_simple, create_shared_variable
 from plato.interfaces.decorators import symbolic_updater
 from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_xe

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import symbolic_multi, add_update
+from plato.core import symbolic_multi, add_update, create_shared_variable
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng, create_shared_variable
 from plato.tools.optimization.optimizers import SimpleGradientDescent

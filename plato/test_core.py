@@ -3,7 +3,7 @@ from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update, \
-    symbolic_multi, symbolic_stateless
+    symbolic_multi, symbolic_stateless, create_shared_variable
 import pytest
 import theano
 import numpy as np
