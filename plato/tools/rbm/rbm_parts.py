@@ -1,7 +1,5 @@
-from plato.core import symbolic_simple
-from plato.interfaces.helpers import initialize_param, create_shared_variable
+from plato.core import symbolic_simple, initialize_param, create_shared_variable
 from plato.interfaces.interfaces import IParameterized, IFreeEnergy
-from theano import tensor as tt
 import theano
 import theano.tensor as tt
 from theano.tensor.shared_randomstreams import RandomStreams

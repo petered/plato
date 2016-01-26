@@ -571,12 +571,9 @@ We try removing biases from Difference Target propagation with RELU units.  This
 causes the explosion to happen every time, and after achieving about 91% score.  We can
 compensate by reducing the learning rate to 0.001, but then it takes forever to converge.
 There's basically no middle ground - if you want a bearable learning rate, you get explosions.
-
 """
 
 
 if __name__ == '__main__':
-
     which_experiment = 'all-norm-relu-dtp'
-
     run_experiment(which_experiment)

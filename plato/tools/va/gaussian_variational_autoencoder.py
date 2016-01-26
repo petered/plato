@@ -65,8 +65,7 @@ class GaussianVariationalAutoencoder(object):
         :return: A list of training updates
         """
         lower_bound = self.compute_lower_bound(x_samples)
-        updates = self.optimizer(cost = -lower_bound, parameters = self.parameters)
-        return updates
+        self.optimizer(cost = -lower_bound, parameters = self.parameters)
 
     @symbolic_simple
     def compute_lower_bound(self, x_samples):
