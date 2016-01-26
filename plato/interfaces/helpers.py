@@ -95,7 +95,6 @@ def get_named_activation_function(activation_name):
         'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
         'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
         'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
-        'linear': lambda x: x,
         'leaky-relu-0.01': lambda x: tt.maximum(0.01*x, x),
         'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
         }[activation_name]

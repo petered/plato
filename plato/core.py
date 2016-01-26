@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 from functools import partial
 import inspect
 import logging
@@ -726,19 +726,28 @@ class StateCatcher(object):
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
         _set_state_catcher(self)
-        self._updates = []
+        self._updates = {}
         return self
 
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
-    def add_update(self, shared_var, new_val):
-        self._updates.append((shared_var, new_val))
+    def add_update(self, shared_var, new_val, add_multiple_updates = False):
+
+        if shared_var in self._updates:
+            if add_multiple_updates:
+                self._updates[shared_var] = self._updates[shared_var] + new_val
+            else:
+                raise Exception("You updated variable %s with value %s, but it already was being updated with value %s. "
+                    "\nIf your intention was to add these updates, call this function with add_multiple_updates=True"
+                    % (shared_var, new_val, self._updates[shared_var]))
+        else:
+            self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
-        return self._updates
+        return self._updates.items()
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):
