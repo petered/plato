@@ -41,8 +41,7 @@ class VariationalAutoencoder(object):
         z_samples = z_dist.sample(1, self.rng)[0]  # Just one sample per data point.  Shape (minibatch_size, n_dims)
         x_dist = self.pq_pair.p_x_given_z(z_samples)
         lower_bound = -z_dist.kl_divergence(self.pq_pair.prior) + x_dist.log_prob(x_samples) # (minibatch_size, )
-        updates = self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
-        return updates
+        self.optimizer(cost = -lower_bound.mean(), parameters = self.parameters)
 
     @symbolic_simple
     def sample(self, n_samples):
@@ -185,11 +184,11 @@ class DistributionMLP(IParameterized):
     def __call__(self, x):
 
         if self.distribution == 'gaussian':
-            (mu, log_sigma), _ = self.chain(x)
+            (mu, log_sigma) = self.chain(x)
             dist = MultipleDiagonalGaussianDistribution(mu, sigma_sq = tt.exp(log_sigma)**2)
 
         elif self.distribution == 'bernoulli':
-            (p, ), _ = self.chain(x)
+            (p, ) = self.chain(x)
             dist = MultipleBernoulliDistribution(p)
         return dist
 

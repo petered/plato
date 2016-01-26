@@ -47,8 +47,7 @@ class OnlineRegressor(ISymbolicPredictor, IParameterized):
         """
         y = self.predict(x)
         cost = self.cost_fcn(y, targets)
-        updates = self.optimizer(cost = cost, parameters = self.parameters)
-        return updates
+        self.optimizer(cost = cost, parameters = self.parameters)
 
     @property
     def parameters(self):

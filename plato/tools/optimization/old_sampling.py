@@ -1,4 +1,5 @@
 from collections import namedtuple
+from plato.core import add_update
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 import theano
 from theano.tensor.shared_randomstreams import RandomStreams
@@ -41,7 +42,8 @@ def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = 
         p_wa = tt.nnet.sigmoid(log_likelihood_ratio)  # (n_dim_out, )
         w_sample = rng.binomial(p=p_wa)  # (n_dim_out, )
         w_new = tt.set_subtensor(w[alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(w, w_new), (alpha, (alpha+1) % n_dim_in)]
+        add_update(w, w_new)
+        add_update(alpha, (alpha+1) % n_dim_in)
 
     @symbolic_simple
     def predict(x):
@@ -81,12 +83,9 @@ def simple_herded_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, 
         phi_alpha = phi[alpha] + p_wa
         w_sample = phi_alpha > 0.5
         new_phi_alpha = phi_alpha - w_sample
-
-        new_phi = tt.set_subtensor(phi[alpha], new_phi_alpha)
-        w_new = tt.set_subtensor(w[alpha], w_sample)  # (n_dim_in, n_dim_out)
-
-        # showloc()
-        return [(w, w_new), (phi, new_phi), (alpha, (alpha+1) % n_dim_in)]
+        add_update(w, tt.set_subtensor(w[alpha], w_sample))
+        add_update(phi, tt.set_subtensor(phi[alpha], new_phi_alpha))
+        add_update(alpha, (alpha+1) % n_dim_in)
 
     @symbolic_simple
     def predict(x):
@@ -126,7 +125,8 @@ class OldGibbsRegressor(object):
         p_wa = self.compute_p_wa(self._w, x, y, self._alpha)
         w_sample = self._rng.binomial(p=p_wa)  # (n_dim_out, )
         w_new = tt.set_subtensor(self._w[self._alpha], w_sample)  # (n_dim_in, n_dim_out)
-        return [(self._w, w_new), (self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])]
+        add_update(self._w, w_new)
+        add_update(self._alpha, (self._alpha+self._n_alpha) % self._w.shape[0])
 
     @symbolic_simple
     def predict(self, x):

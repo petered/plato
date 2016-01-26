@@ -10,7 +10,6 @@ import theano.tensor as tt
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
-from theano.updates import OrderedUpdates
 
 """
 It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
@@ -46,76 +45,71 @@ __author__ = 'peter'
 # the initial values that are attached to them.
 Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
 Variable.ishape = property(lambda self: self.ival.shape)
+Variable.indim = property(lambda self: self.ival.ndim)
+Variable.idtype = property(lambda self: (self.ival.dtype if isinstance(self.ival, np.ndarray) else type(self.ival)))
 
 
 def symbolic(fcn):
     """
     Use this to decorate a symbolic function with any return format (it will be detected automatically).
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat, update_format=PassAnythingFormat)(fcn)
+
+
+def symbolic_stateless(fcn):
+    """
+    Use this to decorate symbolic functions that create no state updates.  It will check that they do not change state.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=AnyReturnFormat, update_format=NoUpdatesFormat)(fcn)
 
 
 def symbolic_simple(fcn):
     """
     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputFormat, update_format=PassAnythingFormat)(fcn)
 
 
 def symbolic_multi(fcn):
     """
     Use this to decorate a symbolic function that takes theano tensors as inputs and returns a tuple of tensors.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat)(fcn)
-
-
-def symbolic_single_output_updater(fcn):
-    """
-    Use this to decorate a symbolic function that takes theano tensors as inputs and returns a single tensor and a list of updates.
-    """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=SingleOutputUpdater)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=MultiOutputFormat, update_format=PassAnythingFormat)(fcn)
 
 
 def symbolic_updater(fcn):
     """
-    Use this to decorate a symbolic function that returns a list of updates.
+    Use this to decorate a symbolic function that returns a list of updates and no outputs.
     """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=UpdateFormat)(fcn)
-
-
-def symbolic_standard(fcn):
-    """
-    Use this to decorate a symbolic function that returns a tuple of outputs and a list of updates.
-    """
-    return SymbolicFunction(input_format=PassAnythingFormat, output_format=StandardFormat)(fcn)
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat, update_format=SomeUpdatesFormat)(fcn)
 
 
 class SymbolicFunction(object):
 
-    def __init__(self, input_format = None, output_format = None):
+    def __init__(self, input_format = None, output_format = None, update_format = None):
 
         # Cases:
-        # 1) Ordinary function
-        self.input_format = input_format
-        self.output_format = output_format
+        self.input_format = PassAnythingFormat if input_format is None else input_format
+        self.output_format = PassAnythingFormat if output_format is None else output_format
+        self.update_format = PassAnythingFormat if update_format is None else update_format
 
     def __call__(self, fcn):
 
         if inspect.isclass(fcn):
             # This is class with a __call__ method
-            return _decorate_callable_class(fcn, self.input_format, self.output_format)
+            return _decorate_callable_class(fcn, self.input_format, self.output_format, self.update_format)
 
         elif hasattr(fcn, '__call__'):
             # This is a function.  It may be:
             # 1) An ordinary function
             # 2) An unbound method.
-            return SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format)
+            return _SymbolicFunctionWrapper(fcn, input_format = self.input_format, output_format=self.output_format, update_format=self.update_format)
 
         else:
             raise Exception('Should never get here.')
 
 
-def _decorate_callable_class(callable_class, input_format, output_format):
+def _decorate_callable_class(callable_class, input_format, output_format, update_format):
 
     assert hasattr(callable_class, '__call__'), "If you decorate a class with a symbolic decorator, it must "\
         "be callable.  If there's a specific method you want to decorate, decorate that instead."
@@ -125,17 +119,17 @@ def _decorate_callable_class(callable_class, input_format, output_format):
 
     # Strategy 2: Bind the function_type as a base-class to the class - the __new__ method of function_type will then be
     # called when the object is instantiated.
-    class CallableSymbolicFunction(callable_class, SymbolicFunctionWrapper):
+    class CallableSymbolicFunction(callable_class, _SymbolicFunctionWrapper):
             """
             This is a dynamic class that binds together the callable class with the symbolic function.  The idea is to make
             the callable class comply to the ISymbolicFunction interface.
             """
 
             # Also decorate the __call__ method, so that type checking is done.
-            __call__ = SymbolicFunctionWrapper(callable_class.__call__, input_format = input_format, output_format = output_format)
+            __call__ = _SymbolicFunctionWrapper(callable_class.__call__, input_format = input_format, output_format = output_format, update_format=update_format)
 
             def __init__(self, *args, **kwargs):
-                SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format)
+                _SymbolicFunctionWrapper.__init__(self, callable_class, input_format = input_format, output_format=output_format, update_format=update_format)
                 callable_class.__init__(self, *args, **kwargs)
 
             def fcn_str(self):
@@ -144,45 +138,65 @@ def _decorate_callable_class(callable_class, input_format, output_format):
     return CallableSymbolicFunction
 
 
-class SymbolicFunctionWrapper(object):
+class _SymbolicFunctionWrapper(object):
     """
     For internal use only.  Use decorators
     """
 
-    def __init__(self, fcn, input_format = None, output_format = None, attached_instance = None):
+    def __init__(self, fcn, input_format, output_format, update_format, attached_instance = None):
         """
         :param fcn: The function being wrapped
         :param input_format: An IFormat object representing the input format
         :param output_format: An IFormat object representing the output format
+        :param update_format: An IFormat object representing the update format.
         :param attached_instance: Will be None, unless called from __get__ (for methods)
         """
         self.fcn = fcn
         self.input_format = input_format
         self.output_format = output_format
+        self.update_format = update_format
         self._dispatched_methods = {}  # Only used when fcn is an unbound method (see __get__)
         self._captured_locals = {}
         self.attached_instance = attached_instance
 
     def __call__(self, *args, **kwargs):
-        self.input_format.check((args, kwargs))
+        self.input_format.check((args, kwargs), self.fcn)
 
-        if ENABLE_OMNISCENCE:
-            with CaptureLocals() as c:
+        with StateCatcher(swallow_updates=False) as sc:
+            if ENABLE_OMNISCENCE:
+                with CaptureLocals() as c:
+                    if self.attached_instance is None:
+                        symbolic_return = self.fcn(*args, **kwargs)
+                    else:
+                        symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
+                captured_anything = c.get_captured_locals()
+                captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
+                captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
+                self._captured_locals = captured_locals
+            else:
                 if self.attached_instance is None:
                     symbolic_return = self.fcn(*args, **kwargs)
                 else:
                     symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
-            captured_anything = c.get_captured_locals()
-            captured_variables = flatten_struct(captured_anything, primatives = (Variable, SharedVariable), break_into_objects=False)
-            captured_locals = {k: v for k, v in captured_variables if isinstance(v, Variable)}
-            self._captured_locals = captured_locals
-        else:
-            if self.attached_instance is None:
-                symbolic_return = self.fcn(*args, **kwargs)
-            else:
-                symbolic_return = self.fcn(self.attached_instance, *args, **kwargs)
-        self.output_format.check(symbolic_return)
+        self.update_format.check(sc.get_updates(), self.fcn)
+        self.output_format.check(symbolic_return, self.fcn)
         return symbolic_return
+
+    def scan(self, **scan_kwargs):
+        """
+        Apply a scan to this function.  For arguments, see thr
+        :param scan_kwargs: See theano.scan doc
+        :return:
+        """
+        outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
+        for (shared_var, new_val) in updates.items():
+            add_update(shared_var, new_val)
+        return outputs
+
+    def _call_with_updates_returned(self, *args, **kwargs):
+        with StateCatcher(swallow_updates=True) as sc:
+            outputs = self(*args, **kwargs)
+        return outputs, sc.get_updates()
 
     def to_format(self, format_decorator):
 
@@ -213,7 +227,7 @@ class SymbolicFunctionWrapper(object):
         if instance in self._dispatched_methods:
             return self._dispatched_methods[instance]
         else:
-            return SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, attached_instance=instance)
+            return _SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, update_format=self.update_format, attached_instance=instance)
 
     def fcn_str(self):
         if self.attached_instance is None:
@@ -224,6 +238,9 @@ class SymbolicFunctionWrapper(object):
     def __str__(self):
         return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
 
+    def __repr__(self):
+        return self.__str__()
+
     def locals(self):
         return self._captured_locals
 
@@ -231,32 +248,39 @@ class SymbolicFunctionWrapper(object):
 class IFormat(object):
 
     @staticmethod
-    def check(data):
-        """ Assert that data is in correct format.  Otherwise, throw SymbolicFormatError """
+    def check(data, f):
+        """
+        Assert that data is in correct format.  Otherwise, throw SymbolicFormatError.  f is the reference to the function
+        whose inputs/outputs/updates are being inspected.  f is passed in so that it can be used in the error message,
+        if any.
+        """
+
+
+def _detect_format(data):
+    if _is_tensor(data):
+        return SingleOutputFormat
+    elif _is_tuple_of_tensors(data):
+        return MultiOutputFormat
+    elif data is None:
+        return NoOutputFormat
+    else:
+        raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
 
 def convert_formats(data, src_format, dest_format):
 
     if src_format == dest_format:
         return data
-    elif src_format is AnyReturnFormat and dest_format is StandardFormat:
-        return detect_return_value(data, return_outputs_in_tuple=True)
-    elif src_format is SingleOutputFormat and dest_format is StandardFormat:
-        return (data, ), []
-    elif src_format is UpdateFormat and dest_format is StandardFormat:
-        return (), data
-    elif src_format is StandardFormat and dest_format is SingleOutputFormat:
-        outputs, updates = data
-        assert len(updates) == 0, 'Cannot convert to single-return format if there are state updates.'
-        assert len(outputs) == 1, "Can only convert to single-return format if there's a single return value.  Got %s" % (len(outputs), )
-        return outputs[0]
-    elif src_format is StandardFormat and dest_format is MultiOutputFormat:
-        outputs, updates = data
-        assert len(updates) == 0, 'Cannot convert to multi-return format if there are state updates.'
-        return outputs
-    elif src_format is SingleOutputFormat and dest_format is SingleOutputUpdater:
-        output = data
-        return output, []
+    elif src_format is AnyReturnFormat:
+        actual_src_format = _detect_format(data)
+        return convert_formats(data, actual_src_format, dest_format)
+    elif src_format is NoOutputFormat and dest_format is MultiOutputFormat:
+        return ()
+    elif src_format is SingleOutputFormat and dest_format is MultiOutputFormat:
+        return (data, )
+    elif src_format is MultiOutputFormat and dest_format is SingleOutputFormat:
+        assert len(data) == 1, "You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, )
+        return data[0]
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -264,65 +288,59 @@ def convert_formats(data, src_format, dest_format):
 class PassAnythingFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         pass
 
 
 class AnyReturnFormat(IFormat):
 
     @staticmethod
-    def check(data):
-        detect_return_value(data)  # This will check if the data is in any familiar format.
-
-
-class StandardFormat(IFormat):
-
-    @staticmethod
-    def check(data):
-        if isinstance(data, SymbolicReturn):
-            # Type checked already.
-            return
-        if not (isinstance(data, tuple) and len(data)==2):
-            raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
-        outputs, updates = data
-        MultiOutputFormat.check(outputs)
-        UpdateFormat.check(updates)
+    def check(data, f):
+        try:
+            _detect_format(data)  # This will check if the data is in any familiar format.
+        except SymbolicFormatError:
+            raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
 
 
 class SingleOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         if not _is_tensor(data):
-            raise SymbolicFormatError('You did not return a tensor output.  You returned: %s' % (data, ))
-
-
-class SingleOutputUpdater(IFormat):
-
-    @staticmethod
-    def check(data):
-        if not (isinstance(data, tuple) and len(data)==2):
-            raise SymbolicFormatError('You did not return a 2-tuple of outputs, updates.  You returned %s' % (data, ))
-        outputs, updates = data
-        SingleOutputFormat.check(outputs)
-        UpdateFormat.check(updates)
+            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (f, data))
 
 
 class MultiOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
+    def check(data, f):
         if not _is_tuple_of_tensors(data):
-            raise SymbolicFormatError('You did not return a tuple of outputs.  You returned: %s' % (data, ))
+            raise SymbolicFormatError('Function %s was should have returned a tuple-of-tensors output, but instead returned: %s' % (f, data))
 
 
-class UpdateFormat(IFormat):
+class NoOutputFormat(IFormat):
 
     @staticmethod
-    def check(data):
-        if not _is_updates_list(data):
-            raise SymbolicFormatError('Updates were not in the format of a list of 2-tuples [(shared_0, new_val_0), (shared_1, new_val_1), ...].'
-                '\nThey were returned as: %s' % (data, ))
+    def check(data, f):
+        assert data is None, "Function %s should have returned no output, but it returned %s.  If your intention was to return updates, use add_update instead." % (f, data)
+
+
+class NoUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data)!=0:
+            raise SymbolicFormatError("Function %s should have created no state updates, but it created updates: %s" % (f, data))
+
+
+class SomeUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if isinstance(data, list): "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data) == 0:
+            raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
 
 
 class SymbolicFormatError(Exception):
@@ -335,50 +353,6 @@ def _is_tensor(arg):
 
 def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
-
-
-def _is_updates_list(updates):
-    """
-    Return True if updates is a proper list of updates and False if not.
-    :return:
-    """
-    return (isinstance(updates, OrderedUpdates) or (isinstance(updates, list) and all(isinstance(up, tuple) and len(up)==2 for up in updates) and
-        all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)))
-
-
-def detect_return_value(return_info, return_outputs_in_tuple = False):
-    """
-    :param return_info: Whatever is returned from a symbolic function.
-    :return: In one of two formats, depending on whether output is returned as a single or not.
-        output, [(shared_0, new_val_0), ...]
-        (output_0, ...), [(shared_0, new_val_0), ...]
-    """
-    if isinstance(return_info, tuple) and len(return_info)==2 and (_is_tensor(return_info[0]) or _is_tuple_of_tensors(return_info[0])) and _is_updates_list(return_info[1]):
-        outputs, updates = return_info
-    elif isinstance(return_info, SymbolicReturn):
-        outputs, updates = return_info
-    elif _is_updates_list(return_info):
-        outputs = ()
-        updates = return_info
-    elif _is_tensor(return_info) or _is_tuple_of_tensors(return_info):
-        outputs = return_info
-        updates = []
-    else:
-        raise SymbolicFormatError('Return value was not in any known format: %s' % (return_info, ))
-
-    if return_outputs_in_tuple and _is_tensor(outputs):
-        outputs = (outputs, )
-
-    if isinstance(updates, OrderedUpdates):
-        updates = [(k, v) for k, v in updates.iteritems()]
-
-    return outputs, updates
-
-
-def _list_all_output_variables(return_info):
-    outputs, updates = detect_return_value(return_info, return_outputs_in_tuple=True)
-    out_and_up = outputs + tuple(new for old, new in updates)
-    return out_and_up
 
 
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
@@ -435,7 +409,7 @@ class AutoCompilingFunction(object):
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
         :return:
         """
-        assert isinstance(fcn, SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
+        assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
 
         self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
         self._original_fcn = fcn  # Needed for retrieveing locals hack
@@ -462,19 +436,19 @@ class AutoCompilingFunction(object):
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
             args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
-            return_value = self._fcn(*tensor_args, **tensor_kwargs)
 
-            outputs, updates = detect_return_value(return_value)
-            all_outputs_and_updates = _list_all_output_variables(return_value)
+            with StateCatcher(swallow_updates=True) as sc:
+                outputs = self._fcn(*tensor_args, **tensor_kwargs)
+            updates = sc.get_updates()
+            all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
             self._callbacks += trace_callbacks
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                self._single_output = _is_tensor(outputs)
-                if self._single_output:
-                    outputs = (outputs, )
+                self._single_output = outputs is not None and _is_tensor(outputs)
+                outputs = (outputs, ) if self._single_output else () if outputs is None else outputs
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
@@ -543,6 +517,7 @@ class EnableOmbniscence():
 
 
 ENABLE_OMNISCENCE = False
+
 
 def set_enable_omniscence(state):
     """
@@ -674,21 +649,6 @@ def find_leaf_ancestors(variable):
     return leaf_ancestors
 
 
-class SymbolicReturn(object):
-
-    def __init__(self, outputs = (), updates = []):
-        if not (isinstance(outputs, (list, tuple)) and all(isinstance(out, Variable) for out in outputs)):
-            raise SymbolicFormatError('Outputs must a tuple of tensors.  They were %s instead' % (outputs, ))
-        if not (isinstance(updates, list) and all(len(up)==2 for up in updates) and
-                all(isinstance(old, SharedVariable) and isinstance(new, Variable) for old, new in updates)):
-            raise SymbolicFormatError('Updates must be a list of 2-tuples of (shared_variable, update_tensor).  We got %s instead' % (updates, ))
-        self.outputs = tuple(outputs) if not isinstance(outputs, tuple) else outputs
-        self.updates = updates
-
-    def __iter__(self):
-        return (self.outputs, self.updates).__iter__()
-
-
 _TRACE_VARIABLES = OrderedDict()  # A dict of trace-variable-name: Trace Variable
 _TRACE_VALUES = OrderedDict()  # A dict of trace variable name: Most recently computed value
 _TRACE_CALLBACKS = OrderedDict()  # A dict of trace-variable-name: Callback to call after trace ver is used.
@@ -721,3 +681,153 @@ def tdbprint(var, name = None):
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
     tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
+
+
+STATE_CATCHER = None
+
+
+def _get_state_catcher():
+    return STATE_CATCHER
+
+
+def _set_state_catcher(val):
+    global STATE_CATCHER
+    STATE_CATCHER = val
+
+
+def add_update(shared_var, new_val):
+    """
+    :param shared_var: A theano SharedVariable object
+    :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
+    """
+    assert isinstance(shared_var, SharedVariable), 'shared_var must be a theano shared variable.'
+    state_catcher = _get_state_catcher()
+    assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
+    state_catcher.add_update(shared_var, new_val)
+
+
+class StateCatcher(object):
+    """
+    Used to catch updates.  Usage:
+
+    with StateCatcher() as sc:
+        # Code here
+    updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
+    """
+
+    def __init__(self, swallow_updates = False):
+        """
+        :param swallow_updates: A boolean.  True if you'd like to "swallow" all updates produced, and not pass them on to any
+            outer state-catcher.  False if you'd like to pass updates to the outer StateCatcher.
+        :return:
+        """
+        self.swallow_updates = swallow_updates
+
+    def __enter__(self):
+        self._outer_catcher = _get_state_catcher()
+        _set_state_catcher(self)
+        self._updates = []
+        return self
+
+    def __exit__(self, *args):
+        _set_state_catcher(self._outer_catcher)
+
+    def add_update(self, shared_var, new_val):
+        self._updates.append((shared_var, new_val))
+        if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+            self._outer_catcher.add_update(shared_var, new_val)
+
+    def get_updates(self):
+        return self._updates
+
+
+def assert_compatible_shape(actual_shape, desired_shape, name = None):
+    """
+    Return a boolean indicating whether the actual shape is compatible with the desired shape.  "None" serves as a wildcard.
+    :param actual_shape: A tuple<int>
+    :param desired_shape: A tuple<int> or None
+    :return: A boolean
+
+    examples (actual_desired, desired_shape : result)
+    (1, 2), None: True        # Because None matches everything
+    (1, 2), (1, None): True   # Because they have the same length, 1 matches 1 and 2 matches None
+    (1, 2), (1, 3): False     # Because 2 != 3
+    (1, 2, 1), (1, 2): False  # Because they have different lengths.
+    """
+    return desired_shape is None or len(actual_shape) == len(desired_shape) and all(ds is None or s==ds for s, ds in zip(actual_shape, desired_shape)), \
+        "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
+
+
+def initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True):
+    """
+    Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
+    instantiate a parameter:
+    - With a numpy array, in which case you'll want to make sure it's the appropriate shape.
+    - With a scalar, in which case you just want a scalar shared variable.
+    - With a scalar and a shape, in which case you want an array of that shape filled with the value of the scalar.
+    - With a symbolic variable descenting from some other shared variable - this is the case when you want to tie
+      parameters together, or make the bias be the result of a previous computation, etc.
+    - With a function and shape, in which case the function should return an initial numpy array given the shape.
+    - With None, which we take to mean that this was an optional variable that should not be included, so return None
+      for variable, param, and shape.
+
+    :param initial_value: An array, scalar, or symbolic variable.:
+    :param shape: The shape that the variable should have.  None if it is already fully specified by initial_value.
+        If shape is a tuple, elements of shape s can be:
+        - integers: In which case, they mean (the dimension of in this direction shall be <s>
+        - None: In which case, the initial_value must be defined as an array, and the array may have any shape along this axis.
+    :param name: Optionally, the name for the shared variable.
+    :return: (variable, param): Variable is the shared variable, and param is the associated parameter.  If you
+        instantiated with scalar or ndarray, variable and param will be the same object.
+    """
+
+    if isinstance(shape, int):
+        shape = (shape, )
+
+    typecast = lambda x: x.astype(theano.config.floatX) if cast_floats_to_floatX and x.dtype in ('float', 'float64', 'float32') else x
+
+    if np.isscalar(initial_value):
+        if shape is None:
+            initial_value = np.array(initial_value)
+        else:
+            initial_value = np.zeros(shape)+initial_value
+        initial_value = typecast(initial_value)
+    elif hasattr(initial_value, '__call__'):
+        assert shape is not None, "If you initialize with a function, you must provide a shape."
+        initial_value = initial_value(shape)
+
+    if isinstance(initial_value, np.ndarray):
+        assert_compatible_shape(initial_value.shape, shape, name = name)
+        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True)
+        params = [variable]
+        variable_shape = initial_value.shape
+    elif isinstance(initial_value, Variable):
+        assert name is None or initial_value.name == name, "Can't give name '%s' to an already-existing symbolic variable" % (name, )
+        params = find_shared_ancestors(initial_value)
+        # Note to self: possibly remove this constraint for things like factored weight matrices?
+        if len(params)==1 and initial_value is params[0]:
+            variable_shape = initial_value.get_value().shape
+            assert_compatible_shape(variable_shape, shape, name = name)
+        else:
+            raise NotImplementedError("Can't yet get variable shape from base-params, though this can be done cheaply in "
+                'Theano by compiling a function wholse input is the params and whose output is the shape.')
+    elif initial_value is None:
+        variable = None
+        params = []
+        variable_shape = None
+    else:
+        raise Exception("Don't know how to instantiate variable from %s" % initial_value)
+    return variable, params, variable_shape
+
+
+def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True):
+    """
+    :param initializer_fcn: Can be:
+        - An array.  It may be cast to floatX.  It's verified with shape if shape is provided
+        - A function which takes the shape and turns it into the array.
+        - A scalar, in which case it's broadcase over shape.
+    :param shape: Either a tuple or an integer
+    :return: A shared variable, containing the numpy array returned by the initializer.
+    """
+    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX)
+    return shared_var
