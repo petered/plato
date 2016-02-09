@@ -20,6 +20,19 @@ import re
 __author__ = 'peter'
 
 
+class _ExpLibClass(object):
+
+    def __setattr__(self, experiment_name, experiment):
+        assert isinstance(experiment, Experiment), "Your experiment must be an experiment!"
+        if experiment.name is None:
+            experiment.name = experiment_name
+        assert experiment_name not in GLOBAL_EXPERIMENT_LIBRARY, "Experiment %s is already in the library" % (experiment_name, )
+        self.__dict__[experiment_name] = experiment
+        GLOBAL_EXPERIMENT_LIBRARY[experiment_name] = experiment
+
+
+ExperimentLibrary = _ExpLibClass()
+
 GLOBAL_EXPERIMENT_LIBRARY = {}
 
 
@@ -368,27 +381,46 @@ def get_experiment_info(name):
 
 class Experiment(object):
 
-    def __init__(self, name, function, description, conclusion = ''):
+    def __init__(self, function, description, conclusion = '', name = None, versions = None, current_version = None):
+        if versions is not None:
+            assert isinstance(versions, (list, dict))
+            assert current_version is not None, 'If you specify multiple versions, you have to pick a current version'
+        if isinstance(versions, list):
+            assert isinstance(current_version, int)
         self.name = name
         self.function = function
         self.description = description
         self.conclusion = conclusion
+        self.versions = versions
+        self.current_version = current_version
 
     def __str__(self):
         return 'Experiment: %s\n  Defined in: %s\n  Description: %s\n  Conclusion: %s' % \
             (self.name, inspect.getmodule(self.function).__name__, self.description, self.conclusion)
 
-    def run(self, **experiment_record_kwargs):
+    def run(self, print_to_console = True, show_figs = None, **experiment_record_kwargs):
         """
         Run the experiment, and return the ExperimentRecord that is generated.
         Note, if you want the output of the function, you should just run the function directly.
         :param experiment_record_kwargs: See ExperimentRecord for kwargs
         """
-        print '%s Running Experiment: %s %s' % ('='*10, self.name, '='*10)
-        with ExperimentRecord(name = self.name, **experiment_record_kwargs) as exp_rec:
-            self.function()
-        print '%s Done Experiment: %s %s' % ('-'*11, self.name, '-'*12)
+        if self.versions is not None:
+            kwargs = self.versions[self.current_version]
+            name = self.name+'-'+(self.current_version if isinstance(self.current_version, str) else str(self.versions[self.current_version]))
+        else:
+            kwargs = {}
+            name = self.name
+
+        print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
+        with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
+            self.function(**kwargs)
+        print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
         return exp_rec
+
+    def run_all(self):
+        for v in (self.versions.keys() if isinstance(self.versions, dict) else xrange(len(self.versions))):
+            self.current_version = v
+            self.run()
 
 
 if __name__ == '__main__':

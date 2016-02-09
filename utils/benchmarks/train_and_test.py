@@ -41,6 +41,7 @@ def get_evaluation_function(name):
         'mse': mean_squared_error,
         'mean_squared_error': mean_squared_error,
         'percent_argmax_correct': percent_argmax_correct,
+        'percent_argmax_incorrect': percent_argmax_incorrect,
         'percent_correct': percent_correct,
         }[name]
 
@@ -66,6 +67,10 @@ def percent_argmax_correct(actual, target):
     actual = collapse_onehot_if_necessary(actual)
     target = collapse_onehot_if_necessary(target)
     return 100*fraction_correct(actual, target)
+
+
+def percent_argmax_incorrect(actual, target):
+    return 100 - percent_argmax_correct(actual, target)
 
 
 def collapse_onehot_if_necessary(output_data):
