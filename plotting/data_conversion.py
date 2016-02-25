@@ -23,6 +23,14 @@ def vector_length_to_tile_dims(vector_length):
     return grid_shape
 
 
+def put_vector_in_grid(vec):
+    n_rows, n_cols = vector_length_to_tile_dims(len(vec))
+    grid = np.zeros(n_rows*n_cols, dtype = vec.dtype)
+    grid[:len(vec)]=vec
+    grid=grid.reshape(n_rows, n_cols)
+    return grid
+
+
 @memoize
 def _data_shape_and_boundary_width_to_grid_slices(shape, grid_shape, boundary_width):
 

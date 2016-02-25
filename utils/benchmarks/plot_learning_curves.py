@@ -10,7 +10,7 @@ from utils.benchmarks.predictor_comparison import LearningCurveData
 __author__ = 'peter'
 
 
-def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', hang = None, title = None, figure_name = None):
+def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', hang = None, title = None, figure_name = None, y_title = 'Score'):
     """
     Plot a set of PredictionResults.  These can be obtained by running compare_predictors.
     See module test_compare_predictors for an example.
@@ -53,7 +53,7 @@ def plot_learning_curves(learning_curves, xscale = 'sqrt', yscale = 'linear', ha
             legend.append('%s-test' % record_name)
 
     plt.xlabel('Epoch')
-    plt.ylabel('Score')
+    plt.ylabel(y_title)
     plt.legend(legend, loc = 'best')
     if title is not None:
         plt.title(title)

@@ -108,4 +108,4 @@ register_experiment(
 
 if __name__ == '__main__':
 
-    run_experiment('mnist-vae-20d-continuous_in')
+    run_experiment('mnist-vae-2latent')
