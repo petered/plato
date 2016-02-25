@@ -9,15 +9,22 @@ __author__ = 'peter'
 @memoize
 def get_20_newsgroups_dataset(filter_most_common = 2000, numeric = False, shuffling_seed = 1234, bag_of_words = False, count_scaling = None):
     """
-    The 20 newsgroups dataset.
+    The 20 newsgroups dataset.  In this dataset, you try to predict the topic of a forum from the words contained in
+    posts in the forums.
+
+    Words have been preprocessed to the "stemmed" version, as explained on the website:
+    http://ana.cachopo.org/datasets-for-single-label-text-categorization
 
     :param filter_most_common: Can be:
         None: Don't filter out words
         int N: Filter out words that are not in the N most common workds
         (int N, int M): Filter out words that are not between the Nth and Mth most common words.
-    :param numeric: Convert everything to numbers
-    :param shuffling_seed: Random seed for shuffling.
+    :param numeric: Convert everything from words to numbers
+    :param shuffling_seed: Random seed for shuffling (you want to shuffle, because everything's sorted by topic)
     :param bag_of_words: Return count vectors for each word
+    :param count_scaling: If using bag_of_words, apply the transformation:
+        vector = log(1+word_counts)
+        To generate the input data (this scaling makes it more suitable for some types of classifiers).
     :return: A DataSet object
     """
 
