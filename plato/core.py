@@ -411,7 +411,17 @@ class AutoCompilingFunction(object):
         """
         assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
 
-        self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
+        if fixed_args is not None:
+            fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
+            for k, v in fixed_args.iteritems():
+                fixed_tensors[k].tag.test_value = \
+                    v if isinstance(v, np.ndarray) else \
+                    v.get_value() if isinstance(v, SharedVariable) else \
+                    v.tag.test_value if isinstance(v, Variable) else \
+                    np.array(v)
+            self._fcn = partial(fcn, **fixed_tensors)
+        else:
+            self._fcn = fcn
         self._original_fcn = fcn  # Needed for retrieveing locals hack
         self._compiled_fcn = None
         self._cast_to_floatx = cast_to_floatx
@@ -455,7 +465,9 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
+            print 'Compiling function %s...' % (self._original_fcn, )
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
+            print 'Done.'
 
         arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 
