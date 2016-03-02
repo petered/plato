@@ -505,7 +505,7 @@ def set_enable_traces(state):
     ENABLE_TRACES = state
 
 
-class EnableOmbniscence():
+class EnableOmniscence():
 
     def __enter__(self):
         global ENABLE_OMNISCENCE

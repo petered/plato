@@ -1,6 +1,6 @@
 from general.should_be_builtins import bad_value
 from general.test_mode import is_test_mode
-from plato.core import EnableOmbniscence
+from plato.core import EnableOmniscence
 from plato.tools.rbm.restricted_boltzmann_machine import simple_rbm
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
@@ -42,7 +42,7 @@ def demo_rbm_mnist(
 
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
-    with EnableOmbniscence():
+    with EnableOmniscence():
 
         if is_test_mode():
             n_epochs = 0.01
