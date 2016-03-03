@@ -414,11 +414,12 @@ class AutoCompilingFunction(object):
         if fixed_args is not None:
             fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
             for k, v in fixed_args.iteritems():
-                fixed_tensors[k].tag.test_value = \
-                    v if isinstance(v, np.ndarray) else \
-                    v.get_value() if isinstance(v, SharedVariable) else \
-                    v.tag.test_value if isinstance(v, Variable) else \
-                    np.array(v)
+                if isinstance(v, (np.ndarray, Variable)):
+                    fixed_tensors[k].tag.test_value = \
+                        v if isinstance(v, np.ndarray) else \
+                        v.get_value() if isinstance(v, SharedVariable) else \
+                        v.tag.test_value if isinstance(v, Variable) else \
+                        np.array(v)
             self._fcn = partial(fcn, **fixed_tensors)
         else:
             self._fcn = fcn
