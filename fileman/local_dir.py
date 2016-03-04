@@ -19,8 +19,11 @@ LOCAL_DIR = \
     os.path.join(os.getenv("HOME"), '.PlatoData')
 
 
-def get_local_path(relative_path = ''):
-    return os.path.join(LOCAL_DIR, relative_path)
+def get_local_path(relative_path = '', make_local_dir = False):
+    file_path = os.path.join(LOCAL_DIR, relative_path)
+    if make_local_dir:
+        make_file_dir(file_path)
+    return file_path
 
 
 def get_relative_path(local_path, base_path = LOCAL_DIR):
