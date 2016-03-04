@@ -10,6 +10,7 @@ import theano.tensor as tt
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
+from theano.tensor.var import TensorConstant
 
 """
 It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
@@ -43,7 +44,7 @@ __author__ = 'peter'
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
-Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
+Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.data if isinstance(self, TensorConstant) else self.tag.test_value))
 Variable.ishape = property(lambda self: self.ival.shape)
 Variable.indim = property(lambda self: self.ival.ndim)
 Variable.idtype = property(lambda self: (self.ival.dtype if isinstance(self.ival, np.ndarray) else type(self.ival)))
@@ -399,7 +400,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = True):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -407,19 +408,22 @@ class AutoCompilingFunction(object):
             'all': Cast all inputs to floatX
             None: Don't cast anything to floatX
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
-        :return:
+        :param add_test_values: Add test values to your tensor, based on the initial value of the data provided.  Advantage
+            of this is it helps you catch and locate shape errors before compiling.  Disadvantage is on large computations
+            you have to do an initial pass on CPU, which can be slow.
         """
         assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
 
         if fixed_args is not None:
             fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
-            for k, v in fixed_args.iteritems():
-                if isinstance(v, (np.ndarray, Variable)):
-                    fixed_tensors[k].tag.test_value = \
-                        v if isinstance(v, np.ndarray) else \
-                        v.get_value() if isinstance(v, SharedVariable) else \
-                        v.tag.test_value if isinstance(v, Variable) else \
-                        np.array(v)
+            if add_test_values:
+                for k, v in fixed_args.iteritems():
+                    if isinstance(v, (np.ndarray, Variable)):
+                        fixed_tensors[k].tag.test_value = \
+                            v if isinstance(v, np.ndarray) else \
+                            v.get_value() if isinstance(v, SharedVariable) else \
+                            v.tag.test_value if isinstance(v, Variable) else \
+                            np.array(v)
             self._fcn = partial(fcn, **fixed_tensors)
         else:
             self._fcn = fcn
@@ -428,6 +432,7 @@ class AutoCompilingFunction(object):
         self._cast_to_floatx = cast_to_floatx
         self._local_values = None
         self._callbacks = []
+        self._add_test_values = add_test_values
 
         # Create convenient debugging functions: showloc() and locinfo()
         theano.config.compute_test_value = 'warn'
@@ -442,7 +447,7 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:
 
-            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, test = True)
+            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_values = self._add_test_values)
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
@@ -544,7 +549,7 @@ def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
+def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_values = True):
     """
     Given the numpy data from the first function call, create the appropriate tensors
     :param data: A numpy array, from the first call to the function.
@@ -553,7 +558,9 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
         'float': Just cast floats to floatX
         'all': Cast all inputs to floatX
         None: Don't cast anything to floatX
-    :param test:
+    :param add_test_values: Add test values to your tensor, based on the initial value of the data provided.  Advantage
+        of this is it helps you catch and locate shape errors before compiling.  Disadvantage is on large computations
+        you have to do an initial pass on CPU, which can be slow.
     :return:
     """
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
@@ -583,7 +590,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
         'int8' if data.dtype==bool else \
         data.dtype
     tensor = TensorType(dtype, (None, )*ndim)(name)
-    if test:
+    if add_test_value:
         tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 

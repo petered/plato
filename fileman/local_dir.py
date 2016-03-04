@@ -20,7 +20,7 @@ LOCAL_DIR = \
 
 
 def get_local_path(relative_path = ''):
-    return os.path.join(LOCAL_DIR, relative_path)
+    return os.path.join(LOCAL_DIR, format_filename(relative_path))
 
 
 def get_relative_path(local_path, base_path = LOCAL_DIR):

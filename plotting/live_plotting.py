@@ -10,12 +10,12 @@ __author__ = 'peter'
 
 class BaseStream(object):
 
-    def __init__(self, update_every = 1):
+    def __init__(self, update_every = 1, figure = None):
         self._plots = None
         self._counter = -1
         self._update_every = update_every
         self._plot_keys = None
-        self._fig = None
+        self._fig = figure
         # TODO: Allow plots to be updated every iteration but only rendered every N'th iteration.  Important for streaming.
 
     def update(self):
@@ -58,7 +58,8 @@ class LiveStream(BaseStream):
     Lets you automatically generate live plots from some arbitrary data structure returned by a callback.
     """
 
-    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', plot_types = {}, update_every=1, **plot_preference_kwargs):
+    def __init__(self, callback, custom_handlers = {}, plot_mode = 'live', plot_types = {}, update_every=1,
+                 figure = None, **plot_preference_kwargs):
         """
         :param callback: Some function that takes no arguments and returns some object.
         :param custom_handlers: A dict<type: function>.  If there's an object of one of the listed types
@@ -74,7 +75,7 @@ class LiveStream(BaseStream):
         self._plot_mode = plot_mode
         self._plot_preference_kwargs = plot_preference_kwargs
         self._plot_types = plot_types
-        BaseStream.__init__(self, update_every=update_every)
+        BaseStream.__init__(self, update_every=update_every, figure = figure)
 
     def add_plot_type(self, key, plot_type):
         """
