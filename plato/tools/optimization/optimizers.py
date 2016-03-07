@@ -234,9 +234,51 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
 
 class HMC(UniformParameterOptimizer):
 
-    def __init__(self, step_size, partial_refreshment = False):
+    def __init__(self, step_size, temperature = 1, partial_refreshment = False):
         assert partial_refreshment, "Not set up for non-partial refreshment yet.  "
         self.partial_refreshment = partial_refreshment
+        self.temperature = temperature
+        self.step_size = step_size
+
+    def _update_param(self, param, gradient):
+        # TODO: Actually finish this!!!
+        d_energy_d_pos = gradient * self.temperature
+        mom = create_shared_variable(np.zeros_like(param.get_value()))  # Should be random??
+        new_mom = mom - self.step_size * d_energy_d_pos
+        new_pos = param + self.step_size * new_mom
+        add_update(param, new_pos)
+        add_update(mom, new_mom)
+
+
+class HMCPartial(UniformParameterOptimizer):
+
+    def __init__(self, step_size, temperature = 1, alpha = 0.99, rng = None):
+        self.temperature = temperature
+        self.step_size = step_size
+        self.alpha = alpha
+        self.rng = get_theano_rng(rng)
+
+    def _update_param(self, param, gradient):
+        # TODO: Actually finish this!!!
+        d_energy_d_pos = gradient * self.temperature
+        mom = create_shared_variable(np.zeros(param.ishape))  # Should be random??
+
+        new_mom = mom - self.step_size * d_energy_d_pos
+        new_mom = self.alpha * new_mom + tt.sqrt(1-self.alpha**2)*self.rng.normal(size=param.ishape)
+
+        new_pos = param + self.step_size * new_mom
+        add_update(param, new_pos)
+        add_update(mom, new_mom)
+
+    def metropolis_hastings_accept(self, old_energy, new_energy):
+
+        
+
+    # @staticmethod
+    # def leapfrog(pos, vel, step, cost):
+
+
+
 
 
 def get_named_optimizer(name, learning_rate, rng = None):
@@ -247,11 +289,13 @@ def get_named_optimizer(name, learning_rate, rng = None):
     :return: An IGradientOptimizer object.
     """
     return {
-        'sgd': SimpleGradientDescent(eta = learning_rate),
-        'adam': Adam(alpha=learning_rate),
-        'adamax': AdaMax(alpha=learning_rate),
-        'rmsprop': RMSProp(learning_rate=learning_rate),
-        'adagrad': AdaGrad(learning_rate=learning_rate),
-        'mulsgd': MultiplicativeGradientDescent(factor=learning_rate),
-        'langevin': LangevinGradientDescent(eta = learning_rate, rng = rng),
-    }[name]
+        'sgd': lambda: SimpleGradientDescent(eta = learning_rate),
+        'adam': lambda: Adam(alpha=learning_rate),
+        'adamax': lambda: AdaMax(alpha=learning_rate),
+        'rmsprop': lambda: RMSProp(learning_rate=learning_rate),
+        'adagrad': lambda: AdaGrad(learning_rate=learning_rate),
+        'mulsgd': lambda: MultiplicativeGradientDescent(factor=learning_rate),
+        'langevin': lambda: LangevinGradientDescent(eta = learning_rate, rng = rng),
+        'hmc': lambda: HMC(step_size=learning_rate),
+        'hmc-partial': lambda: HMC(step_size=learning_rate, partial_refreshment=True),
+    }[name]()
