@@ -1,4 +1,7 @@
 import sys
+
+import datetime
+
 import os
 
 __author__ = 'peter'
@@ -19,8 +22,11 @@ LOCAL_DIR = \
     os.path.join(os.getenv("HOME"), '.PlatoData')
 
 
-def get_local_path(relative_path = ''):
-    return os.path.join(LOCAL_DIR, format_filename(relative_path))
+def get_local_path(relative_path = '', make_local_dir = False):
+    file_path = os.path.join(LOCAL_DIR, format_filename(relative_path))
+    if make_local_dir:
+        make_file_dir(file_path)
+    return file_path
 
 
 def get_relative_path(local_path, base_path = LOCAL_DIR):
@@ -51,7 +57,7 @@ def make_dir(full_dir):
         pass
 
 
-def format_filename(file_string, current_time = None, base_name = None, directory = None, ext = None, allow_partial_formatting = False):
+def format_filename(file_string, current_time = 'now', base_name = None, directory = None, ext = None, allow_partial_formatting = False):
     """
     Return a formatted string with placeholders in the filestring replaced by their provided values.
     :param file_string: A string, eg '%T-%N'.  The placeholders %T, %N indicate that they should be replaced
@@ -75,6 +81,8 @@ def format_filename(file_string, current_time = None, base_name = None, director
     if ext is not None:
         file_string += '.'+ext
 
+    if current_time == 'now':
+        current_time = datetime.datetime.now()
     if current_time is not None:
         iso_time = current_time.isoformat().replace(':', '.').replace('-', '.')
         file_string = file_string.replace('%T', iso_time)

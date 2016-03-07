@@ -447,7 +447,7 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:
 
-            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_values = self._add_test_values)
+            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
@@ -549,7 +549,7 @@ def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_values = True):
+def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = True):
     """
     Given the numpy data from the first function call, create the appropriate tensors
     :param data: A numpy array, from the first call to the function.
