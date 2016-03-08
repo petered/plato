@@ -249,28 +249,28 @@ class HMC(UniformParameterOptimizer):
         add_update(param, new_pos)
         add_update(mom, new_mom)
 
-
-class HMCPartial(UniformParameterOptimizer):
-
-    def __init__(self, step_size, temperature = 1, alpha = 0.99, rng = None):
-        self.temperature = temperature
-        self.step_size = step_size
-        self.alpha = alpha
-        self.rng = get_theano_rng(rng)
-
-    def _update_param(self, param, gradient):
-        # TODO: Actually finish this!!!
-        d_energy_d_pos = gradient * self.temperature
-        mom = create_shared_variable(np.zeros(param.ishape))  # Should be random??
-
-        new_mom = mom - self.step_size * d_energy_d_pos
-        new_mom = self.alpha * new_mom + tt.sqrt(1-self.alpha**2)*self.rng.normal(size=param.ishape)
-
-        new_pos = param + self.step_size * new_mom
-        add_update(param, new_pos)
-        add_update(mom, new_mom)
-
-    def metropolis_hastings_accept(self, old_energy, new_energy):
+#
+# class HMCPartial(UniformParameterOptimizer):
+#
+#     def __init__(self, step_size, temperature = 1, alpha = 0.99, rng = None):
+#         self.temperature = temperature
+#         self.step_size = step_size
+#         self.alpha = alpha
+#         self.rng = get_theano_rng(rng)
+#
+#     def _update_param(self, param, gradient):
+#         # TODO: Actually finish this!!!
+#         d_energy_d_pos = gradient * self.temperature
+#         mom = create_shared_variable(np.zeros(param.ishape))  # Should be random??
+#
+#         new_mom = mom - self.step_size * d_energy_d_pos
+#         new_mom = self.alpha * new_mom + tt.sqrt(1-self.alpha**2)*self.rng.normal(size=param.ishape)
+#
+#         new_pos = param + self.step_size * new_mom
+#         add_update(param, new_pos)
+#         add_update(mom, new_mom)
+#
+#     def metropolis_hastings_accept(self, old_energy, new_energy):
 
         
 
