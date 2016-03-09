@@ -831,6 +831,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
         else:
             raise NotImplementedError("Can't yet get variable shape from base-params, though this can be done cheaply in "
                 'Theano by compiling a function wholse input is the params and whose output is the shape.')
+        variable = initial_value
     elif initial_value is None:
         variable = None
         params = []
