@@ -37,41 +37,6 @@ def single_to_batch(fcn, *batch_inputs, **batch_kwargs):
     return out
 
 
-def minibatch_iterate(data, minibatch_size, n_epochs=1):
-    """
-    Yields minibatches in sequence.
-    :param data: A (n_samples, ...) data array
-    :param minibatch_size: The number of samples per minibatch
-    :param n_epochs: The number of epochs to run for
-    :yield: (minibatch_size, ...) data arrays.
-    """
-    if minibatch_size == 'full':
-        minibatch_size = len(data)
-    end = len(data)*n_epochs
-    ixs = np.arange(minibatch_size)
-    while ixs[0] < end:
-        yield data[ixs % len(data)]
-        ixs+=minibatch_size
-
-
-def zip_minibatch_iterate(arrays, minibatch_size, n_epochs=1):
-    """
-    Yields minibatches from each array in arrays in sequence.
-    :param arrays: A collection of arrays, all of which must have the same shape[0]
-    :param minibatch_size: The number of samples per minibatch
-    :param n_epochs: The number of epochs to run for
-    :yield: len(arrays) arrays, each of shape: (minibatch_size, )+arr.shape[1:]
-    """
-    assert isinstance(arrays, (list, tuple)), 'Need at least one array' and len(arrays)>0
-    total_size = arrays[0].shape[0]
-    assert all(a.shape[0] == total_size for a in arrays), 'All arrays must have the same length!  Lengths are: %s' % ([len(arr) for arr in arrays])
-    end = total_size*n_epochs
-    ixs = np.arange(minibatch_size)
-    while ixs[0] < end:
-        yield tuple(a[ixs % total_size] for a in arrays)
-        ixs+=minibatch_size
-
-
 def kwarg_map(element_constructor, **kwarg_lists):
     """
     A helper function for when you want to construct a chain of objects with individual arguments for each one.  Can

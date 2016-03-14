@@ -1,7 +1,7 @@
 from plato.core import symbolic
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.variational_autoencoder import VariationalAutoencoder, EncoderDecoderNetworks
-from utils.bureaucracy import minibatch_iterate
+from utils.tools.iteration import minibatch_iterate
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 import theano.tensor as tt
 import numpy as np
