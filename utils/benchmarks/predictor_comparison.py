@@ -3,6 +3,7 @@ from general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import get_evaluation_function
 from collections import OrderedDict
 from utils.predictors.i_predictor import IPredictor
+from utils.tools.iteration import checkpoint_minibatch_index_generator
 from utils.tools.mymath import sqrtspace
 import numpy as np
 from utils.tools.processors import RunningAverage
@@ -152,7 +153,10 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
     :param test_epochs: List of epochs to test at.  Eg. [0.5, 1, 2, 4]
-    :param minibatch_size: Number of samples per minibatch, or 'full' to do full-batch.
+    :param minibatch_size: Number of samples per minibatch, or:
+        'full' to do full-batch.
+        'stretch': to stretch the size of each batch so that we make just one call to "train" between each test.  Use
+            this, for instance, if your predictor trains on one sample at a time in sequence anyway.
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :param test_callback: A callback which takes the predictor, and is called every time a test
         is done.  This can be useful for plotting/debugging the state.
@@ -176,27 +180,37 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     if isinstance(evaluation_function, str):
         evaluation_function = get_evaluation_function(evaluation_function)
 
-    checker = CheckPointCounter(test_epochs)
+    def do_test(current_epoch):
+        scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
+        if report_test_scores:
+            print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
+        record.add(current_epoch, scores)
+        if test_callback is not None:
+            record.add(current_epoch, ('callback', test_callback(predictor)))
 
-    last_n_samples_seen = 0
-    for (n_samples_seen, input_minibatch, target_minibatch) in \
-            dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
-
-        current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
-        last_n_samples_seen = n_samples_seen
-        time_for_a_test, done = checker.check(current_epoch)
-        if time_for_a_test:
-
-            scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
-            if report_test_scores:
-                print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
-            record.add(current_epoch, scores)
-            if test_callback is not None:
-                record.add(current_epoch, ('callback', test_callback(predictor)))
+    if minibatch_size == 'stretch':
+        test_samples = (np.array(test_epochs) * dataset.training_set.n_samples).astype(int)
+        i=0
+        if test_samples[0] == 0:
+            do_test(i)
+            i += 1
+        for indices in checkpoint_minibatch_index_generator(n_samples=dataset.training_set.n_samples, checkpoints=test_samples, slice_when_possible=True):
+            predictor.train(dataset.training_set.input[indices], dataset.training_set.target[indices])
+            do_test(test_epochs[i])
+            i += 1
+    else:
+        checker = CheckPointCounter(test_epochs)
+        last_n_samples_seen = 0
+        for (n_samples_seen, input_minibatch, target_minibatch) in \
+                dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
+            current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
+            last_n_samples_seen = n_samples_seen
+            time_for_a_test, done = checker.check(current_epoch)
+            if time_for_a_test:
+                do_test(current_epoch)
             if done:
                 break
-
-        predictor.train(input_minibatch, target_minibatch)
+            predictor.train(input_minibatch, target_minibatch)
 
     return record
 

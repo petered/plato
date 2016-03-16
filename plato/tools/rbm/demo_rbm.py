@@ -6,7 +6,7 @@ from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBrid
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 from plotting.db_plotting import dbplot
 import theano
-from utils.bureaucracy import minibatch_iterate
+from utils.tools.iteration import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
 
