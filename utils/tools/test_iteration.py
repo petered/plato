@@ -50,8 +50,6 @@ def test_checkpoint_minibatch_generator():
                 raise Exception("Failed to stop iteration")
 
 
-
-
 if __name__ == '__main__':
     test_minibatch_index_generator()
     test_checkpoint_minibatch_generator()
