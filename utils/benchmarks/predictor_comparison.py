@@ -153,7 +153,10 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :param dataset: A DataSet object
     :param evaluation_function: A function of the form: score=fcn(actual_values, target_values)
     :param test_epochs: List of epochs to test at.  Eg. [0.5, 1, 2, 4]
-    :param minibatch_size: Number of samples per minibatch, or 'full' to do full-batch.
+    :param minibatch_size: Number of samples per minibatch, or:
+        'full' to do full-batch.
+        'stretch': to stretch the size of each batch so that we make just one call to "train" between each test.  Use
+            this, for instance, if your predictor trains on one sample at a time in sequence anyway.
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :param test_callback: A callback which takes the predictor, and is called every time a test
         is done.  This can be useful for plotting/debugging the state.
