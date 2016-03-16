@@ -30,7 +30,12 @@ class TestMode(object):
     block will return True.  Usage:
 
     with TestMode():
-        ...
+        if is_test_mode():
+            dataset = get_my_big_dataset(n_samples = 10)  # Shorten the dataset just to run test
+            n_epochs = 2
+        else:
+            dataset = get_my_big_dataset()
+            n_epochs = 20
         ...
     """
     def __enter__(self):
