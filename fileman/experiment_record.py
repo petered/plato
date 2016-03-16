@@ -3,7 +3,7 @@ from datetime import datetime
 import inspect
 import shlex
 from IPython.core.magics import logging
-from general.test_mode import is_test_mode
+from general.test_mode import is_test_mode, TestMode
 import os
 import pickle
 from IPython.core.display import display, HTML
@@ -29,6 +29,9 @@ class _ExpLibClass(object):
         assert experiment_name not in GLOBAL_EXPERIMENT_LIBRARY, "Experiment %s is already in the library" % (experiment_name, )
         self.__dict__[experiment_name] = experiment
         GLOBAL_EXPERIMENT_LIBRARY[experiment_name] = experiment
+
+    def get_experiments(self):
+        return GLOBAL_EXPERIMENT_LIBRARY
 
 
 ExperimentLibrary = _ExpLibClass()
@@ -411,29 +414,43 @@ class Experiment(object):
         return 'Experiment: %s\n  Defined in: %s\n  Description: %s\n  Conclusion: %s' % \
             (self.name, inspect.getmodule(self.function).__name__, self.description, self.conclusion)
 
-    def run(self, print_to_console = True, show_figs = None, **experiment_record_kwargs):
+    def run(self, print_to_console = True, show_figs = None, test_mode=False, **experiment_record_kwargs):
         """
         Run the experiment, and return the ExperimentRecord that is generated.
         Note, if you want the output of the function, you should just run the function directly.
         :param experiment_record_kwargs: See ExperimentRecord for kwargs
         """
         if self.versions is not None:
+            assert self.current_version in self.versions, "Experiment %s: Your current version: '%s' is not in the list of versions: %s" % (self.name, self.current_version, self.versions.keys())
             kwargs = self.versions[self.current_version]
             name = self.name+'-'+(self.current_version if isinstance(self.current_version, str) else str(self.versions[self.current_version]))
         else:
             kwargs = {}
             name = self.name
 
-        print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
-        with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
-            self.function(**kwargs)
-        print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
+        if test_mode:
+            with TestMode():
+                print '%s Testing Experiment: %s %s' % ('='*10, name, '='*10)
+                with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
+                    self.function(**kwargs)
+                print '%s Done Testing Experiment: %s %s' % ('-'*11, name, '-'*12)
+        else:
+            print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
+            with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
+                self.function(**kwargs)
+            print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
         return exp_rec
 
-    def run_all(self):
+    def run_all(self, **kwargs):
         for v in (self.versions.keys() if isinstance(self.versions, dict) else xrange(len(self.versions))):
             self.current_version = v
-            self.run()
+            self.run(**kwargs)
+
+    def test(self, **kwargs):
+        self.run(test_mode=True, **kwargs)
+
+    def test_all(self, **kwargs):
+        self.run_all(test_mode=True, **kwargs)
 
 
 if __name__ == '__main__':

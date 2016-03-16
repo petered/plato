@@ -4,7 +4,7 @@ Welcome to the Plato repo.
 
 Plato is a python package built on top of [Theano](http://deeplearning.net/software/theano/) with a few objectives:
 
-1. Simplify the use of Theano with a new interface (see the tutorial).
+1. Simplify the use of Theano with a new interface (see the [tutorial](https://rawgit.com/petered/plato/master/plato_tutorial.html)).
 2. Use this simplified interface to build a clean, well-tested library, containing standard components in deep learning (MLPs, DBNs, VA's, etc), so that people don't have to keep reinventing the wheel every time they do a project in deep learning.  
 3. Provide a set of tools for plotting, debugging, setting up experiments, and saving results.  
 

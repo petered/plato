@@ -4,7 +4,7 @@ from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.variational_autoencoder import VariationalAutoencoder, \
     EncoderDecoderNetworks
 from plotting.db_plotting import dbplot
-from utils.bureaucracy import minibatch_iterate
+from utils.tools.iteration import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
 
