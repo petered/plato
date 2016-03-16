@@ -22,3 +22,20 @@ def is_test_mode():
 def set_test_mode(state):
     global _TEST_MODE
     _TEST_MODE = state
+
+
+class TestMode(object):
+    """
+    Execute a block of code in test mode.  That is, any call to "is_test_mode" within that
+    block will return True.  Usage:
+
+    with TestMode():
+        ...
+        ...
+    """
+    def __enter__(self):
+        self._old_test_mode = _TEST_MODE
+        set_test_mode(True)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        set_test_mode(self._old_test_mode)

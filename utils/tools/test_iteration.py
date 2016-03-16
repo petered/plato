@@ -1,3 +1,4 @@
+import pytest
 from utils.tools.iteration import minibatch_index_generator, checkpoint_minibatch_index_generator
 
 __author__ = 'peter'
@@ -41,6 +42,14 @@ def test_checkpoint_minibatch_generator():
             assert np.array_equal(data[iterator.next()], np.arange(20, 30))
             assert np.array_equal(data[iterator.next()], np.arange(30, 63) % 48)
             assert np.array_equal(data[iterator.next()], np.arange(63, 100) % 48)
+            try:
+                iterator.next()
+            except StopIteration:
+                pass
+            except:
+                raise Exception("Failed to stop iteration")
+
+
 
 
 if __name__ == '__main__':
