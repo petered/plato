@@ -355,7 +355,7 @@ def browse_experiment_records():
     while True:
         print '\n'.join(['%s: %s' % (i, exp_id) for i, exp_id in enumerate(ids)])
 
-        user_input = raw_input('Enter Command (or h for help) >>')
+        user_input = raw_input('Enter Command (show # to show and experiment, or h for help) >>')
         parts = shlex.split(user_input)
 
         cmd = parts[0]
