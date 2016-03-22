@@ -263,6 +263,8 @@ def _detect_format(data):
         return MultiOutputFormat
     elif data is None:
         return NoOutputFormat
+    elif _is_named_collection(data):
+        return NamedCollectionFormat
     else:
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
@@ -279,8 +281,11 @@ def convert_formats(data, src_format, dest_format):
     elif src_format is SingleOutputFormat and dest_format is MultiOutputFormat:
         return (data, )
     elif src_format is MultiOutputFormat and dest_format is SingleOutputFormat:
-        assert len(data) == 1, "You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, )
+        if len(data) > 1:
+            raise SymbolicFormatError("You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, ))
         return data[0]
+    elif src_format is NamedCollectionFormat and dest_format is MultiOutputFormat:
+        return tuple(data.values())
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -343,6 +348,14 @@ class SomeUpdatesFormat(IFormat):
             raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
 
 
+class NamedCollectionFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_named_collection(data):
+            raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
+
+
 class SymbolicFormatError(Exception):
     pass
 
@@ -353,6 +366,16 @@ def _is_tensor(arg):
 
 def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+
+
+def _is_named_collection(arg):
+    if not isinstance(arg, dict):
+        return False
+    if not all(isinstance(k, basestring) for k in arg.keys()):
+        return False
+    if not all(_is_tensor(v) for v in arg.values()):
+        return False
+    return True
 
 
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
@@ -439,6 +462,7 @@ class AutoCompilingFunction(object):
 
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
+
             updates = sc.get_updates()
             all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
@@ -447,8 +471,14 @@ class AutoCompilingFunction(object):
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                self._single_output = outputs is not None and _is_tensor(outputs)
-                outputs = (outputs, ) if self._single_output else () if outputs is None else outputs
+
+                self._original_output_format = _detect_format(outputs)
+                if self._original_output_format is NamedCollectionFormat:
+                    self._signal_names = outputs.keys()
+                outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
+
+
+                # outputs = (outputs, ) if self._output_mode else () if outputs is None else outputs
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
@@ -472,8 +502,10 @@ class AutoCompilingFunction(object):
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
 
             # numeric_output = all_out[:-len(self._trace_variable_keys)]
-            if self._single_output:
-                true_out, = true_out
+            if self._original_output_format is NamedCollectionFormat:
+                true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
+            else:
+                true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
         else:
             true_out = self._compiled_fcn(*arg_and_kwarg_values)
 
