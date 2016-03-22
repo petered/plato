@@ -6,6 +6,7 @@ from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     symbolic_multi, symbolic_stateless, create_shared_variable
 import pytest
 import theano
+import theano.tensor as tt
 import numpy as np
 
 __author__ = 'peter'
@@ -473,20 +474,58 @@ def test_ival_ishape():
     assert np.allclose(z, foo.dot(baz))
 
 
+def test_named_outputs():
+    @symbolic
+    def do_some_ops(x):
+        return {'cos': tt.cos(x), 'sin': tt.sin(x), 'exp': tt.exp(x), 'log': tt.log(x)}
+
+    f = do_some_ops.compile()
+    rng = np.random.RandomState(0)
+    x = rng.rand(10)*np.pi*2
+    out = f(x)
+    assert np.allclose(out['cos'], np.cos(x))
+    assert np.allclose(out['sin'], np.sin(x))
+    assert np.allclose(out['exp'], np.exp(x))
+    assert np.allclose(out['log'], np.log(x))
+
+
+def test_named_outputs_with_trace():
+    """
+    Follows a different code path than just named outputs, so we test again.
+    """
+
+    @symbolic
+    def do_some_ops(x):
+        tdb_trace(tt.tan(x), 'tan(x)')
+        return {'cos': tt.cos(x), 'sin': tt.sin(x), 'exp': tt.exp(x), 'log': tt.log(x)}
+
+    f = do_some_ops.compile()
+    rng = np.random.RandomState(0)
+    x = rng.rand(10)*np.pi*2
+    out = f(x)
+    assert np.allclose(out['cos'], np.cos(x))
+    assert np.allclose(out['sin'], np.sin(x))
+    assert np.allclose(out['exp'], np.exp(x))
+    assert np.allclose(out['log'], np.log(x))
+    assert np.allclose(get_tdb_traces()['tan(x)'], np.tan(x))
+
+
 if __name__ == '__main__':
-    # test_ival_ishape()
-    # test_catch_sneaky_updates()
-    # test_catch_non_updates()
+    test_ival_ishape()
+    test_catch_sneaky_updates()
+    test_catch_non_updates()
     test_scan()
-    # test_strrep()
-    # test_omniscence()
-    # test_named_arguments()
-    # test_stateless_symbolic_function()
-    # test_stateful_symbolic_function()
-    # test_debug_trace()
-    # test_method_caching_bug()
-    # test_pure_updater()
-    # test_function_format_checking()
-    # test_callable_format_checking()
-    # test_inhereting_from_decorated()
-    # test_dual_decoration()
+    test_strrep()
+    test_omniscence()
+    test_named_arguments()
+    test_stateless_symbolic_function()
+    test_stateful_symbolic_function()
+    test_debug_trace()
+    test_method_caching_bug()
+    test_pure_updater()
+    test_function_format_checking()
+    test_callable_format_checking()
+    test_inhereting_from_decorated()
+    test_dual_decoration()
+    test_named_outputs()
+    test_named_outputs_with_trace()
