@@ -284,6 +284,9 @@ def convert_formats(data, src_format, dest_format):
         if len(data) > 1:
             raise SymbolicFormatError("You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, ))
         return data[0]
+    elif src_format is MultiOutputFormat and dest_format is NoOutputFormat:
+        if len(data) > 0:
+            raise SymbolicFormatError("You're trying to convert from MultiOutputFormat to NoOutputFormat, but your output tuple is not empty.  It looks like: %s" % (data, ))
     elif src_format is NamedCollectionFormat and dest_format is MultiOutputFormat:
         return tuple(data.values())
     else:
