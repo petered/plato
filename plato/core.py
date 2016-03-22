@@ -452,7 +452,7 @@ class AutoCompilingFunction(object):
         returns the result, in numpy arrays.
         """
 
-        if self._compiled_fcn is None:
+        if self._compiled_fcn is None:  # Need to do first pass and compile.
 
             d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, test = True)
             tensor_args = [d2t(arg) for arg in args]
@@ -471,14 +471,10 @@ class AutoCompilingFunction(object):
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-
                 self._original_output_format = _detect_format(outputs)
                 if self._original_output_format is NamedCollectionFormat:
                     self._signal_names = outputs.keys()
                 outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
-
-
-                # outputs = (outputs, ) if self._output_mode else () if outputs is None else outputs
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
@@ -496,12 +492,9 @@ class AutoCompilingFunction(object):
             true_out = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]
-
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
             _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
-
-            # numeric_output = all_out[:-len(self._trace_variable_keys)]
             if self._original_output_format is NamedCollectionFormat:
                 true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
             else:
