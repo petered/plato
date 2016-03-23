@@ -1,7 +1,7 @@
 from general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 from plotting.db_plotting import dbplot
-from utils.bureaucracy import minibatch_iterate
+from utils.tools.iteration import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np
 from plato.tools.dbn.stacked_dbn import StackedDeepBeliefNet, BernoulliBernoulliRBM, BernoulliGaussianRBM

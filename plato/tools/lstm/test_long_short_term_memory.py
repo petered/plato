@@ -1,7 +1,7 @@
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
 import theano
-from utils.bureaucracy import minibatch_iterate
+from utils.tools.iteration import minibatch_iterate
 from utils.datasets.bounce_data import get_bounce_data
 import numpy as np
 from utils.tools.processors import OneHotEncoding

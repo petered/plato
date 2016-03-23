@@ -21,5 +21,4 @@ class EZProfiler(object):
             self.print_elapsed()
 
     def print_elapsed(self):
-
         print '%s: Elapsed time is: %.4gs' % (self.profiler_name, self.elapsed_time, )

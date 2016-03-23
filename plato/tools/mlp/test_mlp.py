@@ -5,7 +5,7 @@ from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 import pytest
 from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.bureaucracy import zip_minibatch_iterate
+from utils.tools.iteration import zip_minibatch_iterate
 from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
 
