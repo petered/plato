@@ -210,7 +210,11 @@ class _SymbolicFunctionWrapper(object):
         return conversion_wrapper
 
     def partial(self, **fixed_kwargs):
-        raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
+        """
+        Partially define the input arguments and return a new symbolic function.
+        """
+        return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
+            output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
     def compile(self, **compilation_kwargs):
         return AutoCompilingFunction(self, **compilation_kwargs)
