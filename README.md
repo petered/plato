@@ -16,4 +16,4 @@ If you want to learn how to set it up, read [Getting Started with Plato](https:/
 
 If you want to learn about the contents of Plato, read [Contents of Plato](https://github.com/petered/plato/wiki/Contents-of-Plato).
 
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Platon_Cave_Sanraedam_1604.jpg/1024px-Platon_Cave_Sanraedam_1604.jpg)
+![](http://a4.typepad.com/6a019b00fed410970b01b8d0a94e04970c-400wi)
