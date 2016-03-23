@@ -746,19 +746,20 @@ class StateCatcher(object):
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
         _set_state_catcher(self)
-        self._updates = []
+        self._updates = OrderedDict()
         return self
 
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
-        self._updates.append((shared_var, new_val))
+        assert shared_var not in self._updates, "You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s" % (shared_var, new_val, self._updates[shared_var])
+        self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
-        return self._updates
+        return self._updates.items()
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):

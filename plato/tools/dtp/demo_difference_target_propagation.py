@@ -575,5 +575,5 @@ There's basically no middle ground - if you want a bearable learning rate, you g
 
 
 if __name__ == '__main__':
-    which_experiment = 'all-norm-relu-dtp'
+    which_experiment = 'compare-multi-level-perceptron-dtp'
     run_experiment(which_experiment)

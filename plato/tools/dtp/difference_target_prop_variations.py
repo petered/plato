@@ -68,7 +68,7 @@ class PerceptronLayer(ITargetPropLayer):
         delta_b_rev = (x - recon).sum(axis = 0)
 
         add_update(self.w, self.w+delta_w)
-        add_update(self.w, self.w_rev+delta_w_rev)
+        add_update(self.w_rev, self.w_rev+delta_w_rev)
         add_update(self.b, self.b+delta_b)
         add_update(self.b_rev, self.b_rev+delta_b_rev)
 
