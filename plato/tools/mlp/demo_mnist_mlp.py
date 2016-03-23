@@ -9,6 +9,7 @@ from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.datasets.mnist import get_mnist_dataset
 from utils.tools.mymath import sqrtspace
+import theano.tensor as tt
 import numpy as np
 
 
@@ -189,10 +190,18 @@ register_experiment(
     conclusion=""
     )
 
+register_experiment(
+    name = 'MNIST_MLP[300,10]_splitside-2',
+    function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation = lambda x: tt.maximum(x, 0) - tt.minimum(x, 0)*2,
+        optimizer = 'sgd', learning_rate=0.03),
+    description='Here we try to find the parameters that will reveal the RELU exploding problem.',
+    conclusion="Wow... 98.15.  Compare that to 97.75 for the regular RELU"
+    )
+
 
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST-relu-explode'
+    which_experiment = 'MNIST_MLP[300,10]_relu'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)
