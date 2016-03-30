@@ -31,6 +31,8 @@ def demo_mnist_mlp(
         max_training_samples = None,
         use_bias = True,
         onehot = False,
+        rng = 1234,
+        plot = False,
         ):
     """
     Train an MLP on MNIST and print the test scores as training progresses.
@@ -59,7 +61,8 @@ def demo_mnist_mlp(
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             w_init = w_init,
-            use_bias=use_bias
+            use_bias=use_bias,
+            rng = rng,
             ),
         cost_function=cost,
         optimizer=optimizer
@@ -84,7 +87,8 @@ def demo_mnist_mlp(
         test_callback=vis_callback if visualize_params else None
     )
 
-    plot_learning_curves(results)
+    if plot:
+        plot_learning_curves(results)
 
 
 register_experiment(
@@ -191,17 +195,36 @@ register_experiment(
     )
 
 register_experiment(
-    name = 'MNIST_MLP[300,10]_splitside-2',
-    function = lambda: demo_mnist_mlp(hidden_sizes=[300], hidden_activation = lambda x: tt.maximum(x, 0) - tt.minimum(x, 0)*2,
-        optimizer = 'sgd', learning_rate=0.03),
-    description='Here we try to find the parameters that will reveal the RELU exploding problem.',
-    conclusion="Wow... 98.15.  Compare that to 97.75 for the regular RELU"
+    name = 'mnist_mlp_leaky_relu',
+    description='So instead of a ReLU we can use a "bent" unit.  These guys ',
+    function = lambda alpha, **kwargs: demo_mnist_mlp(hidden_activation = lambda x: tt.switch(x > 0, x, x*alpha),
+        optimizer = 'sgd', learning_rate=0.03, **kwargs),
+    versions = dict(
+        bent = dict(alpha = 0.5),
+        abs = dict(alpha = -1),
+        relu = dict(alpha = 0),
+        small = dict(alpha = 0.05),
+        deep_relu = dict(alpha = 0.05, hidden_sizes = [300, 300]),
+        deep_abs = dict(alpha = -1, hidden_sizes = [300, 300]),
+
+    ),
+    current_version = 'deep_abs',
+    conclusion="""
+        relu: 97.78
+        bent: 96.04
+        abs: 98.16
+        small: 97.67
+
+        deep_relu: 97.76
+        deep_abs: 97.91
+
+    """
     )
 
 
 if __name__ == '__main__':
 
-    which_experiment = 'MNIST_MLP[300,10]_relu'
+    which_experiment = 'mnist_mlp_leaky_relu'
     set_test_mode(False)
 
     logging.getLogger().setLevel(logging.INFO)
