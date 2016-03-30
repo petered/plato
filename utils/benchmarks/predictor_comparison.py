@@ -163,7 +163,7 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     :return: LearningCurveData containing the score on the test sets
     """
 
-    assert isinstance(predictor, IPredictor), 'You must pass in an object implementing the IPredictor inferface.  %s does not.' % (predictor, )
+    # assert isinstance(predictor, IPredictor), 'You must pass in an object implementing the IPredictor inferface.  %s does not.' % (predictor, )
 
     record = LearningCurveData()
 
