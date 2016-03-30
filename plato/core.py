@@ -210,7 +210,11 @@ class _SymbolicFunctionWrapper(object):
         return conversion_wrapper
 
     def partial(self, **fixed_kwargs):
-        raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
+        """
+        Partially define the input arguments and return a new symbolic function.
+        """
+        return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
+            output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
     def compile(self, **compilation_kwargs):
         return AutoCompilingFunction(self, **compilation_kwargs)
@@ -264,6 +268,8 @@ def _detect_format(data):
         return MultiOutputFormat
     elif data is None:
         return NoOutputFormat
+    elif _is_named_collection(data):
+        return NamedCollectionFormat
     else:
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
@@ -280,8 +286,14 @@ def convert_formats(data, src_format, dest_format):
     elif src_format is SingleOutputFormat and dest_format is MultiOutputFormat:
         return (data, )
     elif src_format is MultiOutputFormat and dest_format is SingleOutputFormat:
-        assert len(data) == 1, "You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, )
+        if len(data) > 1:
+            raise SymbolicFormatError("You are trying to express multiple variables: %s in a single-variable format.  Doesn't work." % (data, ))
         return data[0]
+    elif src_format is MultiOutputFormat and dest_format is NoOutputFormat:
+        if len(data) > 0:
+            raise SymbolicFormatError("You're trying to convert from MultiOutputFormat to NoOutputFormat, but your output tuple is not empty.  It looks like: %s" % (data, ))
+    elif src_format is NamedCollectionFormat and dest_format is MultiOutputFormat:
+        return tuple(data.values())
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
 
@@ -344,6 +356,14 @@ class SomeUpdatesFormat(IFormat):
             raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
 
 
+class NamedCollectionFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_named_collection(data):
+            raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
+
+
 class SymbolicFormatError(Exception):
     pass
 
@@ -354,6 +374,16 @@ def _is_tensor(arg):
 
 def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+
+
+def _is_named_collection(arg):
+    if not isinstance(arg, dict):
+        return False
+    if not all(isinstance(k, basestring) for k in arg.keys()):
+        return False
+    if not all(_is_tensor(v) for v in arg.values()):
+        return False
+    return True
 
 
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
@@ -445,7 +475,7 @@ class AutoCompilingFunction(object):
         returns the result, in numpy arrays.
         """
 
-        if self._compiled_fcn is None:
+        if self._compiled_fcn is None:  # Need to do first pass and compile.
 
             d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
             tensor_args = [d2t(arg) for arg in args]
@@ -455,6 +485,7 @@ class AutoCompilingFunction(object):
 
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
+
             updates = sc.get_updates()
             all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
@@ -463,8 +494,10 @@ class AutoCompilingFunction(object):
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                self._single_output = outputs is not None and _is_tensor(outputs)
-                outputs = (outputs, ) if self._single_output else () if outputs is None else outputs
+                self._original_output_format = _detect_format(outputs)
+                if self._original_output_format is NamedCollectionFormat:
+                    self._signal_names = outputs.keys()
+                outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(outputs)
@@ -484,14 +517,13 @@ class AutoCompilingFunction(object):
             true_out = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]
-
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
             _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
-
-            # numeric_output = all_out[:-len(self._trace_variable_keys)]
-            if self._single_output:
-                true_out, = true_out
+            if self._original_output_format is NamedCollectionFormat:
+                true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
+            else:
+                true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
         else:
             true_out = self._compiled_fcn(*arg_and_kwarg_values)
 
@@ -746,19 +778,20 @@ class StateCatcher(object):
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
         _set_state_catcher(self)
-        self._updates = []
+        self._updates = OrderedDict()
         return self
 
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
-        self._updates.append((shared_var, new_val))
+        assert shared_var not in self._updates, "You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s" % (shared_var, new_val, self._updates[shared_var])
+        self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
-        return self._updates
+        return self._updates.items()
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):

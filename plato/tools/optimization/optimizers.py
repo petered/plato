@@ -105,19 +105,23 @@ class Adam(UniformParameterOptimizer):
         self.eps = eps
 
     def _update_param(self, param, gradient):
+        # Initialize variables
         i = create_shared_variable(0.)
+        m = theano.shared(param.get_value() * 0.)
+        v = theano.shared(param.get_value() * 0.)
+
+        # Recompute values
         i_t = i + 1.
         fix1 = 1. - (1. - self.beta_1)**i_t
         fix2 = 1. - (1. - self.beta_2)**i_t
         lr_t = self.alpha * (tt.sqrt(fix2) / fix1)
-        m = theano.shared(param.get_value() * 0.)
-        v = theano.shared(param.get_value() * 0.)
         m_t = (self.beta_1 * gradient) + ((1. - self.beta_1) * m)
         v_t = (self.beta_2 * tt.sqr(gradient)) + ((1. - self.beta_2) * v)
         g_t = m_t / (tt.sqrt(v_t) + self.eps)
         p_t = param - (lr_t * g_t)
-        add_update(m, m_t)
         add_update(param, p_t)
+        add_update(m, m_t)
+        add_update(v, v_t)
         add_update(i, i_t)
 
 #
@@ -232,6 +236,25 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
         add_update(param, param*multiplier)
 
 
+# <<<<<<< HEAD
+# class HMC(UniformParameterOptimizer):
+#
+#     def __init__(self, step_size, temperature = 1, partial_refreshment = False):
+#         assert partial_refreshment, "Not set up for non-partial refreshment yet.  "
+#         self.partial_refreshment = partial_refreshment
+#         self.temperature = temperature
+#         self.step_size = step_size
+#
+#     def _update_param(self, param, gradient):
+#         # TODO: Actually finish this!!!
+#         d_energy_d_pos = gradient * self.temperature
+#         mom = create_shared_variable(np.zeros_like(param.get_value()))  # Should be random??
+#         new_mom = mom - self.step_size * d_energy_d_pos
+#         new_pos = param + self.step_size * new_mom
+#         add_update(param, new_pos)
+#         add_update(mom, new_mom)
+#
+# =======
 # class HMC(UniformParameterOptimizer):
 #
 #     def __init__(self, step_size, temperature = 1, partial_refreshment = False):
@@ -271,8 +294,6 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
 #         add_update(mom, new_mom)
 #
 #     def metropolis_hastings_accept(self, old_energy, new_energy):
-
-
 
     # @staticmethod
     # def leapfrog(pos, vel, step, cost):
