@@ -443,17 +443,17 @@ class AutoCompilingFunction(object):
             you have to do an initial pass on CPU, which can be slow.
         """
         assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
-
+        theano.config.compute_test_value = 'warn' if add_test_values else 'off'
         if fixed_args is not None:
             fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
-            if add_test_values:
-                for k, v in fixed_args.iteritems():
-                    if isinstance(v, (np.ndarray, Variable)):
-                        fixed_tensors[k].tag.test_value = \
-                            v if isinstance(v, np.ndarray) else \
-                            v.get_value() if isinstance(v, SharedVariable) else \
-                            v.tag.test_value if isinstance(v, Variable) else \
-                            np.array(v)
+            # if add_test_values:
+            for k, v in fixed_args.iteritems():
+                if isinstance(v, (np.ndarray, Variable)):
+                    fixed_tensors[k].tag.test_value = \
+                        v if isinstance(v, np.ndarray) else \
+                        v.get_value() if isinstance(v, SharedVariable) else \
+                        v.tag.test_value if isinstance(v, Variable) else \
+                        np.array(v)
             self._fcn = partial(fcn, **fixed_tensors)
         else:
             self._fcn = fcn
@@ -465,7 +465,6 @@ class AutoCompilingFunction(object):
         self._add_test_values = add_test_values
 
         # Create convenient debugging functions: showloc() and locinfo()
-        theano.config.compute_test_value = 'warn'
         __builtins__['showloc'] = show_all_locals
         __builtins__['locinfo'] = get_local_info
 

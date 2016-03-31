@@ -5,10 +5,11 @@ __author__ = 'peter'
 
 class EZProfiler(object):
 
-    def __init__(self, print_result = True, profiler_name = 'Profile'):
+    def __init__(self, print_result = True, profiler_name = 'Profile', record_stop = True):
         self.print_result = print_result
         # self.start_time = None  # Hopefully this removes overhead of creating a parameter after the clock is running.
         self.profiler_name = profiler_name
+        self.record_stop = record_stop
         self._lap_times = OrderedDict()
         self._lap_times['Start'] = time()
 
@@ -26,7 +27,8 @@ class EZProfiler(object):
         return self
 
     def __exit__(self, *args):
-        self._lap_times['Stop'] = time()
+        if self.record_stop:
+            self._lap_times['Stop'] = time()
         if self.print_result:
             self.print_elapsed()
 
@@ -36,5 +38,5 @@ class EZProfiler(object):
     def get_report(self):
         keys = self._lap_times.keys()
         deltas = OrderedDict((key, self._lap_times[key] - self._lap_times[last_key]) for last_key, key in zip(keys[:-1], keys[1:]))
-        return self.profiler_name + '\n  ' + '  \n'.join(['%s: Elapsed time is %.4gs' % (key, val) for key, val in deltas.iteritems()] +
-            ['Total: %.4gs' % (self._lap_times['Stop'] - self._lap_times['Start'])] if len(deltas)>1 else [])
+        return self.profiler_name + '\n  '.join(['']+['%s: Elapsed time is %.4gs' % (key, val) for key, val in deltas.iteritems()] +
+            (['Total: %.4gs' % (self._lap_times.values()[-1] - self._lap_times.values()[0])] if len(deltas)>1 else []))
