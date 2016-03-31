@@ -337,14 +337,10 @@ def get_all_experiment_ids(expr = None):
     return experiments
 
 
-def register_experiment(name, function, description = '', conclusion = ''):
+def register_experiment(name, **kwargs):
+    """ See Experiment """
     assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
-    experiment = Experiment(
-        name = name,
-        function = function,
-        description=description,
-        conclusion=conclusion
-        )
+    experiment = Experiment(name = name, **kwargs)
     GLOBAL_EXPERIMENT_LIBRARY[name] = experiment
     return experiment
 
@@ -397,7 +393,7 @@ def get_experiment_info(name):
 
 class Experiment(object):
 
-    def __init__(self, function, description, conclusion = '', name = None, versions = None, current_version = None):
+    def __init__(self, function, description='', conclusion = '', name = None, versions = None, current_version = None):
         if versions is not None:
             assert isinstance(versions, (list, dict))
             assert current_version is not None, 'If you specify multiple versions, you have to pick a current version'
