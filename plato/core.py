@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 import logging
+import sys
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
@@ -41,6 +42,8 @@ These methods are described in the ISymbolicFunction interface below.
 
 __author__ = 'peter'
 
+PLATO_LOGGER = logging.getLogger('PlatoLogger')
+PLATO_LOGGER.setLevel(logging.WARN)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
@@ -238,7 +241,7 @@ class _SymbolicFunctionWrapper(object):
         if self.attached_instance is None:
             return self.fcn.__str__()
         else:
-            return '%s.%s' % (self.attached_instance.__str__(), self.fcn.__str__())
+            return '%s.%s' % (self.attached_instance, self.fcn.__str__())
 
     def __str__(self):
         return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
@@ -504,9 +507,9 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
-            print 'Compiling function %s...' % (self._original_fcn, )
+            PLATO_LOGGER.info('Compiling %s...' % (self._original_fcn.fcn_str(), ))
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
-            print 'Done.'
+            PLATO_LOGGER.info('Done.\n')
 
         arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 

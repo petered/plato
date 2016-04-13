@@ -56,6 +56,7 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
             cost_function = get_named_cost_function(cost_function)
         self._cost_function = cost_function
         self._optimizer = optimizer
+        pass
 
     @symbolic_simple
     def predict(self, inputs):

@@ -339,7 +339,7 @@ def get_all_experiment_ids(expr = None):
 
 def register_experiment(name, **kwargs):
     """ See Experiment """
-    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
+    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!' % (name, )
     experiment = Experiment(name = name, **kwargs)
     GLOBAL_EXPERIMENT_LIBRARY[name] = experiment
     return experiment

@@ -197,7 +197,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -241,7 +241,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">theano</span>
@@ -296,7 +296,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span><span class="p">,</span> <span class="n">create_shared_variable</span>
@@ -344,52 +344,67 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="3.-Classes:-Multiple-functions-sharing-a-variable.">3. Classes: Multiple functions sharing a variable.<a class="anchor-link" href="#3.-Classes:-Multiple-functions-sharing-a-variable.">&#182;</a></h2><p>We often have situations where we have a variable that is shared between two functions (e.g. in a classifier, the weights may be modified by the <em>train</em> function and used by the <em>predict</em> function).  We usually deal with this using classes.  As a simple example, lets take the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz Conjecture</a>.</p>
+<h2 id="3.-Classes:-Multiple-functions-sharing-a-variable.">3. Classes: Multiple functions sharing a variable.<a class="anchor-link" href="#3.-Classes:-Multiple-functions-sharing-a-variable.">&#182;</a></h2><p>We often have situations where we have a variable that is shared between two functions (e.g. in a classifier, the weights may be modified by the <em>train</em> function and used by the <em>predict</em> function).  As a simple example, we will train an online linear-regressor.</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span><span class="p">,</span> <span class="n">create_shared_variable</span>
+<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">create_shared_variable</span><span class="p">,</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">add_update</span>
+<span class="kn">import</span> <span class="nn">theano.tensor</span> <span class="kn">as</span> <span class="nn">tt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 
-<span class="k">class</span> <span class="nc">Collatz</span><span class="p">:</span>
+<span class="c"># Set up parameters</span>
+<span class="n">n_in</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">n_out</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">n_training_samples</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="n">n_test_samples</span> <span class="o">=</span> <span class="mi">500</span>
+<span class="n">n_epochs</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">noise</span> <span class="o">=</span> <span class="mf">0.1</span>
+<span class="n">random_seed</span> <span class="o">=</span> <span class="mi">1234</span>
+<span class="n">score_report_period</span> <span class="o">=</span> <span class="mi">100</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_value</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">create_shared_variable</span><span class="p">(</span><span class="n">initial_value</span><span class="p">)</span>
-        
+<span class="c"># Create a regression dataset</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">random_seed</span><span class="p">)</span>
+<span class="n">w_true</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">)</span>  <span class="c"># (n_in, n_out)</span>
+<span class="n">training_data</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_training_samples</span><span class="p">,</span> <span class="n">n_in</span><span class="p">)</span>  <span class="c"># (n_training_samples, n_in)</span>
+<span class="n">training_target</span> <span class="o">=</span> <span class="n">training_data</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">w_true</span><span class="p">)</span> <span class="o">+</span> <span class="n">noise</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_training_samples</span><span class="p">,</span> <span class="n">n_out</span><span class="p">)</span>  <span class="c"># (n_training_samples, n_out)</span>
+<span class="n">test_data</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_test_samples</span><span class="p">,</span> <span class="n">n_in</span><span class="p">)</span>  <span class="c"># (n_test_samples, n_in)</span>
+<span class="n">test_target</span> <span class="o">=</span> <span class="n">test_data</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">w_true</span><span class="p">)</span> <span class="o">+</span> <span class="n">noise</span><span class="o">*</span><span class="n">rng</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n_test_samples</span><span class="p">,</span> <span class="n">n_out</span><span class="p">)</span>  <span class="c"># (n_test_samples, n_out)</span>
+
+<span class="c"># Create a linear regressor</span>
+<span class="k">class</span> <span class="nc">LinearRegressor</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">,</span> <span class="n">eta</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">create_shared_variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">=</span> <span class="n">eta</span>
+
     <span class="nd">@symbolic</span>
-    <span class="k">def</span> <span class="nf">divide_by_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">new_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">/</span><span class="mi">2</span>
-        <span class="n">add_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">new_value</span>
-    
+    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">targ</span><span class="p">):</span>  <span class="c"># x: (n_samples, n_in), targ: (n_samples, n_out)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">cost</span> <span class="o">=</span> <span class="p">((</span><span class="n">targ</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">add_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eta</span><span class="o">*</span><span class="n">tt</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="n">cost</span><span class="p">,</span> <span class="n">wrt</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">))</span>
+
     <span class="nd">@symbolic</span>
-    <span class="k">def</span> <span class="nf">multiply_by_3_and_add_one</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">new_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="o">*</span><span class="mi">3</span><span class="o">+</span><span class="mi">1</span>
-        <span class="n">add_update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">new_value</span>
-    
-<span class="n">c</span> <span class="o">=</span> <span class="n">Collatz</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
-<span class="n">div_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">divide_by_2</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="n">mul_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">multiply_by_3_and_add_one</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>  <span class="c"># x: (n_samples, n_in)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">)</span>
 
-<span class="n">value</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">get_value</span><span class="p">()</span>
-<span class="k">print</span> <span class="s">&#39;Demonstrate Collatz conjecture for initial value of </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">c</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">get_value</span><span class="p">()</span>
+<span class="c"># Setup the predictor and compile functions</span>
+<span class="n">predictor</span> <span class="o">=</span> <span class="n">LinearRegressor</span><span class="p">(</span><span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">)</span>
+<span class="n">f_train</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
+<span class="n">f_predict</span> <span class="o">=</span> <span class="n">predictor</span><span class="o">.</span><span class="n">predict</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
 
-<span class="k">while</span> <span class="n">value</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">div_fcn</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">mul_fcn</span><span class="p">()</span>
-    <span class="k">print</span> <span class="n">value</span>
-
-<span class="k">print</span> <span class="s">&#39;Note that since the value is attached to the instance, it persists if functons are recompiled.&#39;</span>
-<span class="n">new_div_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">divide_by_2</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="n">new_mul_fcn</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">multiply_by_3_and_add_one</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">new_div_fcn</span><span class="p">()</span> <span class="k">if</span> <span class="n">value</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">new_mul_fcn</span><span class="p">()</span>
-    <span class="k">print</span> <span class="n">value</span>
+<span class="c"># Train on one sample at a time and periodically report score.</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">n_training_samples</span><span class="o">*</span><span class="n">n_epochs</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="n">score_report_period</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">f_predict</span><span class="p">(</span><span class="n">test_data</span><span class="p">)</span>
+        <span class="n">test_cost</span> <span class="o">=</span> <span class="p">((</span><span class="n">test_target</span><span class="o">-</span><span class="n">out</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&#39;Test-Cost at epoch </span><span class="si">%s</span><span class="s">: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">/</span><span class="n">n_training_samples</span><span class="p">,</span> <span class="n">test_cost</span><span class="p">)</span>
+    <span class="n">f_train</span><span class="p">(</span><span class="n">training_data</span><span class="p">[[</span><span class="n">i</span> <span class="o">%</span> <span class="n">n_training_samples</span><span class="p">]],</span> <span class="n">training_target</span><span class="p">[[</span><span class="n">i</span> <span class="o">%</span> <span class="n">n_training_samples</span><span class="p">]])</span>
 </pre></div>
 
 </div>
@@ -402,21 +417,17 @@ I can too: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Demonstrate Collatz conjecture for initial value of 20
-10
-5
-16
-8
-4
-2
-1
-Note that since the value is attached to the instance, it persists if functons are recompiled.
-4
-2
-1
-4
-2
-1
+<pre>Test-Cost at epoch 0.0: 71.0957337414
+Test-Cost at epoch 0.2: 1.80531974613
+Test-Cost at epoch 0.4: 0.171461641249
+Test-Cost at epoch 0.6: 0.0534058746453
+Test-Cost at epoch 0.8: 0.0513930637533
+Test-Cost at epoch 1.0: 0.0479122217093
+Test-Cost at epoch 1.2: 0.049664895374
+Test-Cost at epoch 1.4: 0.04996181797
+Test-Cost at epoch 1.6: 0.0530149365254
+Test-Cost at epoch 1.8: 0.0512821567434
+Test-Cost at epoch 2.0: 0.0479423388957
 </pre>
 </div>
 </div>
@@ -430,14 +441,14 @@ Note that since the value is attached to the instance, it persists if functons a
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="4.-Callable-Classes">4. Callable Classes<a class="anchor-link" href="#4.-Callable-Classes">&#182;</a></h2><p>In python, classes can also act as functions, if they implement a <code>__call__</code> method.  This can be useful when you want to make parameterized functions.  Therefore Plato also allows you to decorate callable classes.  For example:</p>
+<h2 id="4.-Callable-Classes">4. Callable Classes<a class="anchor-link" href="#4.-Callable-Classes">&#182;</a></h2><p>In Python, classes can also act as functions, if they implement a <code>__call__</code> method.  This can be useful when you want to make parameterized functions.  Therefore Plato also allows you to decorate callable classes.  For example:</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -487,7 +498,7 @@ Note that since the value is attached to the instance, it persists if functons a
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -548,7 +559,7 @@ You were inconsistent - referenced x as a kwarg in the first call but not the se
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
@@ -615,7 +626,7 @@ Note that if we run again we print nothing because the symbolic function is just
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
@@ -655,12 +666,12 @@ Note that if we run again we print nothing because the symbolic function is just
 
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>Pre-Sigmoid Activation: [[-0.47407049 -4.29749966 -0.30280173]]
-Post-Sigmoid Activation: [[ 0.38365325  0.01341998  0.42487273]]
-Pre-Sigmoid Activation: [[ 1.62998915  3.40799332 -0.39556655]]
-Post-Sigmoid Activation: [[ 0.83616817  0.96795344  0.40237799]]
-Pre-Sigmoid Activation: [[ 0.15886441 -0.46783638 -0.82146084]]
-Post-Sigmoid Activation: [[ 0.5396328   0.38512847  0.30545366]]
+<pre>Pre-Sigmoid Activation: [[ 1.23071408  0.99710995 -0.40432474]]
+Post-Sigmoid Activation: [[ 0.77394354  0.73048997  0.40027371]]
+Pre-Sigmoid Activation: [[ 0.57301015 -1.07408714  1.07526779]]
+Post-Sigmoid Activation: [[ 0.63945746  0.2546266   0.74559742]]
+Pre-Sigmoid Activation: [[ 0.07468118 -0.88515997  0.61761415]]
+Post-Sigmoid Activation: [[ 0.51866162  0.29210964  0.64967573]]
 </pre>
 </div>
 </div>
@@ -701,7 +712,7 @@ Post-Sigmoid Activation: [[ 0.5396328   0.38512847  0.30545366]]
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="prompt input_prompt">In&nbsp;[24]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic_stateless</span><span class="p">,</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">SymbolicFormatError</span><span class="p">,</span> <span class="n">add_update</span><span class="p">,</span> <span class="n">create_shared_variable</span>
@@ -745,7 +756,7 @@ Post-Sigmoid Activation: [[ 0.5396328   0.38512847  0.30545366]]
 <div class="output_area"><div class="prompt"></div>
 <div class="output_subarea output_stream output_stdout output_text">
 <pre>Trying to run incorrectly-decorated function...
-  SymbolicFormatError: Function &lt;function running_sum at 0x104da58c0&gt; should have created no state updates, but it created updates: [(&lt;TensorType(int64, scalar)&gt;, Elemwise{add,no_inplace}.0)]
+  SymbolicFormatError: Function &lt;function running_sum at 0x111a8a410&gt; should have created no state updates, but it created updates: [(&lt;TensorType(int64, scalar)&gt;, Elemwise{add,no_inplace}.0)]
 Lets try again with the correct format....
   cumsum([1,2,3,4]) = [1, 3, 6, 10]
 </pre>
@@ -768,7 +779,7 @@ Lets try again with the correct format....
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[25]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span>
@@ -815,7 +826,7 @@ Lets try again with the correct format....
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="prompt input_prompt">In&nbsp;[26]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">plato.core</span> <span class="kn">import</span> <span class="n">symbolic</span><span class="p">,</span> <span class="n">create_shared_variable</span><span class="p">,</span> <span class="n">add_update</span>
@@ -868,6 +879,19 @@ Continuing Running Cumsum of [1,2,3,4]: [11 13 16 20]
 
 </div>
 </div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre> 
+</pre></div>
+
+</div>
+</div>
+</div>
+
 </div>
     </div>
   </div>

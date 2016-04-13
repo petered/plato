@@ -1,11 +1,15 @@
-from fileman.experiment_record import run_experiment, register_experiment
+from collections import OrderedDict
+from functools import partial
+from fileman.experiment_record import run_experiment, register_experiment, ExperimentLibrary, Experiment
 from general.test_mode import is_test_mode
-from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, ReversedDifferenceTargetLayer
+from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, PreActivationDifferenceTargetLayer, \
+    LinearDifferenceTargetLayer, LinearDifferenceTargetMLP
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
-from plato.tools.optimization.optimizers import AdaMax, SimpleGradientDescent, GradientDescent, RMSProp
+from plato.tools.optimization.optimizers import AdaMax, SimpleGradientDescent, GradientDescent, RMSProp, \
+    get_named_optimizer
 from plotting.db_plotting import dbplot
 from plotting.matplotlib_backend import set_default_figure_size
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
@@ -35,7 +39,7 @@ def demo_run_dtp_on_mnist(
         output_cost_function = None,
         noise = 1,
         lin_dtp = False,
-        seed = None
+        seed = 1234
         ):
 
     dataset = get_mnist_dataset(flat = True).to_onehot()
@@ -51,14 +55,14 @@ def demo_run_dtp_on_mnist(
             output_size = dataset.target_size,
             hidden_sizes = hidden_sizes,
             optimizer_constructor = optimizer_constructor,  # Note that RMSProp/AdaMax way outperform SGD here.
-            input_activation=input_activation,
+            # input_activation=input_activation,
             hidden_activation=hidden_activation,
             output_activation=output_activation,
             w_init_mag=0.01,
             output_cost_function=output_cost_function,
             noise = noise,
             cost_function = local_cost_function,
-            layer_constructor=DifferenceTargetLayer.from_initializer if not lin_dtp else ReversedDifferenceTargetLayer.from_initializer,
+            layer_constructor=DifferenceTargetLayer.from_initializer if not lin_dtp else PreActivationDifferenceTargetLayer.from_initializer,
             rng = seed
             ).compile()
 
@@ -183,13 +187,88 @@ def demo_compare_dtp_methods(
     plot_learning_curves(learning_curves)
 
 
-def demo_lin_dtp(
+def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240], output_activation = 'sigm',
+        hidden_activation = 'tanh', optimizer = 'adamax', learning_rate = 0.01, noise = 1, rng = None):
+    """
+    Specify parameters that will allow you to construct a predictor
+
+    :param predictor_type: String identifying the predictor class (see below)
+    :param input_size: Integer size of the input vector.  Integer
+    :param target_size: Integer size of the target vector
+    :param hidden_sizes:
+    :param input_activation:
+    :param hidden_activation:
+    :param optimizer:
+    :param learning_rate:
+    :return:
+    """
+    return {
+        'MLP': lambda: GradientBasedPredictor(
+            function = MultiLayerPerceptron.from_init(
+                layer_sizes = [input_size] + hidden_sizes + [target_size],
+                hidden_activation=hidden_activation,
+                output_activation=output_activation,
+                w_init = 0.01,
+                rng = rng
+                ),
+            cost_function = mean_squared_error,
+            optimizer = AdaMax(0.01),
+            ).compile(),
+        'DTP': lambda: DifferenceTargetMLP.from_initializer(
+            input_size = input_size,
+            output_size = target_size,
+            hidden_sizes = hidden_sizes,
+            optimizer_constructor = lambda: get_named_optimizer(optimizer, learning_rate),
+            # input_activation=input_activation,
+            hidden_activation=hidden_activation,
+            output_activation=output_activation,
+            w_init_mag=0.01,
+            noise = noise,
+            rng = rng,
+            ).compile(),
+        'PreAct-DTP': lambda: DifferenceTargetMLP.from_initializer(
+            input_size = input_size,
+            output_size = target_size,
+            hidden_sizes = hidden_sizes,
+            optimizer_constructor = lambda: get_named_optimizer(optimizer, learning_rate),
+            # input_activation=input_activation,
+            hidden_activation=hidden_activation,
+            output_activation=output_activation,
+            w_init_mag=0.01,
+            noise = noise,
+            layer_constructor = PreActivationDifferenceTargetLayer.from_initializer,
+            rng = rng,
+            ).compile(),
+        'Linear-DTP': lambda: LinearDifferenceTargetMLP.from_initializer(
+            input_size = input_size,
+            output_size = target_size,
+            hidden_sizes = hidden_sizes,
+            optimizer_constructor = lambda: get_named_optimizer(optimizer, learning_rate),
+            # input_activation=input_activation,
+            hidden_activation=hidden_activation,
+            output_activation='linear',
+            w_init_mag=0.01,
+            noise = noise,
+            rng = rng,
+            # layer_constructor = LinearDifferenceTargetLayer.from_initializer
+            ).compile()
+        }[predictor_type]()
+
+
+def demo_dtp_varieties(
         hidden_sizes = [240],
         n_epochs = 10,
         minibatch_size = 20,
         n_tests = 20,
         hidden_activation = 'tanh',
-        predictors = ['backprop-MLP', 'DTP-MLP', 'LinDTP-MLP']
+        output_activation = 'sigm',
+        optimizer = 'adamax',
+        learning_rate = 0.01,
+        noise = 1,
+        predictors = ['MLP', 'DTP', 'PreAct-DTP', 'Linear-DTP'],
+        rng = 1234,
+        live_plot = False,
+        plot = False
         ):
     """
     ;
@@ -200,10 +279,11 @@ def demo_lin_dtp(
     :param n_tests:
     :return:
     """
+    if isinstance(predictors, str):
+        predictors = [predictors]
 
     dataset = get_mnist_dataset(flat = True)
     dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
-
     if is_test_mode():
         dataset = dataset.shorten(200)
         n_epochs = 0.1
@@ -211,56 +291,20 @@ def demo_lin_dtp(
 
     set_default_figure_size(12, 9)
 
-    all_predictors = {
-            'backprop-MLP': GradientBasedPredictor(
-                function = MultiLayerPerceptron.from_init(
-                    layer_sizes = [dataset.input_size] + hidden_sizes + [dataset.target_size],
-                    hidden_activation=hidden_activation,
-                    output_activation='sig',
-                    w_init = 0.01,
-                    rng = 5
-                    ),
-                cost_function = mean_squared_error,
-                optimizer = AdaMax(0.01),
-                ).compile(),
-            'DTP-MLP': DifferenceTargetMLP.from_initializer(
-                input_size = dataset.input_size,
-                output_size = dataset.target_size,
-                hidden_sizes = hidden_sizes,
-                optimizer_constructor = lambda: AdaMax(0.01),
-                input_activation='sigm',
-                hidden_activation=hidden_activation,
-                output_activation='softmax',
-                w_init_mag=0.01,
-                noise = 1,
-                ).compile(),
-            'LinDTP-MLP': DifferenceTargetMLP.from_initializer(
-                input_size = dataset.input_size,
-                output_size = dataset.target_size,
-                hidden_sizes = hidden_sizes,
-                optimizer_constructor = lambda: AdaMax(0.01),
-                input_activation='sigm',
-                hidden_activation=hidden_activation,
-                output_activation='softmax',
-                w_init_mag=0.01,
-                noise = 1,
-                layer_constructor = ReversedDifferenceTargetLayer.from_initializer
-                ).compile(),
-        }
-
-    assert all(p in all_predictors for p in predictors), 'Not all predictors you listed: %s, exist' % (predictors, )
+    predictors = OrderedDict((name, get_predictor(name, input_size = dataset.input_size, target_size=dataset.target_size,
+            hidden_sizes=hidden_sizes, hidden_activation=hidden_activation, output_activation = output_activation,
+            optimizer=optimizer, learning_rate=learning_rate, noise = noise, rng = rng)) for name in predictors)
 
     learning_curves = compare_predictors(
         dataset=dataset,
-        online_predictors = {name: p for name, p in all_predictors.iteritems() if name in predictors},
+        online_predictors = predictors,
         minibatch_size = minibatch_size,
         test_epochs = sqrtspace(0, n_epochs, n_tests),
         evaluation_function = percent_argmax_correct,
-        # online_test_callbacks={'perceptron': lambda p: dbplot(p.symbolic_predictor.layers[0].w.get_value().T.reshape(-1, 28, 28))},
-        # accumulators='avg'
         )
 
-    plot_learning_curves(learning_curves)
+    if plot:
+        plot_learning_curves(learning_curves)
 
 
 def run_and_plot(training_scheme):
@@ -268,30 +312,93 @@ def run_and_plot(training_scheme):
     plot_learning_curves(learning_curves)
 
 
-register_experiment(
-    name = 'standard-dtp',
-    function = lambda: demo_run_dtp_on_mnist(),
-    description="Train Difference Target Propagation on MNIST using standard settings.",
-    conclusion = "96.79% in 20 epochs."
+ExperimentLibrary.standard_dtp = Experiment(
+    function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP']),
+    description="""Train Difference Target Propagation on MNIST using standard settings, compare to backprop.  This will "
+        be used as a baseline agains other experiments.""",
+    versions = {'10_epoch': dict(n_epochs=10), '20_epoch': dict(n_epochs=20)},
+    current_version='10_epoch',
+    conclusion = """
+        After 10 epochs:
+            MLP: 97.32
+            DTP: 96.61
+
+        """
     )
 
-register_experiment(
-    name = 'standard-dtp-noiseless',
-    function = lambda: demo_run_dtp_on_mnist(noise=0),
+ExperimentLibrary.linear_output_dtp = Experiment(
+    function = lambda: demo_dtp_varieties(output_activation='linear', predictors = ['MLP', 'DTP']),
+    description="See how linear output affects us.  This is mainly meant as a comparison to Linear DTP",
+    conclusion = """
+        MLP: 94.96
+        DTP: 96.61
+    """
+    )
+
+ExperimentLibrary.standard_dtp_noiseless = Experiment(
+    function = lambda: demo_dtp_varieties(noise=0, predictors=['DTP']),
     description="See if noise is helpful (compare to standard-dtp)",
-    conclusion = "96.55% in 20 epochs (though it reached 96 after 8).  But the noise is not obviously a huge help in this setting."
+    conclusion = """
+        DTP: 94.40
+        So noise may be helpful but not critical.s
+        """
     )
 
-register_experiment(
-    name = 'backprop-vs-dtp',
-    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'backprop-MLP']),
-    description = "Compare Difference Target Propagation to ordinary Backpropagation",
-    conclusion = 'Backprop outperforms DTP, but by maybe 1%'
+ExperimentLibrary.preact_dtp = Experiment(
+    function = partial(demo_dtp_varieties, predictors = 'PreAct-DTP'),
+    description="Try doing the difference with the pre-activations",
+    conclusion = """
+        96.64... woo@
+        """
     )
+
+ExperimentLibrary.linear_dtp = Experiment(
+    function = partial(demo_dtp_varieties, predictors = 'Linear-DTP'),
+    versions = {
+        'baseline': {},
+        'slowlearn': dict(learning_rate=0.001),
+        'all_lin': dict(hidden_activation='linear'),
+        'relu': dict(hidden_activation='relu'),
+        'noiseless': dict(noise=0),
+        },
+    current_version='noiseless',
+    description="Try reversing the linearity and nonlinearity",
+    conclusion = """
+        baseline:
+        slowlearn:
+        all_lin:
+        relu: 87.97
+
+        ... This is bad.  why does it do this?
+    """
+    )
+
+ExperimentLibrary.relu_dtp = Experiment(
+    function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP'], hidden_activation = 'relu'),
+    description = "Now try with ReLU hidden units",
+    conclusion = """
+        MLP: 97.81
+        DTP: 97.17
+    """
+    )
+
+
+
+
+# ExperimentLibrary.relu
+
+
+
+# register_experiment(
+#     name = 'backprop-vs-dtp',
+#     function = lambda: demo_dtp_varieties(predictors = ['DTP-MLP', 'backprop-MLP']),
+#     description = "Compare Difference Target Propagation to ordinary Backpropagation",
+#     conclusion = 'Backprop outperforms DTP, but by maybe 1%'
+#     )
 
 register_experiment(
     name = 'DTP-vs-LinDTP',
-    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'LinDTP-MLP', 'backprop-MLP']),
+    function = lambda: demo_dtp_varieties(predictors = ['DTP-MLP', 'LinDTP-MLP', 'backprop-MLP']),
     description="See the results of doing the 'difference' calculation on the pre-sigmoid instead of post-sigmoid",
     conclusion="Surprisingly, Lin-DTP does slightly better (97.19 vs 96.96% in 10 epochs).  So this is a potential improvement to DTP."
     )
@@ -372,12 +479,6 @@ register_experiment(
         "The winner by a narrow margin was AdaMax-sigm with 97.19%, although it gets off to a slow start.  "
     )
 
-register_experiment(
-    name = 'relu-dtp',
-    function = lambda: demo_lin_dtp(predictors = ['DTP-MLP', 'backprop-MLP', 'LinDTP-MLP'], hidden_activation='relu'),
-    description = "Try Difference Target Prop (and LinDTP) with RELU units, see what happens.",
-    conclusion = "LinDTP appears to do worse than DTP (Backprop: 97.9, DTP: 96.85, LinDTP:95.82)"
-    )
 
 register_experiment(
     name = 'all-relu-dtp',
@@ -575,5 +676,5 @@ There's basically no middle ground - if you want a bearable learning rate, you g
 
 
 if __name__ == '__main__':
-    which_experiment = 'compare-multi-level-perceptron-dtp'
-    run_experiment(which_experiment)
+    exp = ExperimentLibrary.linear_dtp
+    exp.run()
