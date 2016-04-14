@@ -10,9 +10,9 @@ Plato is a python package built on top of [Theano](http://deeplearning.net/softw
 
 If you want to learn what the new Plato interface is and how to use it, see [The Plato Tutorial](https://rawgit.com/petered/plato/master/plato_tutorial.html).  
 
-If you want to see what learning algorithms are currently included in Plato, see [Algorithms in Plato](https://github.com/petered/plato/wiki/Algorithms-in-Plato).
-
 If you want to learn how to set it up, read [Getting Started with Plato](https://github.com/petered/plato/wiki/Getting-Started-with-Plato).
+
+If you want to see what learning algorithms are currently included in Plato, see [Algorithms in Plato](https://github.com/petered/plato/wiki/Algorithms-in-Plato).
 
 If you want to learn about the contents of Plato, read [Contents of Plato](https://github.com/petered/plato/wiki/Contents-of-Plato).
 
