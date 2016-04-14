@@ -1,5 +1,6 @@
 from plato.interfaces.decorators import symbolic_updater
 from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.mlp.demo_mnist_mlp import demo_mnist_mlp
 from plato.tools.mlp.mlp import create_maxout_network, MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import SimpleGradientDescent
@@ -141,3 +142,7 @@ if __name__ == '__main__':
     test_bare_bones_mlp()
     test_mlp()
     test_mlp_with_scale_learning()
+
+
+def test_demo_mnist_mlp():
+    demo_mnist_mlp()

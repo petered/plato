@@ -1,4 +1,5 @@
 from plato.tools.optimization.optimizers import GradientDescent
+from plato.tools.regressors.demo_mnist_regression import demo_mnist_online_regression
 from plato.tools.regressors.online_regressor import OnlineRegressor
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
 
@@ -45,3 +46,7 @@ def test_online_regressors():
         categorical_target=False,
         n_epochs=20
         )
+
+
+def test_demo_mnist_regression():
+    demo_mnist_online_regression()

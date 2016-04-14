@@ -1,3 +1,4 @@
+from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
 import theano
@@ -60,3 +61,7 @@ def test_autoencoding_lstm(
 if __name__ == '__main__':
 
     test_autoencoding_lstm()
+
+
+def test_demo_lstm():
+    demo_lstm_novelist()

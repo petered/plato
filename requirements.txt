@@ -1,6 +1,6 @@
 numpy
 scipy
-Theano
+Theano==0.8.0
 matplotlib
 scikit-learn
 ipython[notebook]
