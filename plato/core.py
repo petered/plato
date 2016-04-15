@@ -87,6 +87,14 @@ def symbolic_updater(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat, update_format=SomeUpdatesFormat)(fcn)
 
 
+def symbolic_named_output(fcn):
+    """
+    Use this to decorate a symbolic function that returns a list of updates and no outputs.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NamedCollectionFormat, update_format=PassAnythingFormat)(fcn)
+
+
+
 class SymbolicFunction(object):
 
     def __init__(self, input_format = None, output_format = None, update_format = None):
