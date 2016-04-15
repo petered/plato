@@ -2,7 +2,6 @@ from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import get_evaluation_function
 from collections import OrderedDict
-from utils.predictors.i_predictor import IPredictor
 from utils.tools.iteration import checkpoint_minibatch_index_generator
 from utils.tools.mymath import sqrtspace
 import numpy as np
@@ -162,8 +161,6 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
         is done.  This can be useful for plotting/debugging the state.
     :return: LearningCurveData containing the score on the test sets
     """
-
-    assert isinstance(predictor, IPredictor), 'You must pass in an object implementing the IPredictor inferface.  %s does not.' % (predictor, )
 
     record = LearningCurveData()
 

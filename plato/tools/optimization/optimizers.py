@@ -1,9 +1,10 @@
 from abc import abstractmethod
-from plato.core import add_update
+from plato.core import add_update, create_shared_variable
 from plato.interfaces.decorators import symbolic_updater
 import theano.tensor as tt
 import theano
 import numpy as np
+from plato.interfaces.helpers import get_theano_rng
 
 __author__ = 'peter'
 
@@ -65,6 +66,63 @@ class SimpleGradientDescent(UniformParameterOptimizer):
 
     def _update_param(self, param, gradient):
         add_update(param, param - self._eta * gradient)
+
+
+class LangevinGradientDescent(UniformParameterOptimizer):
+    """
+    A simple gradient descent optimizer.  For more exotic varieties of gradient descent, use the more general
+    GradientDescent class instead.
+    """
+
+    def __init__(self, eta, rng = None):
+        """
+        :param eta: The learning rate
+        """
+        self._eta = eta
+        self._rng = get_theano_rng(rng)
+
+    def _update_param(self, param, gradient):
+        add_update(param, param - self._eta*gradient + 2*tt.sqrt(self._eta)*self._rng.normal(size = param.ishape))
+
+
+class Adam(UniformParameterOptimizer):
+    """
+    The Adam optimizer.
+
+    See paper:
+    Adam: A Method for Stochastic Optimization
+    Kingma D, Ba J
+    http://arxiv.org/abs/1412.6980
+
+    Adapted from
+    https://gist.github.com/Newmu/acb738767acb4788bac3
+    """
+
+    def __init__(self, alpha = 1e-3, beta_1=0.1, beta_2=0.001, eps = 1e-8):
+        self.alpha = alpha
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
+        self.eps = eps
+
+    def _update_param(self, param, gradient):
+        # Initialize variables
+        i = create_shared_variable(0.)
+        m = theano.shared(param.get_value() * 0.)
+        v = theano.shared(param.get_value() * 0.)
+
+        # Recompute values
+        i_t = i + 1.
+        fix1 = 1. - (1. - self.beta_1)**i_t
+        fix2 = 1. - (1. - self.beta_2)**i_t
+        lr_t = self.alpha * (tt.sqrt(fix2) / fix1)
+        m_t = (self.beta_1 * gradient) + ((1. - self.beta_1) * m)
+        v_t = (self.beta_2 * tt.sqr(gradient)) + ((1. - self.beta_2) * v)
+        g_t = m_t / (tt.sqrt(v_t) + self.eps)
+        p_t = param - (lr_t * g_t)
+        add_update(param, p_t)
+        add_update(m, m_t)
+        add_update(v, v_t)
+        add_update(i, i_t)
 
 
 class AdaMax(UniformParameterOptimizer):
@@ -157,7 +215,7 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
         add_update(param, param*multiplier)
 
 
-def get_named_optimizer(name, learning_rate):
+def get_named_optimizer(name, learning_rate, rng = None):
     """
     Convenience function for easily specifying optimizers.
     :param name: The name of the optimizer
@@ -165,9 +223,11 @@ def get_named_optimizer(name, learning_rate):
     :return: An IGradientOptimizer object.
     """
     return {
-        'sgd': SimpleGradientDescent(eta = learning_rate),
-        'adamax': AdaMax(alpha=learning_rate),
-        'rmsprop': RMSProp(learning_rate=learning_rate),
-        'adagrad': AdaGrad(learning_rate=learning_rate),
-        'mulsgd': MultiplicativeGradientDescent(factor=learning_rate)
-    }[name]
+        'sgd': lambda: SimpleGradientDescent(eta = learning_rate),
+        'adam': lambda: Adam(alpha=learning_rate),
+        'adamax': lambda: AdaMax(alpha=learning_rate),
+        'rmsprop': lambda: RMSProp(learning_rate=learning_rate),
+        'adagrad': lambda: AdaGrad(learning_rate=learning_rate),
+        'mulsgd': lambda: MultiplicativeGradientDescent(factor=learning_rate),
+        'langevin': lambda: LangevinGradientDescent(eta = learning_rate, rng = rng),
+    }[name]()

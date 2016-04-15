@@ -1,5 +1,5 @@
 from general.test_mode import is_test_mode
-from plato.core import EnableOmbniscence
+from plato.core import EnableOmniscence
 from plato.tools.dbn.dbn import DeepBeliefNet
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 import numpy as np
@@ -25,7 +25,7 @@ def demo_dbn_mnist(plot = True):
     n_training_epochs_2 = 20
     check_period = 300
 
-    with EnableOmbniscence():
+    with EnableOmniscence():
 
         if is_test_mode():
             n_training_epochs_1 = 0.01

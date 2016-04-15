@@ -2,7 +2,7 @@ from abc import abstractmethod
 from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
-    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmbniscence, clear_tdb_traces, add_update, \
+    tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmniscence, clear_tdb_traces, add_update, \
     symbolic_multi, symbolic_stateless, create_shared_variable
 import pytest
 import theano
@@ -207,7 +207,7 @@ def test_omniscence():
     the "locals" property.
     """
 
-    with EnableOmbniscence():
+    with EnableOmniscence():
 
         # Way 2
         @symbolic_simple

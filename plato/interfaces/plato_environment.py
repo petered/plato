@@ -1,6 +1,6 @@
 from IPython.core.magics import logging
-from plato.interfaces.decorators import BaseSymbolicFunction
 import inspect
+from plato.core import _SymbolicFunctionWrapper
 from types import ModuleType
 
 
@@ -32,8 +32,8 @@ def get_locally_defined_things(module_dict):
             name: thing for name, thing in inspect.getmembers(module) if
             not name.startswith('_') and (
                 (hasattr(thing, '__module__') and thing.__module__ == module_name) or
-                isinstance(thing, BaseSymbolicFunction) and thing.original.__module__ == module_name or
-                isinstance(thing, type) and issubclass(thing, BaseSymbolicFunction) and thing.original.__module__ == module_name
+                isinstance(thing, _SymbolicFunctionWrapper) and thing.original.__module__ == module_name or
+                isinstance(thing, type) and issubclass(thing, _SymbolicFunctionWrapper) and thing.fcn.__module__ == module_name
                 )
             }
 

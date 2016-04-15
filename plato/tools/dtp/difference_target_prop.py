@@ -34,7 +34,7 @@ class ITargetPropLayer(object):
 
 class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
 
-    def __init__(self, w, b, w_rev, b_rev, input_activation = 'tanh', output_activation = 'tanh', rng = None, noise = 1,
+    def __init__(self, w, b, w_rev, b_rev, backward_activation = 'tanh', forward_activation = 'tanh', rng = None, noise = 1,
                  optimizer_constructor = lambda: SimpleGradientDescent(0.01), cost_function = mean_squared_error):
 
         self.noise = noise
@@ -43,19 +43,19 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
         self.b = theano.shared(b, name = 'b')
         self.w_rev = theano.shared(w_rev, name = 'w_rev')
         self.b_rev = theano.shared(b_rev, name = 'b_rev')
-        self.input_activation = get_named_activation_function(input_activation)
-        self.hidden_activation = get_named_activation_function(output_activation)
+        self.backward_activation = get_named_activation_function(backward_activation) if backward_activation is not None else None
+        self.forward_activation = get_named_activation_function(forward_activation)
         self.forward_optimizer = optimizer_constructor()
         self.backward_optimizer = optimizer_constructor()
         self.cost_function = cost_function
 
     @symbolic_simple
     def predict(self, x):
-        return self.hidden_activation(x.dot(self.w)+self.b)
+        return self.forward_activation(x.dot(self.w)+self.b)
 
     @symbolic_simple
     def backward(self, y):
-        return self.input_activation(y.dot(self.w_rev) + self.b_rev)
+        return self.backward_activation(y.dot(self.w_rev) + self.b_rev)
 
     @symbolic_updater
     def train(self, x, target):
@@ -66,10 +66,11 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
             constants = [target]
             )  # The "constants" (above) is really important - otherwise it can just try to change the target (which is a function of the weights too).
         noisy_x = x + self.noise*self.rng.normal(size = x.tag.test_value.shape)
-        recon = self.backward(self.predict(noisy_x))
-        self.backward_optimizer(
-            cost = self.cost_function(recon, noisy_x),
-            parameters = [self.w_rev, self.b_rev])
+        if self.backward_activation is not None:
+            recon = self.backward(self.predict(noisy_x))
+            self.backward_optimizer(
+                cost = self.cost_function(recon, noisy_x),
+                parameters = [self.w_rev, self.b_rev])
 
     @symbolic_simple
     def backpropagate_target(self, x, target):
@@ -112,30 +113,6 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         self.layers = layers
         self.output_cost_function = output_cost_function
 
-    @classmethod
-    def from_initializer(cls, input_size, output_size, layer_constructor = DifferenceTargetLayer.from_initializer,
-            hidden_sizes = [], input_activation = 'linear', hidden_activation = 'tanh', output_activation = 'softmax',
-            output_cost_function = mean_squared_error, **kwargs):
-        """
-        :param layer_constructor: A function of the form:
-            ITargetPropLayer = fcn(n_in, n_out)
-        :param input_size: Size of the input
-        :param hidden_sizes: List of sizes of hidden layers
-        :param output_size: Size of the output
-        :return:
-        """
-
-        hidden_activations = [hidden_activation]*len(hidden_sizes)
-
-        return cls(kwarg_map(
-            lambda n_in, n_out, input_activation, output_activation: layer_constructor(n_in=n_in, n_out=n_out,
-                input_activation=input_activation, output_activation=output_activation, **kwargs),
-            n_in = [input_size] + hidden_sizes,
-            n_out = hidden_sizes + [output_size],
-            input_activation = [input_activation]+hidden_activations,
-            output_activation = hidden_activations + [output_activation],
-            ), output_cost_function = output_cost_function)
-
     @symbolic_updater
     def train(self, x, target):
 
@@ -161,3 +138,29 @@ class DifferenceTargetMLP(ISymbolicPredictor):
         for l in self.layers:
             x = l.predict(x)
         return x
+
+    @property
+    def property(self):
+        return
+
+    @classmethod
+    def from_initializer(cls, input_size, output_size, layer_constructor = DifferenceTargetLayer.from_initializer,
+            hidden_sizes = [], hidden_activation = 'tanh', output_activation = 'softmax',
+            output_cost_function = mean_squared_error, **kwargs):
+        """
+        :param layer_constructor: A function of the form:
+            ITargetPropLayer = fcn(n_in, n_out)
+        :param input_size: Size of the input
+        :param hidden_sizes: List of sizes sof hidden layers
+        :param output_size: Size of the output
+        :return:
+        """
+        hidden_activations = hidden_activation if isinstance(hidden_activation, (list, tuple)) else [hidden_activation]*len(hidden_sizes)
+        return cls(kwarg_map(
+            lambda n_in, n_out, backward_activation, forward_activation: layer_constructor(n_in=n_in, n_out=n_out,
+                backward_activation=backward_activation, forward_activation=forward_activation, **kwargs),
+            n_in = [input_size] + hidden_sizes,
+            n_out = hidden_sizes + [output_size],
+            forward_activation = hidden_activations + [output_activation],
+            backward_activation = [None] + hidden_activations,
+            ), output_cost_function = output_cost_function)

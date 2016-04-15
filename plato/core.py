@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 import logging
+import sys
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
@@ -10,10 +11,10 @@ import theano.tensor as tt
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
+from theano.tensor.var import TensorConstant
 
 """
-It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
-All you need to know is this:
+This module contains the plato decorators (@symbolic, etc) and their implementations.
 
 You can decorate a symbolic function, method, or callable class with:
 
@@ -40,10 +41,12 @@ These methods are described in the ISymbolicFunction interface below.
 
 __author__ = 'peter'
 
+PLATO_LOGGER = logging.getLogger('PlatoLogger')
+PLATO_LOGGER.setLevel(logging.WARN)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
-Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.tag.test_value))
+Variable.ival = property(lambda self: (self.get_value() if isinstance(self, SharedVariable) else self.data if isinstance(self, TensorConstant) else self.tag.test_value))
 Variable.ishape = property(lambda self: self.ival.shape)
 Variable.indim = property(lambda self: self.ival.ndim)
 Variable.idtype = property(lambda self: (self.ival.dtype if isinstance(self.ival, np.ndarray) else type(self.ival)))
@@ -82,6 +85,14 @@ def symbolic_updater(fcn):
     Use this to decorate a symbolic function that returns a list of updates and no outputs.
     """
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=NoOutputFormat, update_format=SomeUpdatesFormat)(fcn)
+
+
+def symbolic_named_output(fcn):
+    """
+    Use this to decorate a symbolic function that returns a list of updates and no outputs.
+    """
+    return SymbolicFunction(input_format=PassAnythingFormat, output_format=NamedCollectionFormat, update_format=PassAnythingFormat)(fcn)
+
 
 
 class SymbolicFunction(object):
@@ -209,7 +220,11 @@ class _SymbolicFunctionWrapper(object):
         return conversion_wrapper
 
     def partial(self, **fixed_kwargs):
-        raise NotImplementedError('Future-plan: Allow sequential narrowing of args.')
+        """
+        Partially define the input arguments and return a new symbolic function.
+        """
+        return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
+            output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
     def compile(self, **compilation_kwargs):
         return AutoCompilingFunction(self, **compilation_kwargs)
@@ -233,7 +248,7 @@ class _SymbolicFunctionWrapper(object):
         if self.attached_instance is None:
             return self.fcn.__str__()
         else:
-            return '%s.%s' % (self.attached_instance.__str__(), self.fcn.__str__())
+            return '%s.%s' % (self.attached_instance, self.fcn.__str__())
 
     def __str__(self):
         return '%s containing %s' % (self.__class__.__name__, self.fcn_str(), )
@@ -425,7 +440,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = True):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -433,19 +448,32 @@ class AutoCompilingFunction(object):
             'all': Cast all inputs to floatX
             None: Don't cast anything to floatX
         :param fixed_args: A dict<arg_name: arg_value> of fixed arguments to the function.
-        :return:
+        :param add_test_values: Add test values to your tensor, based on the initial value of the data provided.  Advantage
+            of this is it helps you catch and locate shape errors before compiling.  Disadvantage is on large computations
+            you have to do an initial pass on CPU, which can be slow.
         """
         assert isinstance(fcn, _SymbolicFunctionWrapper), 'You must pass a symbolic function.  Decorate it!'
-
-        self._fcn = fcn if fixed_args is None else partial(fcn, **{k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()})
+        theano.config.compute_test_value = 'warn' if add_test_values else 'off'
+        if fixed_args is not None:
+            fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
+            for k, v in fixed_args.iteritems():
+                if isinstance(v, (np.ndarray, Variable)):
+                    fixed_tensors[k].tag.test_value = \
+                        v if isinstance(v, np.ndarray) else \
+                        v.get_value() if isinstance(v, SharedVariable) else \
+                        v.tag.test_value if isinstance(v, Variable) else \
+                        np.array(v)
+            self._fcn = partial(fcn, **fixed_tensors)
+        else:
+            self._fcn = fcn
         self._original_fcn = fcn  # Needed for retrieveing locals hack
         self._compiled_fcn = None
         self._cast_to_floatx = cast_to_floatx
         self._local_values = None
         self._callbacks = []
+        self._add_test_values = add_test_values
 
         # Create convenient debugging functions: showloc() and locinfo()
-        theano.config.compute_test_value = 'warn'
         __builtins__['showloc'] = show_all_locals
         __builtins__['locinfo'] = get_local_info
 
@@ -457,7 +485,7 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:  # Need to do first pass and compile.
 
-            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, test = True)
+            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
@@ -484,7 +512,9 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
+            PLATO_LOGGER.info('Compiling %s...' % (self._original_fcn.fcn_str(), ))
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
+            PLATO_LOGGER.info('Done.\n')
 
         arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
 
@@ -533,7 +563,7 @@ def set_enable_traces(state):
     ENABLE_TRACES = state
 
 
-class EnableOmbniscence():
+class EnableOmniscence():
 
     def __enter__(self):
         global ENABLE_OMNISCENCE
@@ -559,7 +589,7 @@ def _is_symbol_or_value(var):
     return isinstance(var, tt.TensorType) or isinstance(var, np.ndarray) or np.isscalar(var)
 
 
-def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
+def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = True):
     """
     Given the numpy data from the first function call, create the appropriate tensors
     :param data: A numpy array, from the first call to the function.
@@ -568,7 +598,9 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
         'float': Just cast floats to floatX
         'all': Cast all inputs to floatX
         None: Don't cast anything to floatX
-    :param test:
+    :param add_test_values: Add test values to your tensor, based on the initial value of the data provided.  Advantage
+        of this is it helps you catch and locate shape errors before compiling.  Disadvantage is on large computations
+        you have to do an initial pass on CPU, which can be slow.
     :return:
     """
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
@@ -598,7 +630,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, test = True):
         'int8' if data.dtype==bool else \
         data.dtype
     tensor = TensorType(dtype, (None, )*ndim)(name)
-    if test:
+    if add_test_value:
         tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
@@ -754,19 +786,20 @@ class StateCatcher(object):
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
         _set_state_catcher(self)
-        self._updates = []
+        self._updates = OrderedDict()
         return self
 
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
-        self._updates.append((shared_var, new_val))
+        assert shared_var not in self._updates, "You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s" % (shared_var, new_val, self._updates[shared_var])
+        self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
-        return self._updates
+        return self._updates.items()
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):
@@ -839,6 +872,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
         else:
             raise NotImplementedError("Can't yet get variable shape from base-params, though this can be done cheaply in "
                 'Theano by compiling a function wholse input is the params and whose output is the shape.')
+        variable = initial_value
     elif initial_value is None:
         variable = None
         params = []

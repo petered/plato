@@ -96,6 +96,8 @@ class ExperimentRecord(object):
             plt.ioff()
         self._log_file_path = capture_print(True, to_file = True, log_file_path = self._log_file_name, print_to_console = self._print_to_console)
         always_save_figures(show = self._show_figs, print_loc = False, name = self._experiment_identifier+'-%N')
+        global _CURRENT_EXPERIMENT
+        _CURRENT_EXPERIMENT = self._experiment_identifier
         return self
 
     def __exit__(self, *args):
@@ -109,6 +111,9 @@ class ExperimentRecord(object):
         self._captured_figure_locs = get_saved_figure_locs()
 
         self._has_run = True
+
+        global _CURRENT_EXPERIMENT
+        _CURRENT_EXPERIMENT = None
 
         if self._save_result:
             file_path = get_local_experiment_path(self._experiment_identifier)
@@ -158,6 +163,14 @@ class ExperimentRecord(object):
 
 
 _CURRENT_EXPERIMENT = None
+
+def get_current_experiment_id():
+    """
+    :return: A string identifying the current experiment
+    """
+    if _CURRENT_EXPERIMENT is None:
+        raise Exception("No experiment is currently running!")
+    return _CURRENT_EXPERIMENT
 
 
 def start_experiment(*args, **kwargs):
@@ -324,14 +337,10 @@ def get_all_experiment_ids(expr = None):
     return experiments
 
 
-def register_experiment(name, function, description = '', conclusion = ''):
-    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!'
-    experiment = Experiment(
-        name = name,
-        function = function,
-        description=description,
-        conclusion=conclusion
-        )
+def register_experiment(name, **kwargs):
+    """ See Experiment """
+    assert name not in GLOBAL_EXPERIMENT_LIBRARY, 'An experiment with name "%s" has already been registered!' % (name, )
+    experiment = Experiment(name = name, **kwargs)
     GLOBAL_EXPERIMENT_LIBRARY[name] = experiment
     return experiment
 
@@ -342,7 +351,7 @@ def browse_experiment_records():
     while True:
         print '\n'.join(['%s: %s' % (i, exp_id) for i, exp_id in enumerate(ids)])
 
-        user_input = raw_input('Enter Command (or h for help) >>')
+        user_input = raw_input('Enter Command (show # to show and experiment, or h for help) >>')
         parts = shlex.split(user_input)
 
         cmd = parts[0]
@@ -384,7 +393,7 @@ def get_experiment_info(name):
 
 class Experiment(object):
 
-    def __init__(self, function, description, conclusion = '', name = None, versions = None, current_version = None):
+    def __init__(self, function, description='', conclusion = '', name = None, versions = None, current_version = None):
         if versions is not None:
             assert isinstance(versions, (list, dict))
             assert current_version is not None, 'If you specify multiple versions, you have to pick a current version'
