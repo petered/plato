@@ -14,8 +14,7 @@ import numpy as np
 from theano.tensor.var import TensorConstant
 
 """
-It is better not to look at the things happening in here.  It's beautiful on the outside but not on the inside.
-All you need to know is this:
+This module contains the plato decorators (@symbolic, etc) and their implementations.
 
 You can decorate a symbolic function, method, or callable class with:
 
@@ -449,7 +448,6 @@ class AutoCompilingFunction(object):
         theano.config.compute_test_value = 'warn' if add_test_values else 'off'
         if fixed_args is not None:
             fixed_tensors = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_args.iteritems()}
-            # if add_test_values:
             for k, v in fixed_args.iteritems():
                 if isinstance(v, (np.ndarray, Variable)):
                     fixed_tensors[k].tag.test_value = \

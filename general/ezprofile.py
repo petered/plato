@@ -7,7 +7,6 @@ class EZProfiler(object):
 
     def __init__(self, print_result = True, profiler_name = 'Profile', record_stop = True):
         self.print_result = print_result
-        # self.start_time = None  # Hopefully this removes overhead of creating a parameter after the clock is running.
         self.profiler_name = profiler_name
         self.record_stop = record_stop
         self._lap_times = OrderedDict()

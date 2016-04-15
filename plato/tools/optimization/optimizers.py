@@ -124,27 +124,6 @@ class Adam(UniformParameterOptimizer):
         add_update(v, v_t)
         add_update(i, i_t)
 
-#
-# def Adam(cost, params, lr=0.0002, b1=0.1, b2=0.001, e=1e-8):
-#     updates = []
-#     grads = T.grad(cost, params)
-#     i = theano.shared(floatX(0.))
-#     i_t = i + 1.
-#     fix1 = 1. - (1. - b1)**i_t
-#     fix2 = 1. - (1. - b2)**i_t
-#     lr_t = lr * (T.sqrt(fix2) / fix1)
-#     for p, g in zip(params, grads):
-#         m = theano.shared(p.get_value() * 0.)
-#         v = theano.shared(p.get_value() * 0.)
-#         m_t = (b1 * g) + ((1. - b1) * m)
-#         v_t = (b2 * T.sqr(g)) + ((1. - b2) * v)
-#         g_t = m_t / (T.sqrt(v_t) + e)
-#         p_t = p - (lr_t * g_t)
-#         updates.append((m, m_t))
-#         updates.append((v, v_t))
-#         updates.append((p, p_t))
-#     updates.append((i, i_t))
-#     return updates
 
 class AdaMax(UniformParameterOptimizer):
 
@@ -236,72 +215,6 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
         add_update(param, param*multiplier)
 
 
-# <<<<<<< HEAD
-# class HMC(UniformParameterOptimizer):
-#
-#     def __init__(self, step_size, temperature = 1, partial_refreshment = False):
-#         assert partial_refreshment, "Not set up for non-partial refreshment yet.  "
-#         self.partial_refreshment = partial_refreshment
-#         self.temperature = temperature
-#         self.step_size = step_size
-#
-#     def _update_param(self, param, gradient):
-#         # TODO: Actually finish this!!!
-#         d_energy_d_pos = gradient * self.temperature
-#         mom = create_shared_variable(np.zeros_like(param.get_value()))  # Should be random??
-#         new_mom = mom - self.step_size * d_energy_d_pos
-#         new_pos = param + self.step_size * new_mom
-#         add_update(param, new_pos)
-#         add_update(mom, new_mom)
-#
-# =======
-# class HMC(UniformParameterOptimizer):
-#
-#     def __init__(self, step_size, temperature = 1, partial_refreshment = False):
-#         assert partial_refreshment, "Not set up for non-partial refreshment yet.  "
-#         self.partial_refreshment = partial_refreshment
-#         self.temperature = temperature
-#         self.step_size = step_size
-#
-#     def _update_param(self, param, gradient):
-#         # TODO: Actually finish this!!!
-#         d_energy_d_pos = gradient * self.temperature
-#         mom = create_shared_variable(np.zeros_like(param.get_value()))  # Should be random??
-#         new_mom = mom - self.step_size * d_energy_d_pos
-#         new_pos = param + self.step_size * new_mom
-#         add_update(param, new_pos)
-#         add_update(mom, new_mom)
-#
-#
-# class HMCPartial(UniformParameterOptimizer):
-#
-#     def __init__(self, step_size, temperature = 1, alpha = 0.99, rng = None):
-#         self.temperature = temperature
-#         self.step_size = step_size
-#         self.alpha = alpha
-#         self.rng = get_theano_rng(rng)
-#
-#     def _update_param(self, param, gradient):
-#         # TODO: Actually finish this!!!
-#         d_energy_d_pos = gradient * self.temperature
-#         mom = create_shared_variable(np.zeros(param.ishape))  # Should be random??
-#
-#         new_mom = mom - self.step_size * d_energy_d_pos
-#         new_mom = self.alpha * new_mom + tt.sqrt(1-self.alpha**2)*self.rng.normal(size=param.ishape)
-#
-#         new_pos = param + self.step_size * new_mom
-#         add_update(param, new_pos)
-#         add_update(mom, new_mom)
-#
-#     def metropolis_hastings_accept(self, old_energy, new_energy):
-
-    # @staticmethod
-    # def leapfrog(pos, vel, step, cost):
-
-
-
-
-
 def get_named_optimizer(name, learning_rate, rng = None):
     """
     Convenience function for easily specifying optimizers.
@@ -317,6 +230,4 @@ def get_named_optimizer(name, learning_rate, rng = None):
         'adagrad': lambda: AdaGrad(learning_rate=learning_rate),
         'mulsgd': lambda: MultiplicativeGradientDescent(factor=learning_rate),
         'langevin': lambda: LangevinGradientDescent(eta = learning_rate, rng = rng),
-        # 'hmc': lambda: HMC(step_size=learning_rate),
-        # 'hmc-partial': lambda: HMC(step_size=learning_rate, partial_refreshment=True),
     }[name]()

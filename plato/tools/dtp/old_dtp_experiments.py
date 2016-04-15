@@ -247,39 +247,36 @@ register_experiment(
     )
 
 
-# register_experiment(
-#     name = 'compare-multi-level-perceptron-dtp',
-#     function = lambda: demo_compare_dtp_methods(
-#         predictor_constructors={
-#             'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
-#             'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
-#             'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
-#             'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
-#             }
-#         ),
-#     description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
-#     conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
-#                '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
-#     )
-#
-# register_experiment(
-#     name = 'compare-multi-level-perceptron-dtp-avg',
-#     function = lambda: demo_compare_dtp_methods(
-#         predictor_constructors={
-#             'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
-#             'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
-#             'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
-#             'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
-#             },
-#         accumulator='avg'
-#         ),
-#     description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
-#     conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
-#                '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
-#     )
+register_experiment(
+    name = 'compare-multi-level-perceptron-dtp',
+    function = lambda: demo_compare_dtp_methods(
+        predictor_constructors={
+            'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
+            'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
+            'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
+            'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
+            }
+        ),
+    description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
+    conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
+               '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
+    )
 
-
-
+register_experiment(
+    name = 'compare-multi-level-perceptron-dtp-avg',
+    function = lambda: demo_compare_dtp_methods(
+        predictor_constructors={
+            'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
+            'multi-level-perceptron-DTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=False),
+            'multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400], lin_dtp=True),
+            'deep-multi-level-perceptron-LinDTP': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[400, 400], lin_dtp=True),
+            },
+        accumulator='avg'
+        ),
+    description='Try various parameterizations of the "Multi-Level-Perceptron", trained with Difference Target Prop.  See what works.',
+    conclusion='DTP fails on when used naively with perceptron activation functions.  LinDTP works (sort of, gets up to '
+               '93% and kind of hovers), when there is only one hidden layer - it fails when there are more.   '
+    )
 
 
 register_experiment(
