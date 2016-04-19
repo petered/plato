@@ -1,3 +1,4 @@
+from plato.tools.optimization.demo_compare_optimizers import get_experiments
 from plato.tools.optimization.optimizers import GradientDescent, Adam, AdaMax
 from plato.tools.regressors.online_regressor import OnlineRegressor
 from utils.predictors.predictor_tests import assert_online_predictor_not_broken
@@ -35,3 +36,10 @@ if __name__ == '__main__':
     test_gradient_descent_optimizer()
     test_adam_optimizer()
     test_adamax_optimizer()
+
+
+def test_demo_compare_optimizers():
+
+    for exp_name, exp in get_experiments().iteritems():
+        print 'Running %s' % exp_name
+        exp()

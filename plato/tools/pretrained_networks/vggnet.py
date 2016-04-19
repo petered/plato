@@ -1,9 +1,12 @@
 from collections import OrderedDict
+
+import theano
 from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet
 from fileman.file_getter import get_file
 from general.should_be_builtins import bad_value
 from scipy.io import loadmat
 import numpy as np
+from theano.gof.graph import Variable
 
 __author__ = 'peter'
 
@@ -72,3 +75,24 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, pooling_mode='ma
                                      :layer_names.index(up_to_layer) + 1])
         print 'Done.'
     return ConvNet(network_layers)
+
+
+def im2vgginput(im):
+    """
+    :param im: A (size_y, size_x, 3) array representing a RGB image on a [0, 255] scale
+    :returns: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
+
+    """
+    centered_bgr_im = im[:, :, ::-1] - np.array([103.939, 116.779, 123.68])
+    feature_map_im = centered_bgr_im.dimshuffle('x', 2, 0, 1) if isinstance(centered_bgr_im, Variable) else np.rollaxis(centered_bgr_im, 2, 0)[None, :, :, :]
+    return feature_map_im.astype(theano.config.floatX)
+
+
+def vgginput2im(feat):
+    """
+    :param feat: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
+    :returns: A (size_y, size_x, 3) array representing a RGB image.
+    """
+    bgr_im = (feat.dimshuffle(0, 2, 3, 1) if isinstance(feat, Variable) else np.rollaxis(feat, 0, 2))[0, :, :, :]
+    decentered_rgb_im = (bgr_im + np.array([103.939, 116.779, 123.68]))[:, :, ::-1]
+    return decentered_rgb_im

@@ -46,15 +46,17 @@ def kwarg_map(element_constructor, **kwarg_lists):
     :param kwarg_lists: A dict of lists, where the index identifies two which element its corresponding value will go.
     :return: A list of objects.
 
-    e.g. Initializing a chain of layers.
+    e.g. Initializing a chain of layers:
+        layer_sizes = [784, 240, 240, 10]
+        layers = kwarg_map(
+            Layer,
+            n_in = layer_sizes[:-1],
+            n_out = layer_sizes[1:],
+            activation = ['tanh', 'tanh', 'softmax'],
+            )
 
-    layer_sizes = [784, 240, 240, 10]
-    layers = kwarg_map(
-        lambda n_in, n_out, activation: Layer(n_in, n_out, activation),
-        n_in = layer_sizes[:-1],
-        n_out = layer_sizes[1:],
-        activation = ['tanh', 'tanh', 'softmax'],
-        )
+    is equivalent to:
+        layers = [Layer(n_in=784, n_out=240, activation='tanh'), Layer(n_in=240, n_out=240, activation='tanh'), Layer(n_in=240, n_out=10, activation='softmax')]
     """
     all_lens = [len(v) for v in kwarg_lists.values()]
     assert len(kwarg_lists)>0, "You need to specify at least list of arguments (otherwise you don't need this function)"

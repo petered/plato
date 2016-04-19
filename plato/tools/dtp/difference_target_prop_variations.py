@@ -1,21 +1,19 @@
 from general.numpy_helpers import get_rng
 from plato.core import add_update
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
-from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer
+from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer, DifferenceTargetMLP
 import numpy as np
+from plato.tools.optimization.cost import mean_squared_error
 import theano
+from utils.bureaucracy import kwarg_map
 
 __author__ = 'peter'
 
 
 
-class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
+class PreActivationDifferenceTargetLayer(DifferenceTargetLayer):
     """
-    This is an experimental modification where we switch the order of the linear/nonlinear
-    operations.  That is, instead of the usual
-        f(x) = activation(x.dot(w))
-    We do
-        f(x) = activation(x).dot(w)
+
 
     We just want to see if this works (it does!  Maybe even better!)
     """
@@ -23,7 +21,7 @@ class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
     @symbolic_simple
     def predict(self, x):
         pre_sigmoid = x.dot(self.w)+self.b
-        output = self.hidden_activation(pre_sigmoid)
+        output = self.forward_activation(pre_sigmoid)
         output.pre_sigmoid = pre_sigmoid
         return output
 
@@ -31,7 +29,45 @@ class ReversedDifferenceTargetLayer(DifferenceTargetLayer):
 
         back_output_pre_sigmoid = self.predict(x).dot(self.w_rev) + self.b_rev
         back_target_pre_sigmoid = target.dot(self.w_rev) + self.b_rev
-        return self.input_activation(x.pre_sigmoid - back_output_pre_sigmoid + back_target_pre_sigmoid)
+        return self.backward_activation(x.pre_sigmoid - back_output_pre_sigmoid + back_target_pre_sigmoid)
+
+
+class LinearDifferenceTargetLayer(DifferenceTargetLayer):
+    """
+    This is an experimental modification where we switch the order of the linear/nonlinear
+    operations.  That is, instead of the usual
+        f(x) = activation(x.dot(w))
+    We do
+        f(x) = activation(x).dot(w)
+    """
+
+    @symbolic_simple
+    def predict(self, x):
+        return self.forward_activation(x).dot(self.w)+self.b
+
+    @symbolic_simple
+    def backward(self, y):
+        return self.backward_activation(y).dot(self.w_rev) + self.b_rev
+
+
+class LinearDifferenceTargetMLP(DifferenceTargetMLP):
+    
+    @classmethod
+    def from_initializer(cls, input_size, output_size, layer_constructor = LinearDifferenceTargetLayer .from_initializer,
+            hidden_sizes = [], hidden_activation = 'tanh', output_activation = 'linear',
+            output_cost_function = mean_squared_error, **kwargs):
+        """
+        Note... we need to override the superclass from_initializer because now hidden activation is part of the backward
+        """
+        hidden_activations = hidden_activation if isinstance(hidden_activation, (list, tuple)) else [hidden_activation]*len(hidden_sizes)
+        return cls(kwarg_map(
+            lambda n_in, n_out, backward_activation, forward_activation: layer_constructor(n_in=n_in, n_out=n_out,
+                backward_activation=backward_activation, forward_activation=forward_activation, **kwargs),
+            n_in = [input_size] + hidden_sizes,
+            n_out = hidden_sizes + [output_size],
+            forward_activation = ['linear']+hidden_activations,
+            backward_activation = [None]+hidden_activations[1:]+[output_activation],
+            ), output_cost_function = output_cost_function)
 
 
 class PerceptronLayer(ITargetPropLayer):
