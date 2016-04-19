@@ -418,9 +418,19 @@ class Experiment(object):
         """
         if self.versions is not None:
             assert self.current_version in self.versions, "Experiment %s: Your current version: '%s' is not in the list of versions: %s" % (self.name, self.current_version, self.versions.keys())
-            kwargs = self.versions[self.current_version]
+            arg_info = self.versions[self.current_version]
+            if isinstance(arg_info, tuple):
+                args = arg_info
+                kwargs = {}
+            elif isinstance(arg_info, dict):
+                args = ()
+                kwargs = arg_info
+            else:
+                args = (arg_info, )
+                kwargs = {}
             name = self.name+'-'+(self.current_version if isinstance(self.current_version, str) else str(self.versions[self.current_version]))
         else:
+            args = ()
             kwargs = {}
             name = self.name
 
@@ -433,7 +443,7 @@ class Experiment(object):
         else:
             print '%s Running Experiment: %s %s' % ('='*10, name, '='*10)
             with ExperimentRecord(name = name, print_to_console=print_to_console, show_figs=show_figs, **experiment_record_kwargs) as exp_rec:
-                self.function(**kwargs)
+                self.function(*args, **kwargs)
             print '%s Done Experiment: %s %s' % ('-'*11, name, '-'*12)
         return exp_rec
 

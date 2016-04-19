@@ -119,7 +119,7 @@ def test_experiment_interface():
 
     exp_rec = run_experiment('my_test_experiment', save_result=True)
     print get_experiment_info('my_test_experiment')
-    assert exp_rec.get_logs() == 'aaa\nbbb\n'
+    assert exp_rec.get_logs() == 'aaa\n:bbb\n'
 
     same_exp_rec = load_experiment(get_latest_experiment_identifier(name = 'my_test_experiment'))
     assert same_exp_rec.get_logs() == 'aaa\nbbb\n'
