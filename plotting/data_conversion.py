@@ -1,7 +1,8 @@
 from general.should_be_builtins import memoize
 import numpy as np
-import matplotlib.cm as cm
-from matplotlib.colors import Normalize
+
+
+
 
 __author__ = 'peter'
 
@@ -119,6 +120,8 @@ mappables = {}
 
 
 def data_to_image(data, is_color_data = None, clims = None, cmap = 'gray'):
+    import matplotlib.cm as cm
+    from matplotlib.colors import Normalize
     """
     Convert and ndarray of data into RGB pixel data.
 

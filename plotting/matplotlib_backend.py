@@ -1,11 +1,10 @@
 from abc import ABCMeta, abstractmethod
-from general.should_be_builtins import bad_value
+# from general.should_be_builtins import bad_value
 from plotting.data_conversion import put_data_in_grid, RecordBuffer, scale_data_to_8_bit, data_to_image
-
+import numpy as np
 __author__ = 'peter'
 
 
-from matplotlib.pyplot import *
 
 
 def set_default_figure_size(width, height):

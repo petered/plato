@@ -2,8 +2,8 @@ from collections import namedtuple, OrderedDict
 from abc import abstractmethod
 from general.nested_structures import flatten_struct
 from plotting.easy_plotting import plot_data_dict
-import plotting.matplotlib_backend as eplt
 
+import plotting.bokeh_backend as eplt
 
 __author__ = 'peter'
 
@@ -23,7 +23,7 @@ class BaseStream(object):
         if self._counter % self._update_every != 0:
             return
 
-        data_dict = self._get_data_structure()
+        data_dict = self._get_data_structure()  # dict : str -> IPlot
 
         if self._plots is None or set(data_dict.keys()) != self._plot_keys:
             # Note - this causes us to reset all plots (including ones with history
