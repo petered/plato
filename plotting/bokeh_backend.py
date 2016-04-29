@@ -1,25 +1,21 @@
 from collections import OrderedDict
 import numpy as np
-from abc import ABCMeta, abstractmethod
-# from general.should_be_builtins import bad_value
 
+from bokeh.models import GridPlot
 from bokeh.document import Document
-from bokeh.models import Plot
 from bokeh.client import push_session
-# from bokeh.models import Plot
 from bokeh.plotting import Figure, figure
-# from bokeh.charts import Area
 from bokeh.palettes import Spectral6
 
-import matplotlib
+from bokeh.io import gridplot
 
 _SESSION_COUNTER = 0
 _SESSIONS = OrderedDict()
 _CURRENT_SESSION = None
 _CURRENT_PLOT = None
 _URL = "default"
-
-
+_SUBPLOT_DICT = {}
+_GRIDPLOT = None
 
 def set_url(url):
     global _URL
@@ -40,7 +36,7 @@ class FakeFuckingFigure():
         _CURRENT_SESSION.document.clear()
         global _CURRENT_PLOT
         _CURRENT_PLOT = None
-
+        # pass
 
 
 def figure(*args,**kwargs):
@@ -60,7 +56,7 @@ def _get_or_make_session():
     return figure() if _CURRENT_SESSION is None else _CURRENT_SESSION
 
 def _plot(model = None, **kwargs):
-    print(kwargs)
+    print( "_plot %s" % (kwargs,))
     plot = model(**kwargs)
     global _CURRENT_SESSION
     _CURRENT_SESSION.document.add_root(plot)
@@ -69,23 +65,38 @@ def _plot(model = None, **kwargs):
     return plot
 
 def _get_or_make_plot(model, **kwargs):
-        return _plot(model, **kwargs) if _CURRENT_PLOT is None else _CURRENT_PLOT
+    session = _get_or_make_session()
+    return _plot(model, **kwargs) if _CURRENT_PLOT is None else _CURRENT_PLOT
+
 
 def make_plot(model, **kwargs):
-    return _plot(model, **kwargs)
+    session = _get_or_make_session()
+    # Build Gridplot:
+    num = _SUBPLOT_DICT["num"]
+    rows = _SUBPLOT_DICT["rows"]
+    cols = _SUBPLOT_DICT["cols"]
+    global _GRIDPLOT
+    if num == 1:
+        children = [[None for _ in xrange(_SUBPLOT_DICT["cols"])] for _ in xrange(_SUBPLOT_DICT["rows"])]
+    else:
+        children = _GRIDPLOT.children
+    newplot = _plot(model, **kwargs)
+    row_coordinate = int(np.ceil(float(num) / cols) - 1)
+    col_coordinate = num % cols -1 if num % cols != 0 else cols -1
+    children[row_coordinate][col_coordinate] = newplot
+    _GRIDPLOT = GridPlot()
+    _GRIDPLOT.children = children
+    _CURRENT_SESSION.document.clear()
+    _GRIDPLOT._detach_document()
+    _CURRENT_SESSION.document.add_root(_GRIDPLOT)
+    global _CURRENT_PLOT
+    _CURRENT_PLOT = newplot
+    return newplot
 
 def subplot(rows, cols, num, **kwargs):
-    # Set this up as gridplot
-    # if num == 0:
-        # create new gridplot
-    # else:
-        # add to existing gridplot
+    global _SUBPLOT_DICT
+    _SUBPLOT_DICT = {"rows":rows, "cols":cols, "num":num, "kwargs":kwargs}
 
-    session = _get_or_make_session()
-    ax = make_plot(Figure, **kwargs)
-    global _CURRENT_PLOT
-    _CURRENT_PLOT = ax
-    return ax
 
 def draw():
     pass
@@ -106,16 +117,11 @@ def title(s, *args, **kwargs):
     gca().title = s
 
 def plot(*args, **kwargs):
-
-    session = _get_or_make_session()
-    figure = _get_or_make_plot(Figure, **kwargs)
-
     if isinstance(args[0], np.ndarray) and isinstance(args[1], np.ndarray):
         x_data, y_data = args[:2]
     else:
         x_data = np.arange(len(args[0]))
         y_data = args[0]
-
 
     if x_data.ndim == 1:
         x_data = np.expand_dims(x_data,0)
@@ -128,24 +134,21 @@ def plot(*args, **kwargs):
         else:
             print ("x-axis data and y-axis data not correct for multi-line plot")
 
-    return figure.multi_line(xs = x_data.tolist(), ys = y_data.tolist(), color = Spectral6[:y_data.shape[0]], line_width = 2 )
-
-
+    return gca().multi_line(xs = x_data.tolist(), ys = y_data.tolist(), color = Spectral6[:y_data.shape[0]], line_width = 2 )
 
 
 
 class LinePlot(object):
-
     def __init__(self, yscale = None, **kwargs):
         self._plots = None
         self._yscale = yscale
         self._oldlims = (float('inf'), -float('inf'))
         self.kw = kwargs
+        # print "LinePlot constructed %s" % (self, )
 
     def update(self, data):
         if self._plots is None:
-            # import pdb
-            # pdb.set_trace()
+            ax = make_plot(Figure, **self.kw)
             self._plots = plot(np.arange(-data.shape[0]+1, 1), data.T, **self.kw)
         else:
             self._plots.data_source.data["ys"] = data.T
@@ -185,24 +188,6 @@ class ImagePlot(object):
             self._plot.set_array(plottable_data)
         self._plot.axes.set_xlabel('%.2f - %.2f' % clims)
             # self._plot.axes.get_caxis
-
-
-if __name__ == "__main__":
-    data = np.array([
-  [ 0.33282588, -0.17099474],
- [ 0.33028431, -1.51028199],
- [-0.09953188,  2.24461989],
- [-0.31208577, -0.20377033],
- [-1.43971886,  0.03359312],
- [ 0.76929195, -0.08524877],
- [ 0.91306424, -0.85165996],
- [ 0.87956879,  1.41940303],
- [-0.04087287, -0.65596172],
- [-1.62511259,  0.27262459]])
-    set_url("http://146.50.149.168:5006")
-    LP = LinePlot()
-    LP.update(data)
-    print("Done")
 
 
 
