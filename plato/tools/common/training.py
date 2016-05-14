@@ -29,3 +29,5 @@ class SupervisedTestFunction(object):
         output = self._classifier(data)
         cost = self._cost_function(output, labels)
         return cost
+
+
