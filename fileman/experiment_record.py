@@ -30,8 +30,32 @@ class _ExpLibClass(object):
         self.__dict__[experiment_name] = experiment
         GLOBAL_EXPERIMENT_LIBRARY[experiment_name] = experiment
 
+    def __getattr__(self, name):
+        if name in GLOBAL_EXPERIMENT_LIBRARY:
+            return GLOBAL_EXPERIMENT_LIBRARY[name]
+        else:
+            return _ExperimentConstructor(name)
+
     def get_experiments(self):
         return GLOBAL_EXPERIMENT_LIBRARY
+
+    def ui_run_experiment(self):
+        _ = raw_input('Enter command...')
+
+
+class _ExperimentConstructor(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, **kwargs):
+        if self.name in GLOBAL_EXPERIMENT_LIBRARY:
+            raise Exception("You tried to run create experiment '%s', but it already exists in the library.  Give it another name!" % (self.name, ))
+        # exp = Experiment(name=self.name, **kwargs)
+        return register_experiment(name = self.name, **kwargs)
+
+    def run(self):
+        raise Exception("You tried to run experiment '%s', but it hasn't been made yet!" % (self.name, ))
 
 
 ExperimentLibrary = _ExpLibClass()

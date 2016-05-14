@@ -5,7 +5,7 @@ __author__ = 'peter'
 
 class EZProfiler(object):
 
-    def __init__(self, print_result = True, profiler_name = 'Profile', record_stop = True):
+    def __init__(self, profiler_name = 'Profile', print_result = True, record_stop = True):
         self.print_result = print_result
         self.profiler_name = profiler_name
         self.record_stop = record_stop

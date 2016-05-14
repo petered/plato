@@ -80,6 +80,9 @@ def collapse_onehot_if_necessary(output_data):
     :param output_data: Either an (n_samples, n_dims) array, or an (n_samples, ) array of labels.
     :return: An (n_samples, ) array.
     """
+
+    output_data = np.squeeze(output_data)
+
     if output_data.ndim == 2:
         return np.argmax(output_data, axis = 1)
     else:

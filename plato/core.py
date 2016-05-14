@@ -389,7 +389,7 @@ def _is_tuple_of_tensors(args):
 def _is_named_collection(arg):
     if not isinstance(arg, dict):
         return False
-    if not all(isinstance(k, basestring) for k in arg.keys()):
+    if not all(isinstance(k, (basestring, int)) for k in arg.keys()):
         return False
     if not all(_is_tensor(v) for v in arg.values()):
         return False
@@ -793,13 +793,39 @@ class StateCatcher(object):
         _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
-        assert shared_var not in self._updates, "You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s" % (shared_var, new_val, self._updates[shared_var])
-        self._updates[shared_var] = new_val
+        if shared_var in self._updates:
+            if _ACCUMULATE_UPDATES:
+                self._updates[shared_var] = self._updates[shared_var] + new_val - shared_var  # (w+dw1)+(w+dw2)-w = w+dw1+dw2
+            else:
+                raise AssertionError("You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s.\nIf you want to accumulate both updates, call your update from inside a 'with AccumulateUpdates():'" % (shared_var, new_val, self._updates[shared_var]))
+        else:
+            self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
         return self._updates.items()
+
+
+_ACCUMULATE_UPDATES = False
+
+
+class AccumulateUpdates():
+    """
+    Use this object to enable update accumulation... For example if some parameter w is being used to optimize two
+    different objectives, you may want to add them: w_new = w + delta_w_1 + delta_w_2.  It's generally best to avoid
+    this, and instead add the gradients, and update those with a single optimizer, but this we provide this anyway
+    because we at Plato believe you should be able to hurt yourself if you want to.
+    """
+
+    def __enter__(self, ):
+        self._oldstate = _ACCUMULATE_UPDATES
+        global _ACCUMULATE_UPDATES
+        _ACCUMULATE_UPDATES = True
+
+    def __exit__(self, *args):
+        global _ACCUMULATE_UPDATES
+        _ACCUMULATE_UPDATES = self._oldstate
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):

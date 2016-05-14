@@ -1,14 +1,16 @@
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
+from general.numpy_helpers import get_rng
 from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function
+from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 from theano.tensor.signal.pool import pool_2d
-
+import numpy as np
 __author__ = 'peter'
 
 
 @symbolic
-class ConvLayer(object):
+class ConvLayer(IParameterized):
 
     def __init__(self, w, b, force_shared_parameters = True, border_mode = 'valid', filter_flip = True):
         """
@@ -29,7 +31,8 @@ class ConvLayer(object):
         param x: A (n_samples, n_input_maps, size_y, size_x) image/feature tensor
         return: A (n_samples, n_output_maps, size_y-w_size_y+1, size_x-w_size_x+1) tensor
         """
-        return tt.nnet.conv2d(input=x, filters=self.w, border_mode=self.border_mode, filter_flip=self.filter_flip) + self.b[:, None, None]
+        result = tt.nnet.conv2d(input=x, filters=self.w, border_mode=self.border_mode, filter_flip=self.filter_flip) + self.b[:, None, None]
+        return result
 
     @property
     def parameters(self):
@@ -43,7 +46,7 @@ class Nonlinearity(object):
         """
         activation:  a name for the activation function. {'relu', 'sig', 'tanh', ...}
         """
-        self.activation = get_named_activation_function(activation)
+        self.activation = get_named_activation_function(activation) if isinstance(activation, basestring) else activation
 
     def __call__(self, x):
         return self.activation(x)
@@ -57,6 +60,10 @@ class Pooler(object):
         :param region: Size of the pooling region e.g. (2, 2)
         :param stride: Size of the stride e.g. (2, 2) (defaults to match pooling region size for no overlap)
         """
+        if isinstance(region, int):
+            region = region, region
+        if isinstance(stride, int):
+            stride = stride, stride
         assert len(region) == 2, 'Region must consist of two integers.  Got: %s' % (region, )
         if stride is None:
             stride = region
@@ -74,7 +81,7 @@ class Pooler(object):
 
 
 @symbolic
-class ConvNet(object):
+class ConvNet(IParameterized):
 
     def __init__(self, layers):
         """
@@ -84,7 +91,7 @@ class ConvNet(object):
         """
         self.n_layers = len(layers)
         if isinstance(layers, (list, tuple)):
-            layers = OrderedDict(zip(enumerate(layers)))
+            layers = OrderedDict(enumerate(layers))
         else:
             assert isinstance(layers, OrderedDict), "Layers must be presented as a list, tuple, or OrderedDict"
         self.layers = layers
@@ -107,4 +114,54 @@ class ConvNet(object):
         for name, layer in self.layers.iteritems():
             x = layer(x)
             named_activations[name] = x
+            # print 'Layer %s: %s' % (name, x.ishape)
         return named_activations
+
+    @staticmethod
+    def from_init(specifiers, input_shape, w_init=0.01, rng=None):
+        rng = get_rng(rng)
+        n_maps, n_rows, n_cols = input_shape
+        layers = []
+        for spec in specifiers:
+            instantiated_spec = ConvolverSpec(w=w_init*rng.randn(spec.n_maps, n_maps, spec.filter_size[0], spec.filter_size[1]), b=np.zeros(spec.n_maps), mode = spec.mode) \
+                if isinstance(spec, ConvInitSpecifier) else spec
+            if isinstance(instantiated_spec, ConvolverSpec):
+                n_maps = instantiated_spec.w.shape[0]
+                if spec.mode == 'valid':
+                    n_rows += -instantiated_spec.w.shape[2] + 1
+                    n_cols += -instantiated_spec.w.shape[3] + 1
+            elif isinstance(instantiated_spec, PoolerSpec):
+                n_rows /= instantiated_spec.region
+                n_cols /= instantiated_spec.region
+            layers.append(specifier_to_layer(instantiated_spec))
+            print '%s output: %s' % (spec, (n_maps, n_rows, n_cols))
+        return ConvNet(layers)
+
+    @property
+    def parameters(self):
+        return sum([l.parameters if isinstance(l, IParameterized) else [] for l in self.layers.values()], [])
+
+def softmax(x, axis=1):
+    e_x = tt.exp(x - x.max(axis=axis, keepdims=True))
+    return e_x / e_x.sum(axis=axis, keepdims=True)
+
+
+def specifier_to_layer(spec, force_shared_parameters=True):
+    return {
+        ConvolverSpec: lambda: ConvLayer(
+            w=spec.w,
+            b=spec.b,
+            force_shared_parameters=force_shared_parameters,
+            border_mode= {'full': 0, 'same': 1, 'valid': 0}[spec.mode],
+            filter_flip=False
+            ),
+        NonlinearitySpec: lambda: softmax if spec.type=='softmax' else Nonlinearity(spec.type),
+        PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
+        }[spec.__class__]()
+
+
+ConvInitSpecifier = namedtuple('ConvInitSpecifier', ['n_maps', 'filter_size', 'mode'])
+NonlinearitySpec = namedtuple('NonlinearitySpec', ['type'])
+ConvolverSpec = namedtuple('ConvolverSpec', ['w', 'b', 'mode'])
+PoolerSpec = namedtuple('MaxPoolerSpec', ['region', 'stride', 'mode'])
+

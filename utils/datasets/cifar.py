@@ -1,5 +1,5 @@
 import pickle
-
+from artemis.plotting.db_plotting import dbplot
 import os
 from utils.datasets.datasets import DataSet, DataCollection
 from fileman.file_getter import get_file
@@ -9,8 +9,13 @@ import numpy as np
 __author__ = 'peter'
 
 
-def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
+def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None, normalize_inputs = False):
     """
+    :param n_training_samples: Number of training samples, or None to leave it at 50000
+    :param n_test_samples: Number of test samples, or None to leave it at 10000
+    :param normalize_inputs: True to normalize inputs, and turn them from uint8 to double
+    :param swap_axes: True to arrange images as (n_samples, n_colors, n_rows, n_cols) instead of (n_samples, n_rows, n_cols, n_colors)
+
     :return: The CIFAR-10 dataset, which consists of 50000 training and 10000 test images.
         Images are 32x32 uint8 RGB images (n_samples, 3, 32, 32) of 10 categories of objects.
         Targets are integer labels in the range [0, 9]
@@ -31,10 +36,16 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
             batch_data = pickle.load(f)
             data.append(batch_data)
 
-    x_tr = np.concatenate([d['data'] for d in data[:-1]], axis = 0).reshape(-1, 3, 32, 32).swapaxes(2, 3)
+    x_tr = np.concatenate([d['data'] for d in data[:-1]], axis = 0).reshape(-1, 3, 32, 32)
     y_tr = np.concatenate([d['labels'] for d in data[:-1]], axis = 0)
-    x_ts = data[-1]['data'].reshape(-1, 3, 32, 32).swapaxes(2, 3)
+    x_ts = data[-1]['data'].reshape(-1, 3, 32, 32)
     y_ts = np.array(data[-1]['labels'])
+
+    if normalize_inputs:
+        mean = x_tr.mean(axis=0, keepdims=True)
+        std = x_tr.std(axis=0, keepdims=True)
+        x_tr = (x_tr - mean)/std
+        x_ts = (x_ts - mean)/std
 
     if n_training_samples is not None:
         x_tr = x_tr[:n_training_samples]
@@ -48,12 +59,12 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None):
 
 if __name__ == '__main__':
 
-    from plotting.easy_plotting import ezplot
+    from artemis.plotting.easy_plotting import ezplot
 
     dataset = get_cifar_10_dataset()
     n_samples = 100
 
     ezplot({
-        'sampled training images': np.swapaxes(dataset.training_set.input[:n_samples], 1, 3).reshape(10, 10, 32, 32, 3),
+        'sampled training images': np.rollaxis(dataset.training_set.input[:n_samples], 1, 4),# np.swapaxes(dataset.training_set.input[:n_samples], 1, 3).reshape(10, 10, 32, 32, 3),
         'sampled training labels': dataset.training_set.target[:n_samples].reshape(10, 10)
         }, cmap = 'jet')
