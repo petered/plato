@@ -2,7 +2,7 @@ from collections import OrderedDict, namedtuple
 
 import theano
 from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet, ConvolverSpec, NonlinearitySpec, \
-    PoolerSpec, softmax
+    PoolerSpec
 from fileman.file_getter import get_file
 from general.should_be_builtins import bad_value, memoize
 from scipy.io import loadmat
@@ -50,25 +50,22 @@ def get_vgg_layer_specifiers(up_to_layer=None):
         assert isinstance(layer_type, basestring)
         if layer_type == 'conv':
             w_orig = struct[2][0, 0]  # (n_rows, n_cols, n_in_maps, n_out_maps)
-            # (n_out_maps, n_in_maps, n_rows, n_cols)  (Theano conventions)
             w = w_orig.T.swapaxes(2, 3)
             b = struct[2][0, 1][:, 0]
-            # padding = 0 if layer_name.startswith('fc') else 1 if layer_name.startswith('conv') else bad_value(layer_name)
-            layer = ConvolverSpec(w=w, b=b, mode = 'full' if layer_name.startswith('fc') else 'same' if layer_name.startswith('conv') else bad_value(layer_name));
-            # layer = ConvLayer(w, b, force_shared_parameters=force_shared_parameters, border_mode=padding, filter_flip=False)  # Note: Should filter_flip be true...? Need to check
+            # layer = ConvolverSpec(w=w, b=b, mode = 'full' if layer_name.startswith('fc') else 'same' if layer_name.startswith('conv') else bad_value(layer_name));
+            layer = ConvolverSpec(w=w, b=b, mode = 'full' if layer_name.startswith('fc') else 'same' if layer_name.startswith('conv') else bad_value(layer_name))
         elif layer_type in ('relu', 'softmax'):
+            # layer = NonlinearitySpec(layer_type)
             layer = NonlinearitySpec(layer_type)
-            # layer = Nonlinearity(layer_type)
-        # elif layer_type == 'softmax':
-        #
-        #     layer = Nonlinearity(softmax)
         elif layer_type == 'pool':
+            # layer = PoolerSpec(
+            #     region = tuple(struct[3][0].astype(int)),
+            #     stride = tuple(struct[4][0].astype(int)),
+            #     mode=struct[2][0])
             layer = PoolerSpec(
                 region = tuple(struct[3][0].astype(int)),
                 stride = tuple(struct[4][0].astype(int)),
                 mode=struct[2][0])
-            # layer = Pooler(region=tuple(struct[3][0].astype(int)), stride=tuple(
-            #     struct[4][0].astype(int)), mode=pooling_mode)
         else:
             raise Exception(
                 "Don't know about this '%s' layer type." % layer_type)
@@ -92,6 +89,9 @@ def get_vgg_layer_specifiers(up_to_layer=None):
 
 
 
+
+
+
 def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1):
     """
     Load the 19-layer VGGNet.
@@ -109,19 +109,22 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
     :return: A ConvNet object representing the VGG network.
     """
     layer_specs = get_vgg_layer_specifiers(up_to_layer=up_to_layer)
-    layer_constructor = lambda spec: {
-        ConvolverSpec: lambda: ConvLayer(
-            w=spec.w,
-            b=spec.b if scale_biases==1 else spec.b*scale_biases,
-            force_shared_parameters=force_shared_parameters,
-            border_mode= {'full': 0, 'same': 1}[spec.mode],
-            filter_flip=False
-            ),
-        NonlinearitySpec: lambda: softmax if spec.type=='softmax' else Nonlinearity(spec.type),
-        PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
-        }[spec.__class__]()
-    layers = OrderedDict((name, layer_constructor(spec)) for name, spec in layer_specs.iteritems())
-    return ConvNet(layers)
+
+    return ConvNet.from_init(layer_specs, input_shape=(3, 224, 224))
+
+    # layer_constructor = lambda spec: {
+    #     ConvolverSpec: lambda: ConvLayer(
+    #         w=spec.w,
+    #         b=spec.b if scale_biases==1 else spec.b*scale_biases,
+    #         force_shared_parameters=force_shared_parameters,
+    #         border_mode= {'full': 0, 'same': 1}[spec.mode],
+    #         filter_flip=False
+    #         ),
+    #     NonlinearitySpec: Nonlinearity(spec.type),
+    #     PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
+    #     }[spec.__class__]()
+    # layers = OrderedDict((name, layer_constructor(spec)) for name, spec in layer_specs.iteritems())
+    # return ConvNet(layers)
 
 
     # filename = get_file(
