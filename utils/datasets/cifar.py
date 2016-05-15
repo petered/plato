@@ -57,6 +57,20 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None, norma
     return DataSet(training_set=DataCollection(x_tr, y_tr), test_set=DataCollection(x_ts, y_ts), name = 'CIFAR-10')
 
 
+def get_cifar_10_labels():
+    return [
+        'airplane',
+        'automobile',
+        'bird',
+        'cat',
+        'deer',
+        'dog',
+        'frog',
+        'horse',
+        'ship',
+        'truck']
+
+
 if __name__ == '__main__':
 
     from artemis.plotting.easy_plotting import ezplot

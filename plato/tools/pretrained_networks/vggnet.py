@@ -1,8 +1,9 @@
 from collections import OrderedDict, namedtuple
+from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
 
 import theano
-from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet, ConvolverSpec, NonlinearitySpec, \
-    PoolerSpec
+from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet
+
 from fileman.file_getter import get_file
 from general.should_be_builtins import bad_value, memoize
 from scipy.io import loadmat
@@ -52,16 +53,10 @@ def get_vgg_layer_specifiers(up_to_layer=None):
             w_orig = struct[2][0, 0]  # (n_rows, n_cols, n_in_maps, n_out_maps)
             w = w_orig.T.swapaxes(2, 3)
             b = struct[2][0, 1][:, 0]
-            # layer = ConvolverSpec(w=w, b=b, mode = 'full' if layer_name.startswith('fc') else 'same' if layer_name.startswith('conv') else bad_value(layer_name));
             layer = ConvolverSpec(w=w, b=b, mode = 'full' if layer_name.startswith('fc') else 'same' if layer_name.startswith('conv') else bad_value(layer_name))
         elif layer_type in ('relu', 'softmax'):
-            # layer = NonlinearitySpec(layer_type)
             layer = NonlinearitySpec(layer_type)
         elif layer_type == 'pool':
-            # layer = PoolerSpec(
-            #     region = tuple(struct[3][0].astype(int)),
-            #     stride = tuple(struct[4][0].astype(int)),
-            #     mode=struct[2][0])
             layer = PoolerSpec(
                 region = tuple(struct[3][0].astype(int)),
                 stride = tuple(struct[4][0].astype(int)),
@@ -110,7 +105,12 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
     """
     layer_specs = get_vgg_layer_specifiers(up_to_layer=up_to_layer)
 
-    return ConvNet.from_init(layer_specs, input_shape=(3, 224, 224))
+    if scale_biases != 1:
+        for spec in layer_specs.values():
+            if isinstance(spec, ConvolverSpec):
+                spec.b *= scale_biases
+
+    return ConvNet.from_init(layer_specs, input_shape=(3, 224, 224), force_shared_parameters = force_shared_parameters)
 
     # layer_constructor = lambda spec: {
     #     ConvolverSpec: lambda: ConvLayer(

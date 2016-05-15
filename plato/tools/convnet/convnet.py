@@ -10,7 +10,9 @@ import logging
 import numpy as np
 __author__ = 'peter'
 
+logging.basicConfig()
 LOGGER = logging.getLogger('plato')
+LOGGER.setLevel(logging.WARN)
 
 @symbolic
 class ConvLayer(IParameterized):
@@ -20,7 +22,7 @@ class ConvLayer(IParameterized):
         w is the kernel, an ndarray of shape (n_output_maps, n_input_maps, w_size_y, w_size_x)
         b is the bias, an ndarray of shape (n_output_maps, )
         force_shared_parameters: Set to true if you want to make the parameters shared variables.  If False, the
-            parameters will be
+            parameters will be be constants (which allows for certain optimizations)
         :param border_mode: {'valid', 'full', 'half', int, (int1, int2)}.  Affects
             default is 'valid'.  See theano.tensor.nnet.conv2d docstring for details.
         """
@@ -131,7 +133,7 @@ class ConvNet(IParameterized):
         return named_activations
 
     @staticmethod
-    def from_init(specifiers, input_shape, w_init=0.01, rng=None):
+    def from_init(specifiers, input_shape, w_init=0.01, force_shared_parameters = True, rng=None):
         """
         Convenient initialization function.
         :param specifiers:
@@ -163,7 +165,7 @@ class ConvNet(IParameterized):
             elif isinstance(spec, PoolerSpec):
                 n_rows /= spec.region[0]
                 n_cols /= spec.region[1]
-            layers[spec_name] = specifier_to_layer(spec)
+            layers[spec_name] = specifier_to_layer(spec, force_shared_parameters=force_shared_parameters)
             LOGGER.info('Layer "%s" (%s) output shape: %s' % (spec_name, spec.__class__.__name__, (n_maps, n_rows, n_cols)))
         return ConvNet(layers)
 

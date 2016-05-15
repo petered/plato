@@ -41,7 +41,7 @@ These methods are described in the ISymbolicFunction interface below.
 
 __author__ = 'peter'
 
-PLATO_LOGGER = logging.getLogger('PlatoLogger')
+PLATO_LOGGER = logging.getLogger('plato')
 PLATO_LOGGER.setLevel(logging.WARN)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
@@ -512,7 +512,7 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
-            PLATO_LOGGER.info('Compiling %s...' % (self._original_fcn.fcn_str(), ))
+            PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
             PLATO_LOGGER.info('Done.\n')
 
@@ -819,8 +819,8 @@ class AccumulateUpdates():
     """
 
     def __enter__(self, ):
-        self._oldstate = _ACCUMULATE_UPDATES
         global _ACCUMULATE_UPDATES
+        self._oldstate = _ACCUMULATE_UPDATES
         _ACCUMULATE_UPDATES = True
 
     def __exit__(self, *args):
