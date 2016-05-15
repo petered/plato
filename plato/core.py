@@ -2,7 +2,6 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 import logging
-import sys
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
 from theano.compile.sharedvalue import SharedVariable
@@ -41,7 +40,7 @@ These methods are described in the ISymbolicFunction interface below.
 
 __author__ = 'peter'
 
-PLATO_LOGGER = logging.getLogger('PlatoLogger')
+PLATO_LOGGER = logging.getLogger('plato')
 PLATO_LOGGER.setLevel(logging.WARN)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
