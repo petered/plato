@@ -24,6 +24,14 @@ class NonlinearitySpec(PrimativeSpecifier):
 class ConvolverSpec(PrimativeSpecifier):
 
     def __init__(self, w, b, mode):
+        """
+        :param w: A shape (n_output_maps, n_input_maps, n_rows, n_cols) convolutional kernel.  It should be assumed that
+            weights will be flipped before sliding across the image.
+        :param b: A bias of shape (n_output_maps, )
+        :param mode: The mode: 'same', 'valid', or 'full', or an integer, in which case it is interpreted as the padding
+            for a 'valid' convolution.
+        :return:
+        """
         assert w.ndim==4
         assert b.ndim==1
         assert w.shape[0] == len(b), "Number of output maps must match"
@@ -41,6 +49,8 @@ class PoolerSpec(PrimativeSpecifier):
         assert mode in ('max', 'average')
         if stride is None:
             stride=region
+        elif isinstance(stride, int):
+            stride = (stride, stride)
         self.region = region
         self.stride = stride
         self.mode = mode
