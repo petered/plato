@@ -77,7 +77,7 @@ class Pooler(object):
         :param x: An (n_samples, n_maps, size_y, size_x) tensor
         :return: An (n_sample, n_maps, size_y/ds[0], size_x/ds[1]) tensor
         """
-        return pool_2d(x, ds = self.region, st = self.stride, mode = self.mode)
+        return pool_2d(x, ds = self.region, st = self.stride, mode = self.mode, ignore_border=True)
 
 
 @symbolic
@@ -158,6 +158,9 @@ def specifier_to_layer(spec, force_shared_parameters=True):
         NonlinearitySpec: lambda: softmax if spec.type=='softmax' else Nonlinearity(spec.type),
         PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
         }[spec.__class__]()
+
+
+def layer_to_specifier(spec, )
 
 
 ConvInitSpecifier = namedtuple('ConvInitSpecifier', ['n_maps', 'filter_size', 'mode'])
