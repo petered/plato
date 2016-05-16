@@ -1,11 +1,11 @@
 from artemis.general.checkpoint_counter import CheckPointCounter
 from plato.core import create_shared_variable, symbolic
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
-from utils.benchmarks.predictor_comparison import LearningCurveData, dataset_to_testing_sets, process_in_batches
+from utils.benchmarks.predictor_comparison import LearningCurveData, dataset_to_testing_sets
 from utils.benchmarks.train_and_test import get_evaluation_function
-from utils.tools.iteration import checkpoint_minibatch_index_generator, minibatch_index_generator
+from utils.tools.iteration import minibatch_index_generator
 from utils.tools.processors import RunningAverage
-import numpy as np
+import time
 
 __author__ = 'peter'
 
@@ -51,6 +51,7 @@ def assess_online_symbolic_predictor(predictor, dataset, evaluation_function, te
         'full' to do full-batch.
         'stretch': to stretch the size of each batch so that we make just one call to "train" between each test.  Use
             this, for instance, if your predictor trains on one sample at a time in sequence anyway.
+    :param test_on: 'test' to test only on the test set, or 'training+test' to test on both.
     :param report_test_scores: Print out the test scores as they're computed (T/F)
     :param test_callback: A callback which takes the predictor, and is called every time a test
         is done.  This can be useful for plotting/debugging the state.
@@ -99,13 +100,15 @@ def assess_online_symbolic_predictor(predictor, dataset, evaluation_function, te
     def do_test(current_epoch):
         scores = [(k, evaluation_function(prediction_functions[k](), y)) for k, (x, y) in testing_sets.iteritems()]
         if report_test_scores:
-            print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
+            print 'Scores at Epoch %s: %s, (after %ss)' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores), time.time()-start_time)
         record.add(current_epoch, scores)
         if test_callback is not None:
             record.add(current_epoch, ('callback', test_callback(predictor)))
 
     checker = CheckPointCounter(test_epochs)
     last_n_samples_seen = 0
+    start_time = time.time()
+
     for indices in minibatch_index_generator(n_samples=dataset.training_set.n_samples, minibatch_size=minibatch_size, n_epochs=float('inf'), slice_when_possible=False):
         current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
         last_n_samples_seen += minibatch_size

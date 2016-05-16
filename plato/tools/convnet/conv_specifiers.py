@@ -5,13 +5,14 @@ __author__ = 'peter'
 
 class ConvInitSpec(PrimativeSpecifier):
 
-    def __init__(self, n_maps, filter_size, mode):
+    def __init__(self, n_maps, filter_size, mode, use_bias = True):
         assert len(filter_size)==2, 'Filter size must be (n_rows, n_cols)'
         assert isinstance(n_maps, int)
         assert mode in ('same', 'valid', 'full')
         self.n_maps = n_maps
         self.filter_size = filter_size
         self.mode = mode
+        self.use_bias = use_bias
 
 
 class NonlinearitySpec(PrimativeSpecifier):
@@ -33,8 +34,7 @@ class ConvolverSpec(PrimativeSpecifier):
         :return:
         """
         assert w.ndim==4
-        assert b.ndim==1
-        assert w.shape[0] == len(b), "Number of output maps must match"
+        assert b is False or (b.ndim==1 and w.shape[0] == len(b)), "Number of output maps must match"
         assert isinstance(mode, int) or mode in ('same', 'valid', 'full'), 'Mode "%s" not allowed' % (mode, )
         self.w=w
         self.b=b
@@ -55,6 +55,12 @@ class PoolerSpec(PrimativeSpecifier):
         self.stride = stride
         self.mode = mode
 
+
+class DropoutSpec(PrimativeSpecifier):
+
+    def __init__(self, dropout_rate):
+        assert 0 <= dropout_rate < 1
+        self.dropout_rate = dropout_rate
 
 
 

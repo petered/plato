@@ -47,7 +47,9 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
     def __init__(self, function, cost_function, optimizer):
         """
-        :param function: Is a symbolic_simple function and an IParameterized object
+        :param function: Can be:
+            A symbolic_simple function and an IParameterized object
+            A subclass of FeedForwardModule, in which case it can implement train_call and test call separately
         :param cost_function: Is an ICostFunction
         :param optimizer: Is an IGradientOptimizer
         """
@@ -59,16 +61,11 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
     @symbolic_simple
     def predict(self, inputs):
-        return self._function(inputs)
-
-    @symbolic_simple
-    def training_predict(self, inputs):
-        """ You may override this method e.g. for Dropout, where the forwrd pass at training is different from the forward pass at test """
-        return self.predict(inputs)
+        return self._function.test_call(inputs) if isinstance(self._function, FeedForwardModule) else self._function(inputs)
 
     @symbolic_updater
     def train(self, inputs, labels):
-        outputs = self.predict(inputs)
+        outputs = self._function.train_call(inputs) if isinstance(self._function, FeedForwardModule) else self._function(inputs)
         cost = self._cost_function(outputs, labels)
         self._optimizer(cost = cost, parameters = self._function.parameters)
 
@@ -98,3 +95,27 @@ class CompiledSymbolicPredictor(IPredictor, IParameterized):
     @property
     def parameters(self):
         return self._params
+
+
+class FeedForwardModule(IParameterized):
+
+    def train_call(self, x):
+        return self.__call__(x)
+
+    def test_call(self, x):
+        return self.__call__(x)
+
+    @abstractmethod
+    def __call__(self, x):
+        """
+        :param x: Input tensor
+        :returns: Another tensor
+        """
+
+    @property
+    def parameters(self):
+        return []
+
+    @abstractmethod
+    def to_spec(self):
+        raise NotImplementedError("Need to specify")
