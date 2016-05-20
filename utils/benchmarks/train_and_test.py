@@ -69,6 +69,31 @@ def percent_argmax_correct(actual, target):
     return 100*fraction_correct(actual, target)
 
 
+def percent_binary_incorrect(actual, target):
+    return 100.-percent_binary_correct(actual, target)
+
+def percent_binary_correct(actual, target):
+    """
+    :param actual:  A (n_samples, ) array of floats between 0 and 1
+    :param target: A (n_samples, ) array of True/False
+    :return: The percent of times the "actual" was closes to the correct.
+    """
+    assert len(actual) == len(target)
+    assert target.ndim==1
+    if actual.ndim>1:
+        assert actual.shape == (len(target), 1)
+        actual = actual[:, 0]
+    if np.array_equal(np.unique(target), (0, 1)):
+        assert np.all(actual)>=0 and np.all(actual)<=1
+        assert np.all((target==0)|(target==1))
+        return 100*np.mean(np.round(actual) == target)
+    elif np.array_equal(np.unique(target), (-1, 1)):
+        assert np.all((target==-1)|(target==1))
+        return 100*np.mean((actual>0)*2-1 == target)
+    else:
+        raise Exception("Go away I'm tired.")
+
+
 def percent_argmax_incorrect(actual, target):
     return 100 - percent_argmax_correct(actual, target)
 

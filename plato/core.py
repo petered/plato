@@ -4,6 +4,7 @@ import inspect
 import logging
 from general.local_capture import CaptureLocals
 from general.nested_structures import flatten_struct, expand_struct
+from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
@@ -615,7 +616,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
                 "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
                 "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
-    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, np.ndarray) and x.dtype == dtype
+    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype
 
     # Need to also downcast ints to int32 if floatX is float32, otherwise things like int_array.mean() return float64
     # objects, which (a) slows things down and (b) causes an error when you try to update 32-bit shared variabkles
@@ -628,9 +629,24 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         'float64' if isinstance(data, float) else \
         'int8' if data.dtype==bool else \
         data.dtype
-    tensor = TensorType(dtype, (None, )*ndim)(name)
-    if add_test_value:
-        tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
+    if isinstance(data, csr_matrix):
+        # Here we make a bunch of hacks to accomodate sparse matrices so that we don't have to change any of our other
+        # code when handling them.   This was assembled in haste before a deadline.  Possibly it could be cleaner.  Probably.
+        from theano import sparse
+        tensor = sparse.csr_matrix(name='unnamed' if name is None else name, dtype=dtype, )
+        if add_test_value:
+            tensor.tag.test_value = data.astype(theano.config.floatX)
+        # Do what theano couldn't and add the dot method to sparse
+        def flattenit(var, ndim):
+            assert var.indim == ndim, "This is a horrendous hack.  We don't actually flatten, we just check to see if it's the right shape.  It's not.  Also it needs test values on to work."
+            return var
+        sparse.SparseVariable.flatten = property(lambda self: lambda ndim: flattenit(self, ndim))
+        sparse.SparseVariable.dot = property(lambda self: lambda other: theano.dot(self, other))
+
+    else:
+        tensor = TensorType(dtype, (None, )*ndim)(name)
+        if add_test_value:
+            tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
 

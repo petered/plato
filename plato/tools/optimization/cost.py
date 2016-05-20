@@ -74,7 +74,24 @@ def percent_correct(actual, target):
 
 @symbolic_simple
 def mean_xe(actual, target):
+    """
+    :param actual: A (n_samples, n_dims) array of floats in range [0, 1]
+    :param target: An (n_samples, n_dims) array of targets with values in {0, 1}
+    :param target:
+    :return:
+    """
     return tt.nnet.binary_crossentropy(actual, target).sum(axis=1).mean(axis=0)
+
+
+@symbolic_simple
+def mean_single_xe(actual, target):
+    """
+    # TODO: Fix or remove this crap.
+    :param actual: A (n_samples, 1) array of floats in range [0, 1]
+    :param target: An (n_samples, ) array of targets with values in {0, 1}
+    :return: A scalar cost
+    """
+    return mean_xe(actual, target[:, None])
 
 
 @symbolic_simple

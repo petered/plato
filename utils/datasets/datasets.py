@@ -106,12 +106,12 @@ class DataSet(object):
 class DataCollection(object):
 
     def __init__(self, inputs, targets):
-        if isinstance(inputs, np.ndarray):
+        if not isinstance(inputs, (list, tuple)):
             inputs = (inputs, )
-        if isinstance(targets, np.ndarray):
+        if not isinstance(targets, (list, tuple)):
             targets = (targets, )
-        n_samples = len(inputs[0])
-        assert all(n_samples == len(d) for d in inputs) and all(n_samples == len(l) for l in targets)
+        n_samples = inputs[0].shape[0]
+        assert all(n_samples == d.shape[0] for d in inputs) and all(n_samples == l.shape[0] for l in targets)
         self._inputs = inputs
         self._targets = targets
         self._n_samples = n_samples

@@ -1,3 +1,4 @@
+import time
 from general.checkpoint_counter import CheckPointCounter
 from general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import get_evaluation_function
@@ -180,11 +181,13 @@ def assess_online_predictor(predictor, dataset, evaluation_function, test_epochs
     def do_test(current_epoch):
         scores = [(k, evaluation_function(process_in_batches(prediction_functions[k], x, test_batch_size), y)) for k, (x, y) in testing_sets.iteritems()]
         if report_test_scores:
-            print 'Scores at Epoch %s: %s' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores))
+            print 'Scores at Epoch %s: %s, after %.2fs' % (current_epoch, ', '.join('%s: %.3f' % (set_name, score) for set_name, score in scores), time.time()-start_time)
         record.add(current_epoch, scores)
         if test_callback is not None:
             record.add(current_epoch, ('callback', test_callback(predictor)))
 
+
+    start_time = time.time()
     if minibatch_size == 'stretch':
         test_samples = (np.array(test_epochs) * dataset.training_set.n_samples).astype(int)
         i=0

@@ -63,6 +63,18 @@ class DropoutSpec(PrimativeSpecifier):
         self.dropout_rate = dropout_rate
 
 
+class FullyConnectedSpec(PrimativeSpecifier):
+
+    def __init__(self, w, b):
+        """
+        :param w: A shape (n_inputs, n_outputs) Weight matrix
+        :param b: A bias of shape (n_outputs, ), or False if no bias is used.
+        """
+        assert w.ndim==2
+        assert b is False or (b.ndim==1 and w.shape[1] == len(b)), "Number of output maps must match"
+        self.w=w
+        self.b=b
+
 
 #
 # def conv_init_spec(n_maps, filter_size, mode):
