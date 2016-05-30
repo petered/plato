@@ -1,7 +1,7 @@
 from plato.core import clear_tdb_traces
 from plato.interfaces.decorators import symbolic_simple
 from plato.tools.misc.tdb_plotting import tdbplot
-from plotting.matplotlib_backend import ImagePlot, HistogramPlot
+from artemis.plotting.matplotlib_backend import ImagePlot, HistogramPlot
 from theano.tensor.shared_randomstreams import RandomStreams
 import numpy as np
 

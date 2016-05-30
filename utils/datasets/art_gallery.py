@@ -1,4 +1,4 @@
-from fileman.file_getter import get_file
+from artemis.fileman.file_getter import get_file
 from scipy.ndimage.io import imread
 from scipy.misc import imresize
 import os

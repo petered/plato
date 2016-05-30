@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from plato.core import symbolic_updater, symbolic_simple
-from general.numpy_helpers import get_rng
+from artemis.general.numpy_helpers import get_rng
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_squared_error
 from plato.tools.common.online_predictors import ISymbolicPredictor

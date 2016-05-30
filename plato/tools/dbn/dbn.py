@@ -1,4 +1,4 @@
-from general.should_be_builtins import bad_value
+from artemis.general.should_be_builtins import bad_value
 from plato.core import symbolic_multi, add_update
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.tools.optimization.optimizers import SimpleGradientDescent

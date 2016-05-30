@@ -1,6 +1,6 @@
 import time
-from general.checkpoint_counter import CheckPointCounter
-from general.should_be_builtins import bad_value
+from artemis.general.checkpoint_counter import CheckPointCounter
+from artemis.general.should_be_builtins import bad_value
 from utils.benchmarks.train_and_test import get_evaluation_function
 from collections import OrderedDict
 from utils.tools.iteration import checkpoint_minibatch_index_generator

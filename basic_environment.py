@@ -9,5 +9,5 @@ Useful for doing imports in IPython - just go:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from plotting.live_plotting import LiveStream, LiveCanal
-from plotting.easy_plotting import ezplot
+from artemis.plotting.live_plotting import LiveStream, LiveCanal
+from artemis.plotting.easy_plotting import ezplot

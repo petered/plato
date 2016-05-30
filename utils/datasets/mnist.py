@@ -1,8 +1,8 @@
 import pickle
-from general.should_be_builtins import memoize
+from artemis.general.should_be_builtins import memoize
 
 from utils.datasets.datasets import DataSet, DataCollection
-from fileman.file_getter import get_file, unzip_gz
+from artemis.fileman.file_getter import get_file, unzip_gz
 
 
 __author__ = 'peter'

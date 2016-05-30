@@ -1,10 +1,10 @@
-from general.test_mode import is_test_mode
+from artemis.general.test_mode import is_test_mode
 from plato.core import EnableOmniscence
 from plato.tools.dbn.dbn import DeepBeliefNet
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 import numpy as np
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from plotting.db_plotting import dbplot
+from artemis.plotting.db_plotting import dbplot
 from utils.benchmarks.train_and_test import percent_argmax_correct
 from utils.datasets.mnist import get_mnist_dataset
 from utils.tools.processors import OneHotEncoding
@@ -60,10 +60,8 @@ def demo_dbn_mnist(plot = True):
             if i % check_period == 0:
                 print 'Free Energy of Test Data: %s' % (free_energy_of_first_layer(dataset.test_set.input).mean())
                 if plot:
-                    dbplot({
-                        'weights': dbn._bridges['vis', 'hid'].w.get_value().T.reshape((-1, 28, 28)),
-                        'vis_sleep_state': train_first_layer.locals()['sleep_visible'][0].reshape((-1, 28, 28))
-                        })
+                    dbplot(dbn._bridges['vis', 'hid'].w.get_value().T.reshape((-1, 28, 28)), 'weights')
+                    dbplot(train_first_layer.locals()['sleep_visible'][0].reshape((-1, 28, 28)), 'vis_sleep_state')
 
         # Step 2: Train the second layer and simultanously compute the classification error from forward passes.
         for i, (n_samples, visible_data, label_data) in enumerate(dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = n_training_epochs_2, single_channel = True)):
@@ -73,12 +71,10 @@ def demo_dbn_mnist(plot = True):
                 score = percent_argmax_correct(actual = out, target = dataset.test_set.target)
                 print 'Classification Score: %s' % score
                 if plot:
-                    dbplot({
-                        'w_vis_hid': dbn._bridges['vis', 'hid'].w.T.reshape((-1, 28, 28)),
-                        'w_hid_ass': dbn._bridges['hid', 'ass'].w,
-                        'w_lab_ass': dbn._bridges['hid', 'ass'].w,
-                        'hidden_state': train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)),
-                        })
+                    dbplot(dbn._bridges['vis', 'hid'].w.T.reshape((-1, 28, 28)), 'w_vis_hid')
+                    dbplot(dbn._bridges['hid', 'ass'].w, 'w_hid_ass')
+                    dbplot(dbn._bridges['hid', 'ass'].w, 'w_lab_ass')
+                    dbplot(train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)), 'hidden_state')
 
 
 if __name__ == '__main__':

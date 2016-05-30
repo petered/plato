@@ -1,5 +1,5 @@
-from general.numpy_helpers import get_rng
-from general.should_be_builtins import bad_value
+from artemis.general.numpy_helpers import get_rng
+from artemis.general.should_be_builtins import bad_value
 from plato.interfaces.helpers import get_named_activation_function, batch_normalize
 from plato.core import create_shared_variable, symbolic_simple, symbolic_named_output, symbolic
 from plato.interfaces.interfaces import IParameterized

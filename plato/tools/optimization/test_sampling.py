@@ -1,4 +1,4 @@
-from general.test_mode import set_test_mode
+from artemis.general.test_mode import set_test_mode
 from plato.interfaces.helpers import get_theano_rng
 from plato.tools.optimization.sampling import compute_hypothetical_vs, p_w_given, p_x_given, SequentialIndexGenerator, \
     RandomIndexGenerator, OrderedIndexGenerator, RowIndexGenerator

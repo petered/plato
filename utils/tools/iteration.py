@@ -1,4 +1,4 @@
-from general.should_be_builtins import bad_value
+from artemis.general.should_be_builtins import bad_value
 import numpy as np
 
 __author__ = 'peter'

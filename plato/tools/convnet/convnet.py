@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 import numpy as np
 import theano.tensor as tt
-from general.numpy_helpers import get_rng
+from artemis.general.numpy_helpers import get_rng
 from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized

@@ -2,8 +2,8 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 import logging
-from general.local_capture import CaptureLocals
-from general.nested_structures import flatten_struct, expand_struct
+from artemis.general.local_capture import CaptureLocals
+from artemis.general.nested_structures import flatten_struct, expand_struct
 from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
@@ -734,6 +734,15 @@ def get_tdb_traces():
 
 
 def tdb_trace(var, name = None, callback = None):
+    """
+    Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
+    through the function get_tdb_traces()
+
+    :param var: A symbolic variable
+    :param name: The name that you like to use to refer to the variable.
+    :param callback: Optionally, a callback to add at the end.
+    :return:
+    """
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))

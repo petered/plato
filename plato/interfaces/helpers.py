@@ -97,6 +97,7 @@ def get_named_activation_function(activation_name):
         'relu': lambda x: tt.maximum(x, 0),
         'rect-lin': lambda x: tt.maximum(0, x),
         'linear': lambda x: x,
+        'softmax-last': tt.nnet.softmax,
         'softplus': lambda x: tt.nnet.softplus(x),
         'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
         'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),

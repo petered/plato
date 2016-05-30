@@ -1,4 +1,4 @@
-from fileman.file_getter import get_file
+from artemis.fileman.file_getter import get_file
 import re
 
 __author__ = 'peter'

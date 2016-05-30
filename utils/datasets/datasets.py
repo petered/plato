@@ -1,4 +1,4 @@
-from general.should_be_builtins import all_equal, bad_value
+from artemis.general.should_be_builtins import all_equal, bad_value
 import numpy as np
 from utils.tools.processors import OneHotEncoding
 

@@ -128,7 +128,7 @@ class AutoencodingLSTM(object):
     """
     An LSTM that learns to predict the next element in a sequence.
     """
-    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax', hidden_layer_type = 'tanh'):
+    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax-last', hidden_layer_type = 'tanh'):
 
         self.lstm = LSTMLayer.from_initializer(n_input=n_input, n_hidden=n_hidden, initializer_fcn=initializer_fcn,
             hidden_layer_type = hidden_layer_type)

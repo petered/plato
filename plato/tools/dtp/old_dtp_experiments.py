@@ -1,11 +1,11 @@
-from fileman.experiment_record import register_experiment, run_experiment
-from general.test_mode import is_test_mode
+from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.general.test_mode import is_test_mode
 import numpy as np
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, PreActivationDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax, RMSProp, GradientDescent
-from plotting.db_plotting import dbplot
+from artemis.plotting.db_plotting import dbplot
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors, assess_online_predictor
 from utils.benchmarks.train_and_test import percent_argmax_correct

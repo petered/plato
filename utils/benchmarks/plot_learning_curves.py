@@ -1,5 +1,5 @@
 from itertools import cycle
-from general.test_mode import is_test_mode
+from artemis.general.test_mode import is_test_mode
 import matplotlib.pyplot as plt
 from matplotlib.scale import ScaleBase, register_scale
 from matplotlib.ticker import NullFormatter, AutoLocator, ScalarFormatter, NullLocator

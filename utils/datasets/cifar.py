@@ -2,7 +2,7 @@ import pickle
 from artemis.plotting.db_plotting import dbplot
 import os
 from utils.datasets.datasets import DataSet, DataCollection
-from fileman.file_getter import get_file
+from artemis.fileman.file_getter import get_file
 import numpy as np
 
 

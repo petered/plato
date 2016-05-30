@@ -4,8 +4,8 @@ from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec,
 import theano
 from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet
 
-from fileman.file_getter import get_file
-from general.should_be_builtins import bad_value, memoize
+from artemis.fileman.file_getter import get_file
+from artemis.general.should_be_builtins import bad_value, memoize
 from scipy.io import loadmat
 import numpy as np
 from theano.gof.graph import Variable

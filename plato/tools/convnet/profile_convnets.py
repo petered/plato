@@ -1,9 +1,8 @@
 from functools import partial
 
 import theano
-from fileman.experiment_record import ExperimentLibrary, Experiment
-from fileman.file_getter import get_file
-from general.ezprofile import EZProfiler
+from artemis.fileman.experiment_record import ExperimentLibrary, Experiment
+from artemis.general.ezprofile import EZProfiler
 from plato.core import symbolic
 from plato.tools.pretrained_networks.vggnet import im2vgginput, get_vgg_net
 from utils.datasets.art_gallery import get_image

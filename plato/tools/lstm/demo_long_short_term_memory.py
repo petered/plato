@@ -1,5 +1,5 @@
-from general.newline_writer import TextWrappingPrinter
-from general.test_mode import is_test_mode
+from artemis.general.newline_writer import TextWrappingPrinter
+from artemis.general.test_mode import is_test_mode
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
 from utils.tools.iteration import minibatch_iterate
