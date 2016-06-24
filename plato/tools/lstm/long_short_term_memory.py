@@ -134,7 +134,10 @@ class AutoencodingLSTM(object):
             hidden_layer_type = hidden_layer_type)
         self.w_hz = create_shared_variable(initializer_fcn, (n_hidden, n_input))
         self.b_z = create_shared_variable(0, n_input)
-        self.output_activation = lambda x: softmax(x, axis=0) if input_layer_type=='softmax' else get_named_activation_function(input_layer_type)
+
+        self.output_activation = mysoftmax if input_layer_type=='softmax' else get_named_activation_function(input_layer_type)
+
+        # self.output_activation = lambda x: softmax(x, axis=0) if input_layer_type=='softmax' else get_named_activation_function(input_layer_type)
 
     def step(self, x, h = None, c = None):
         """
@@ -227,3 +230,13 @@ class AutoencodingLSTM(object):
     @property
     def parameters(self):
         return self.lstm.parameters + [self.w_hz, self.b_z]
+
+
+def mysoftmax(x):
+    # A little kludge we have to do because the build-in softmax is awkwardly restricted to being along the first
+    # axis.
+    if x.indim==1:
+        newx = x.dimshuffle('x', 0)
+        return tt.nnet.softmax(newx)[0]
+    elif x.indim==2:
+        return tt.nnet.softmax(x)
