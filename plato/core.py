@@ -40,9 +40,9 @@ These methods are described in the ISymbolicFunction interface below.
 """
 
 __author__ = 'peter'
-
+logging.basicConfig()
 PLATO_LOGGER = logging.getLogger('plato')
-PLATO_LOGGER.setLevel(logging.WARN)
+PLATO_LOGGER.setLevel(logging.INFO)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
@@ -272,12 +272,14 @@ class IFormat(object):
 
 
 def _detect_format(data):
-    if _is_tensor(data):
+    if data is None:
+        return NoOutputFormat
+    elif _is_tensor(data):
         return SingleOutputFormat
     elif _is_tuple_of_tensors(data):
         return MultiOutputFormat
-    elif data is None:
-        return NoOutputFormat
+    elif _is_tuple_of_tuples_of_tensors(data):
+        return CollectionOfCollectionsOfTensorsFormat
     elif _is_named_collection(data):
         return NamedCollectionFormat
     else:
@@ -287,6 +289,8 @@ def _detect_format(data):
 def convert_formats(data, src_format, dest_format):
 
     if src_format == dest_format:
+        if src_format == MultiOutputFormat and isinstance(data, list):
+            data = tuple(data)
         return data
     elif src_format is AnyReturnFormat:
         actual_src_format = _detect_format(data)
@@ -374,6 +378,15 @@ class NamedCollectionFormat(IFormat):
             raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
 
 
+class CollectionOfCollectionsOfTensorsFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_tuple_of_tuples_of_tensors(data):
+            raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
+
+
+
 class SymbolicFormatError(Exception):
     pass
 
@@ -384,6 +397,10 @@ def _is_tensor(arg):
 
 def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+
+
+def _is_tuple_of_tuples_of_tensors(args):
+    return isinstance(args, (list, tuple)) and all(_is_tuple_of_tensors(a) for a in args)
 
 
 def _is_named_collection(arg):
@@ -424,6 +441,16 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
     return trace_variables, trace_callbacks
+
+
+def flatten_tensor_struct(tensor_struct):
+    flat_struct = []
+    for t in tensor_struct:
+        if isinstance(t, (list, tuple)):
+            flat_struct += flatten_tensor_struct(t)
+        else:
+            flat_struct.append(t)
+    return flat_struct
 
 
 class AutoCompilingFunction(object):
@@ -489,7 +516,7 @@ class AutoCompilingFunction(object):
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
-            args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
+            args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
 
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
@@ -516,7 +543,7 @@ class AutoCompilingFunction(object):
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
             PLATO_LOGGER.info('Done.\n')
 
-        arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
+        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
@@ -603,6 +630,9 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         you have to do an initial pass on CPU, which can be slow.
     :return:
     """
+    if isinstance(data, (list, tuple)) and all(isinstance(d, np.ndarray) for d in data):
+        return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
+
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
 

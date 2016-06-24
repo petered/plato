@@ -64,10 +64,8 @@ def demo_rbm_mnist(
 
         def plot_fcn():
             lv = train_function.locals()
-            dbplot({
-                'visible-pos-chain': lv['wake_visible'].reshape((-1, 28, 28)),
-                'visible-neg-chain': lv['sleep_visible'].reshape((-1, 28, 28)),
-                })
+            dbplot(lv['wake_visible'].reshape((-1, 28, 28)), 'visible-pos-chain')
+            dbplot(lv['sleep_visible'].reshape((-1, 28, 28)), 'visible-neg-chain')
 
         for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
             train_function(visible_data)

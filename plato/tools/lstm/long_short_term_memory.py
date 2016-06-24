@@ -1,6 +1,6 @@
 from plato.core import add_update, symbolic_multi, symbolic_simple, create_shared_variable
 from plato.interfaces.decorators import symbolic_updater
-from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function
+from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function, softmax
 from plato.tools.optimization.cost import mean_xe
 from plato.tools.optimization.optimizers import AdaMax
 import theano
@@ -128,16 +128,26 @@ class AutoencodingLSTM(object):
     """
     An LSTM that learns to predict the next element in a sequence.
     """
-    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax-last', hidden_layer_type = 'tanh'):
+    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax', hidden_layer_type = 'tanh'):
 
         self.lstm = LSTMLayer.from_initializer(n_input=n_input, n_hidden=n_hidden, initializer_fcn=initializer_fcn,
             hidden_layer_type = hidden_layer_type)
         self.w_hz = create_shared_variable(initializer_fcn, (n_hidden, n_input))
         self.b_z = create_shared_variable(0, n_input)
-        self.output_activation = get_named_activation_function(input_layer_type)
+        self.output_activation = lambda x: softmax(x, axis=0) if input_layer_type=='softmax' else get_named_activation_function(input_layer_type)
 
     def step(self, x, h = None, c = None):
-
+        """
+        Perform a step of the autoencoding LSTM
+        :param x: (n_inputs, ) Inputs
+        :param h: (n_hidden, ) Hidden units
+        :param c: (n_hidden, )  Memory Cells
+        :return: out, h_next, c_next
+            Where:
+                out is (n_outputs, )
+                h_next has shape (n_hidden, )
+                c_next has shape (n_hidden, )
+        """
         h_next, c_next = self.lstm.step(x, h, c)
         out = self.output_activation(h_next.dot(self.w_hz)+self.b_z)  # Deref by zero just because annoyting softmax implementation.
         return out, h_next, c_next
@@ -170,8 +180,15 @@ class AutoencodingLSTM(object):
             n_total_steps = n_primer_steps+n_steps
 
             def do_step(i, x_, h_, c_):
+                """
+                i: The step number (int)
+                x_: An input vector
+                h_: A hiddens state vector
+                c_: A memory cell vector
+                """
                 y_prob, h, c = self.step(x_, h_, c_)
                 y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX), y_prob)
+                # y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob.dimshuffle('x', 1))[0].astype(theano.config.floatX), y_prob)
                 y = ifelse(i < n_primer_steps, primer[i], y_candidate)  # Note: If you get error here, you just need to prime with something on first call.
                 return y, h, c
             (x_gen, h_gen, c_gen), updates = theano.scan(

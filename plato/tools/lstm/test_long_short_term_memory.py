@@ -1,3 +1,4 @@
+from artemis.general.test_mode import set_test_mode
 from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
@@ -11,7 +12,6 @@ import pytest
 __author__ = 'peter'
 
 
-@pytest.mark.skipif(True, reason = 'Fails in pytest due to some weird reference-counter bug in theano.')
 def test_autoencoding_lstm(
         width = 8,
         seed = 1234):
@@ -58,10 +58,11 @@ def test_autoencoding_lstm(
     assert np.array_equal(seq, [5, 4, 3]), 'Bzzzz! It was %s' % (seq, )
 
 
-if __name__ == '__main__':
-
-    test_autoencoding_lstm()
-
-
 def test_demo_lstm():
     demo_lstm_novelist()
+
+if __name__ == '__main__':
+
+    set_test_mode(True)
+    test_autoencoding_lstm()
+    test_demo_lstm()

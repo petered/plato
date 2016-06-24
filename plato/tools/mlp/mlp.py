@@ -146,6 +146,7 @@ class FullyConnectedTransform(IParameterized):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self.w)
+        current = x.flatten(2).dot(self.w)
         # current = x.dot(self.w)
         # current = theano.dot(x, self.w)
         current = self.normalizer(current) if self.normalizer is not None else current
@@ -190,5 +191,4 @@ def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation 
     # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
     if output_activation != 'maxout':
         weights.append(w_init*rng.randn(layer_sizes[-2], layer_sizes[-1]))
-
     return MultiLayerPerceptron(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)

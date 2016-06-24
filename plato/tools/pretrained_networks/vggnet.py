@@ -1,6 +1,7 @@
 from collections import OrderedDict, namedtuple
 from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
 
+
 import theano
 from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet
 
@@ -174,13 +175,29 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
 
 
 
-def im2vgginput(im):
+def im2vgginput(im, shaping_mode = 'squeeze'):
     """
     :param im: A (size_y, size_x, 3) array representing a RGB image on a [0, 255] scale, or a
         (n_samples, size_y, size_x, 3) array representing an array of such images.
     :returns: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
 
     """
+    if im.shape[-2:-1] != (224, 224):
+        if shaping_mode == 'squeeze':
+            from scipy.misc.pilutil import imresize
+            # TODO: Test!
+            if im.ndim==3:
+                im = imresize(im, size=(224, 224))
+            elif im.ndim==4:
+                im = np.array([imresize(x, size=(224, 224)) for x in im])
+        elif shaping_mode == 'crop':
+            current_shape = im.shape[-3:-1]
+            assert current_shape[0]>=224 and current_shape[1]>=224, "Don't currently have padding implemented"
+            row_start, col_start = [(c-224)/2 for c in current_shape]
+            im = im[..., row_start:row_start+224, col_start:col_start+224, :]
+        else:
+            raise Exception('Unknown shaping mode: "%s"' % (shaping_mode, ))
+
     centered_bgr_im = im[..., ::-1] - np.array([103.939, 116.779, 123.68])
     # if im.ndim==4:
     #     feature_map_im = centered_bgr_im.dimshuffle('x', 2, 0, 1) if isinstance(centered_bgr_im, Variable) else np.rollaxis(centered_bgr_im, 2, 0)[None, :, :, :]
@@ -201,7 +218,7 @@ def vgginput2im(feat):
     return decentered_rgb_im
 
 
-def get_named_labels():
+def get_vggnet_labels():
     file_loc = get_file(
         relative_name='data/labels.txt',
         url = 'https://raw.githubusercontent.com/HoldenCaulfieldRye/caffe/master/data/ilsvrc12/synset_words.txt')

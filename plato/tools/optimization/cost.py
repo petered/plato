@@ -138,6 +138,7 @@ def get_named_cost_function(name):
         'nll': negative_log_likelihood,
         'nll-d': negative_log_likelihood_dangerous,
         'mse': mean_squared_error,
+        'mean_squared_error': mean_squared_error,
         'xe': mean_xe,
         'percent_correct': percent_correct,
         'cos': mean_cosine_distance,

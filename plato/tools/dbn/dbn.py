@@ -20,8 +20,8 @@ class DeepBeliefNet(object):
         assert all(src in layers and dest in layers for src, dest in bridges.viewkeys()), \
             'All bridges must project to and from layers'
         self._graph = FactorGraph(variables=layers, factors=bridges)
-        self._layers = layers
-        self._bridges = bridges
+        self.layers = layers
+        self.bridges = bridges
 
     def get_inference_function(self, input_layers, output_layers, path=None, smooth = False):
         """
@@ -102,8 +102,8 @@ class DeepBeliefNet(object):
             sleep_visible = self.get_inference_function(hidden_layers, visible_layers, gibbs_path)(*initial_hidden)
             sleep_hidden = propup(*sleep_visible)
 
-            all_params = sum([x.parameters for x in ([self._layers[i] for i in visible_layers]
-                +[self._layers[i] for i in hidden_layers]+[self._bridges[i, j] for i in visible_layers for j in hidden_layers])], [])
+            all_params = sum([x.parameters for x in ([self.layers[i] for i in visible_layers]
+                +[self.layers[i] for i in hidden_layers]+[self.bridges[i, j] for i in visible_layers for j in hidden_layers])], [])
 
             if method == 'free_energy':
                 cost = free_energy(*wake_visible).mean() - free_energy(*sleep_visible).mean()
@@ -136,7 +136,7 @@ class DeepBeliefNet(object):
         visible_layers = visible_layers if isinstance(visible_layers, (list, tuple)) else (visible_layers, )
         hidden_layers = hidden_layers if isinstance(hidden_layers, (list, tuple)) else (hidden_layers, )
 
-        bridges = {(src, dest): b for (src, dest), b in self._bridges.iteritems() if src in visible_layers and dest in hidden_layers}
+        bridges = {(src, dest): b for (src, dest), b in self.bridges.iteritems() if src in visible_layers and dest in hidden_layers}
 
         @symbolic_simple
         def free_energy(*visible_signals):
@@ -147,7 +147,7 @@ class DeepBeliefNet(object):
             visible_signals = {lay: sig for lay, sig in zip(visible_layers, visible_signals)}
             hidden_currents = {hid: sum([b(visible_signals[src]) for (src, dest), b in bridges.iteritems() if dest == hid]) for hid in hidden_layers}
             visible_contributions = [b.free_energy(visible_signals[src]) for (src, dest), b in bridges.iteritems()]
-            hidden_contributions = [self._layers[hid].free_energy(hidden_currents[hid]) for hid in hidden_layers]
+            hidden_contributions = [self.layers[hid].free_energy(hidden_currents[hid]) for hid in hidden_layers]
             # Note: Need to add another term for Gaussian RBMs, which have a the sigma parameter attached to the visible layer
             return sum(visible_contributions+hidden_contributions)
 

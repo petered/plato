@@ -85,7 +85,6 @@ def softmax(x, axis=1):
     return e_x / e_x.sum(axis=axis, keepdims=True)
 
 
-
 def get_named_activation_function(activation_name):
     fcn = {
         'softmax': softmax,
@@ -96,7 +95,6 @@ def get_named_activation_function(activation_name):
         'exp': lambda x: tt.exp(x),
         'relu': lambda x: tt.maximum(x, 0),
         'rect-lin': lambda x: tt.maximum(0, x),
-        'linear': lambda x: x,
         'softmax-last': tt.nnet.softmax,
         'softplus': lambda x: tt.nnet.softplus(x),
         'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),

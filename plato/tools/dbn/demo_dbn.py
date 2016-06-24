@@ -25,7 +25,8 @@ def demo_dbn_mnist(plot = True):
     n_training_epochs_2 = 20
     check_period = 300
 
-    with EnableOmniscence():
+    with EnableOmniscence():  # This constrction allows us to access internal variables for plotting purposes.  When you
+        # call fcn.locals() on a symbolic function you can get the values of their variables.
 
         if is_test_mode():
             n_training_epochs_1 = 0.01
@@ -60,7 +61,7 @@ def demo_dbn_mnist(plot = True):
             if i % check_period == 0:
                 print 'Free Energy of Test Data: %s' % (free_energy_of_first_layer(dataset.test_set.input).mean())
                 if plot:
-                    dbplot(dbn._bridges['vis', 'hid'].w.get_value().T.reshape((-1, 28, 28)), 'weights')
+                    dbplot(dbn.bridges['vis', 'hid'].w.get_value().T.reshape((-1, 28, 28)), 'weights')
                     dbplot(train_first_layer.locals()['sleep_visible'][0].reshape((-1, 28, 28)), 'vis_sleep_state')
 
         # Step 2: Train the second layer and simultanously compute the classification error from forward passes.
@@ -71,9 +72,9 @@ def demo_dbn_mnist(plot = True):
                 score = percent_argmax_correct(actual = out, target = dataset.test_set.target)
                 print 'Classification Score: %s' % score
                 if plot:
-                    dbplot(dbn._bridges['vis', 'hid'].w.T.reshape((-1, 28, 28)), 'w_vis_hid')
-                    dbplot(dbn._bridges['hid', 'ass'].w, 'w_hid_ass')
-                    dbplot(dbn._bridges['hid', 'ass'].w, 'w_lab_ass')
+                    dbplot(dbn.bridges['vis', 'hid'].w.get_value().T.reshape((-1, 28, 28)), 'w_vis_hid')
+                    dbplot(dbn.bridges['hid', 'ass'].w.get_value(), 'w_hid_ass')
+                    dbplot(dbn.bridges['hid', 'ass'].w.get_value(), 'w_lab_ass')
                     dbplot(train_second_layer.locals()['sleep_visible'][0].reshape((-1, 20, 25)), 'hidden_state')
 
 
