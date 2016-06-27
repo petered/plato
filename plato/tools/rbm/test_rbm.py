@@ -1,3 +1,4 @@
+from artemis.general.test_mode import set_test_mode
 from plato.tools.rbm.demo_rbm import demo_rbm_mnist
 from plato.tools.rbm.demo_rbm_tutorial import demo_rbm_tutorial
 
@@ -10,3 +11,9 @@ def test_demo_rbm_mnist():
 
 def test_rbm_tutorial():
     demo_rbm_tutorial()
+
+
+if __name__ == '__main__':
+    set_test_mode(True)
+    test_demo_rbm_mnist()
+    test_rbm_tutorial()
