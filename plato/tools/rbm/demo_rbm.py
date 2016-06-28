@@ -43,6 +43,7 @@ def demo_rbm_mnist(
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
     with EnableOmniscence():
+        # EnableOmniscence allows us to plot internal variables (by referencing the .locals() attribute of a symbolic function.. see plot_fcn below)
 
         if is_test_mode():
             n_epochs = 0.01
