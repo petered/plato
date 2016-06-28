@@ -1,5 +1,5 @@
-from fileman.file_getter import get_file
-from general.should_be_builtins import memoize
+from artemis.fileman.file_getter import get_file
+from artemis.general.should_be_builtins import memoize
 import numpy as np
 from utils.datasets.datasets import DataSet
 

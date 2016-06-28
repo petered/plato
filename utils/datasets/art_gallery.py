@@ -1,4 +1,4 @@
-from fileman.file_getter import get_file
+from artemis.fileman.file_getter import get_file
 from scipy.ndimage.io import imread
 from scipy.misc import imresize
 import os
@@ -17,7 +17,11 @@ IMAGE_COLLECTION = {
     'the_shipwreck_of_the_minotaur': 'https://upload.wikimedia.org/wikipedia/commons/2/2e/Shipwreck_turner.jpg',
     'scream': 'https://en.wikipedia.org/wiki/The_Scream#/media/File:The_Scream.jpg',
     'femme_nue_assise': 'https://upload.wikimedia.org/wikipedia/en/8/8f/Pablo_Picasso%2C_1909-10%2C_Figure_dans_un_Fauteuil_%28Seated_Nude%2C_Femme_nue_assise%29%2C_oil_on_canvas%2C_92.1_x_73_cm%2C_Tate_Modern%2C_London.jpg',
-    'composition_vii': 'https://upload.wikimedia.org/wikipedia/commons/b/b4/Vassily_Kandinsky%2C_1913_-_Composition_7.jpg'
+    'composition_vii': 'https://upload.wikimedia.org/wikipedia/commons/b/b4/Vassily_Kandinsky%2C_1913_-_Composition_7.jpg',
+    'dog': 'http://www.dogchannel.com/images/articles/breed_profile_images/canaan-dog.jpg',
+    'sea_turtle': 'https://en.wikipedia.org/wiki/Turtle#/media/File:TurtleOmaha.jpg',
+    'heron': 'https://upload.wikimedia.org/wikipedia/commons/e/e6/Heron_tricol_01.JPG',
+    'matthias': 'https://ivi.fnwi.uva.nl/quva/wp-content/uploads/2015/08/matthias.jpg',
     }
 
 def get_image(name, size = None):
@@ -34,6 +38,8 @@ def get_image(name, size = None):
         url = IMAGE_COLLECTION[name],
         )
     im_array = imread(filename)
+    if im_array.ndim==2:
+        im_array = im_array[:, :, None] + [0, 0, 0]
     if size is not None:
         im_array = imresize(im_array, get_new_size(im_array.shape[:2], new_size=size))
     return im_array
@@ -54,7 +60,7 @@ def get_new_size((cy, cx), new_size):
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
-    im_name = 'limbo'
+    im_name = 'manchester_newyear'
     im = get_image(im_name)
     plt.imshow(im)
     plt.title(im_name)

@@ -1,10 +1,10 @@
-from general.should_be_builtins import bad_value
-from general.test_mode import is_test_mode
+from artemis.general.should_be_builtins import bad_value
+from artemis.general.test_mode import is_test_mode
 from plato.core import EnableOmniscence
 from plato.tools.rbm.restricted_boltzmann_machine import simple_rbm
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
-from plotting.db_plotting import dbplot
+from artemis.plotting.db_plotting import dbplot
 import theano
 from utils.tools.iteration import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
@@ -43,6 +43,7 @@ def demo_rbm_mnist(
     As learning progresses, visible-neg-chain and visible-sample should increasingly resemble the data.
     """
     with EnableOmniscence():
+        # EnableOmniscence allows us to plot internal variables (by referencing the .locals() attribute of a symbolic function.. see plot_fcn below)
 
         if is_test_mode():
             n_epochs = 0.01
@@ -64,10 +65,8 @@ def demo_rbm_mnist(
 
         def plot_fcn():
             lv = train_function.locals()
-            dbplot({
-                'visible-pos-chain': lv['wake_visible'].reshape((-1, 28, 28)),
-                'visible-neg-chain': lv['sleep_visible'].reshape((-1, 28, 28)),
-                })
+            dbplot(lv['wake_visible'].reshape((-1, 28, 28)), 'visible-pos-chain')
+            dbplot(lv['sleep_visible'].reshape((-1, 28, 28)), 'visible-neg-chain')
 
         for i, visible_data in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
             train_function(visible_data)

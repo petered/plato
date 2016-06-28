@@ -1,8 +1,8 @@
-from fileman.experiment_record import register_experiment, run_experiment
-from general.test_mode import is_test_mode
+from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.general.test_mode import is_test_mode
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.gaussian_variational_autoencoder import GaussianVariationalAutoencoder
-from plotting.db_plotting import dbplot
+from artemis.plotting.db_plotting import dbplot
 from utils.tools.iteration import minibatch_iterate
 from utils.datasets.mnist import get_mnist_dataset
 import numpy as np

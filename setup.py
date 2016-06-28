@@ -3,9 +3,6 @@
 from setuptools import setup
 import plato
 import utils
-import plotting
-import general
-
 
 setup(name='plato',
       author='Plato',

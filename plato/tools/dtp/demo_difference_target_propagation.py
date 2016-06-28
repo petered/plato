@@ -1,14 +1,14 @@
 from collections import OrderedDict
 from functools import partial
-from fileman.experiment_record import run_experiment, register_experiment, ExperimentLibrary, Experiment
-from general.test_mode import is_test_mode
+from artemis.fileman.experiment_record import run_experiment, register_experiment, ExperimentLibrary, Experiment
+from artemis.general.test_mode import is_test_mode
+from artemis.plotting.pyplot_plus import set_default_figure_size
 from plato.tools.dtp.difference_target_prop_variations import PreActivationDifferenceTargetLayer, LinearDifferenceTargetMLP
 from plato.tools.optimization.cost import mean_squared_error
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
-from plotting.matplotlib_backend import set_default_figure_size
 from utils.benchmarks.plot_learning_curves import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors
 from utils.benchmarks.train_and_test import percent_argmax_correct
@@ -21,7 +21,8 @@ __author__ = 'peter'
 
 
 def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240], output_activation = 'sigm',
-        hidden_activation = 'tanh', optimizer = 'adamax', learning_rate = 0.01, noise = 1, w_init=0.01, rng = None):
+        hidden_activation = 'tanh', optimizer = 'adamax', learning_rate = 0.01, noise = 1, w_init=0.01,
+        use_bias = True, rng = None):
     """
     Specify parameters that will allow you to construct a predictor
 
@@ -41,6 +42,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
                 layer_sizes = [input_size] + hidden_sizes + [target_size],
                 hidden_activation=hidden_activation,
                 output_activation=output_activation,
+                use_bias = use_bias,
                 w_init = w_init,
                 rng = rng
                 ),
@@ -58,6 +60,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             w_init_mag=w_init,
             noise = noise,
             rng = rng,
+            use_bias = use_bias,
             ).compile(),
         'PreAct-DTP': lambda: DifferenceTargetMLP.from_initializer(
             input_size = input_size,
@@ -71,6 +74,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             noise = noise,
             layer_constructor = PreActivationDifferenceTargetLayer.from_initializer,
             rng = rng,
+            use_bias = use_bias,
             ).compile(),
         'Linear-DTP': lambda: LinearDifferenceTargetMLP.from_initializer(
             input_size = input_size,
@@ -83,6 +87,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             w_init_mag=w_init,
             noise = noise,
             rng = rng,
+            use_bias = use_bias,
             # layer_constructor = LinearDifferenceTargetLayer.from_initializer
             ).compile(),
         }[predictor_type]()
@@ -100,6 +105,7 @@ def demo_dtp_varieties(
         noise = 1,
         predictors = ['MLP', 'DTP', 'PreAct-DTP', 'Linear-DTP'],
         rng = 1234,
+        use_bias = True,
         live_plot = False,
         plot = False
         ):
@@ -126,7 +132,7 @@ def demo_dtp_varieties(
 
     predictors = OrderedDict((name, get_predictor(name, input_size = dataset.input_size, target_size=dataset.target_size,
             hidden_sizes=hidden_sizes, hidden_activation=hidden_activation, output_activation = output_activation,
-            optimizer=optimizer, learning_rate=learning_rate, noise = noise, rng = rng)) for name in predictors)
+            optimizer=optimizer, learning_rate=learning_rate, noise = noise, use_bias = use_bias, rng = rng)) for name in predictors)
 
     learning_curves = compare_predictors(
         dataset=dataset,
@@ -156,6 +162,46 @@ ExperimentLibrary.standard_dtp = Experiment(
             MLP: 97.32
             DTP: 96.61
 
+        """
+    )
+
+
+ExperimentLibrary.hidden_types = Experiment(
+    function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP'], n_epochs = 20),
+    description="""Lets see change hidden units and try with and without bias.  In our basic spliking implementation,
+        our units are like ReLUs with no bias... If relu with no-bias performs badly here, then maybe this is the reason
+        that our spiking DTP is performing badly.""",
+    versions = {
+        'relu_withbias': dict(hidden_activation='relu', use_bias=True, rng=0),
+        'tanh_withbias': dict(hidden_activation='tanh', use_bias=True, rng=0),
+        'relu_sansbias': dict(hidden_activation='relu', use_bias=False, rng=0),
+        'tanh_sansbias': dict(hidden_activation='tanh', use_bias=False, rng=0),
+        'relu_slowlearn_withbias': dict(hidden_activation='relu', use_bias=True, rng=0, learning_rate=0.002),
+        'relu_slowlearn_sansbias': dict(hidden_activation='relu', use_bias=False, rng=0, learning_rate=0.002),
+    },
+    current_version='relu_slowlearn_sansbias',
+    conclusion = """
+        learning_rate = 0.01 (default)
+
+        relu_withbias
+            MLP: 98.00
+            DTP: 9.91
+        tanh_withbias
+            MLP: 97.69
+            DTP: 96.48
+        relu_sansbias
+            MLP: 98.02
+            DTP: 9.91 (kaboom)
+        tanh_sansbias
+            MLP: 97.63
+            DTP: 96.68
+        relu_slowlearn_withbias
+            DTP: 9.91
+        relu_slowlearn_sansbias
+            DTP: 9.91
+
+        Conclusion: ReLU units cause some instability in DTP.
+        tanh always work reasonably well.
         """
     )
 
@@ -242,4 +288,4 @@ ExperimentLibrary.compare_dtp_optimizers = Experiment(
 
 
 if __name__ == '__main__':
-    run_experiment('standard_dtp')
+    ExperimentLibrary.hidden_types.run()

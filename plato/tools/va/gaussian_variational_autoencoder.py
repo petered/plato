@@ -1,4 +1,4 @@
-from general.numpy_helpers import get_rng
+from artemis.general.numpy_helpers import get_rng
 import numpy as np
 from plato.core import symbolic, symbolic_updater, symbolic_simple, tdbprint
 from plato.interfaces.helpers import get_theano_rng

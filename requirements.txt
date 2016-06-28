@@ -1,7 +1,8 @@
 numpy
 scipy
-Theano==0.8.0
 matplotlib
 scikit-learn
-ipython[notebook]
 pytest
+pillow
+Theano==0.8.0
+-e git+http://github.com/QUVA-Lab/artemis.git#egg=artemis

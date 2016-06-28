@@ -1,5 +1,5 @@
-from fileman.experiment_record import register_experiment, run_experiment
-from general.test_mode import is_test_mode
+from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.general.test_mode import is_test_mode
 from plato.tools.regressors.online_regressor import OnlineRegressor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from utils.benchmarks.plot_learning_curves import plot_learning_curves

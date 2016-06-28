@@ -1,5 +1,5 @@
 from abc import abstractproperty, abstractmethod
-from general.should_be_builtins import bad_value
+from artemis.general.should_be_builtins import bad_value
 import numpy as np
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function

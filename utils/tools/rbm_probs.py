@@ -1,5 +1,5 @@
-from general.numpy_helpers import get_rng
-from general.mymath import sigm, binary_permutations, cummean
+from artemis.general.numpy_helpers import get_rng
+from artemis.general.mymath import sigm, binary_permutations, cummean
 import numpy as np
 from sklearn.svm.classes import LinearSVC
 from utils.benchmarks.train_and_test import percent_correct

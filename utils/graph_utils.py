@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from general.should_be_builtins import bad_value
+from artemis.general.should_be_builtins import bad_value
 from collections import Counter
 
 __author__ = 'peter'

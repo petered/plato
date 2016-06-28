@@ -1,4 +1,4 @@
-from general.numpy_helpers import get_rng
+from artemis.general.numpy_helpers import get_rng
 from plato.core import add_update
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer, DifferenceTargetMLP

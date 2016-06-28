@@ -1,4 +1,4 @@
-from general.mymath import softmax
+from artemis.general.mymath import softmax
 from plato.tools.optimization.cost import percent_correct, mean_squared_error, negative_log_likelihood, \
     softmax_negative_log_likelihood, normalized_negative_log_likelihood
 import numpy as np

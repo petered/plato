@@ -79,9 +79,15 @@ normalize= lambda x, axis = None: x/(x.sum(axis=axis, keepdims = True) + 1e-9)
 normalize_safely= lambda x, axis = None, degree = 1: x/((x**degree).sum(axis=axis, keepdims = True) + 1)**(1./degree)
 
 
+def softmax(x, axis=1):
+    # Slightly more general than theano's softmax, in that it works on arbitrarily shaped arrays
+    e_x = tt.exp(x - x.max(axis=axis, keepdims=True))
+    return e_x / e_x.sum(axis=axis, keepdims=True)
+
+
 def get_named_activation_function(activation_name):
     fcn = {
-        'softmax': lambda x: softmax(x, axis = -1),
+        'softmax': softmax,
         'sigm': tt.nnet.sigmoid,
         'sig': tt.nnet.sigmoid,
         'tanh': tt.tanh,
@@ -89,7 +95,7 @@ def get_named_activation_function(activation_name):
         'exp': lambda x: tt.exp(x),
         'relu': lambda x: tt.maximum(x, 0),
         'rect-lin': lambda x: tt.maximum(0, x),
-        'linear': lambda x: x,
+        'softmax-last': tt.nnet.softmax,
         'softplus': lambda x: tt.nnet.softplus(x),
         'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
         'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),

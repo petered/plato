@@ -1,4 +1,4 @@
-from general.test_mode import is_test_mode, set_test_mode
+from artemis.general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor

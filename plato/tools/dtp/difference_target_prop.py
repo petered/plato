@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from plato.core import symbolic_updater, symbolic_simple
-from general.numpy_helpers import get_rng
+from artemis.general.numpy_helpers import get_rng
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_squared_error
 from plato.tools.common.online_predictors import ISymbolicPredictor
@@ -35,7 +35,7 @@ class ITargetPropLayer(object):
 class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
 
     def __init__(self, w, b, w_rev, b_rev, backward_activation = 'tanh', forward_activation = 'tanh', rng = None, noise = 1,
-                 optimizer_constructor = lambda: SimpleGradientDescent(0.01), cost_function = mean_squared_error):
+                 optimizer_constructor = lambda: SimpleGradientDescent(0.01), cost_function = mean_squared_error, use_bias=True):
 
         self.noise = noise
         self.rng = get_theano_rng(rng)
@@ -48,6 +48,7 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
         self.forward_optimizer = optimizer_constructor()
         self.backward_optimizer = optimizer_constructor()
         self.cost_function = cost_function
+        self.use_bias = use_bias
 
     @symbolic_simple
     def predict(self, x):
@@ -62,7 +63,7 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
         out = self.predict(x)
         self.forward_optimizer(
             cost = self.cost_function(out, target),
-            parameters = [self.w, self.b],
+            parameters = [self.w, self.b] if self.use_bias else [self.w],
             constants = [target]
             )  # The "constants" (above) is really important - otherwise it can just try to change the target (which is a function of the weights too).
         noisy_x = x + self.noise*self.rng.normal(size = x.tag.test_value.shape)
@@ -70,7 +71,7 @@ class DifferenceTargetLayer(ITargetPropLayer, ISymbolicPredictor):
             recon = self.backward(self.predict(noisy_x))
             self.backward_optimizer(
                 cost = self.cost_function(recon, noisy_x),
-                parameters = [self.w_rev, self.b_rev])
+                parameters = [self.w_rev, self.b_rev] if self.use_bias else [self.w_rev])
 
     @symbolic_simple
     def backpropagate_target(self, x, target):

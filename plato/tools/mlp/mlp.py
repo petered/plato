@@ -1,10 +1,11 @@
-from general.numpy_helpers import get_rng
-from general.should_be_builtins import bad_value
+from artemis.general.numpy_helpers import get_rng
+from artemis.general.should_be_builtins import bad_value
 from plato.interfaces.helpers import get_named_activation_function, batch_normalize
-from plato.core import create_shared_variable, symbolic_simple
+from plato.core import create_shared_variable, symbolic_simple, symbolic_named_output, symbolic
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 import numpy as np
+import theano
 
 
 @symbolic_simple
@@ -47,6 +48,14 @@ class MultiLayerPerceptron(IParameterized):
         for lay in self.layers:
             x = lay(x)
         return x
+
+    @symbolic
+    def get_layer_activations(self, x):
+        activations = []
+        for lay in self.layers:
+            x = lay(x)
+            activations.append(x)
+        return tuple(activations)
 
     @property
     def parameters(self):
@@ -137,6 +146,9 @@ class FullyConnectedTransform(IParameterized):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self.w)
+        current = x.flatten(2).dot(self.w)
+        # current = x.dot(self.w)
+        # current = theano.dot(x, self.w)
         current = self.normalizer(current) if self.normalizer is not None else current
         if self.log_scale is not None:
             current = current * tt.exp(self.log_scale)
@@ -179,5 +191,4 @@ def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation 
     # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
     if output_activation != 'maxout':
         weights.append(w_init*rng.randn(layer_sizes[-2], layer_sizes[-1]))
-
     return MultiLayerPerceptron(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)

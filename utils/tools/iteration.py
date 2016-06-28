@@ -1,4 +1,4 @@
-from general.should_be_builtins import bad_value
+from artemis.general.should_be_builtins import bad_value
 import numpy as np
 
 __author__ = 'peter'
@@ -22,7 +22,7 @@ def minibatch_index_generator(n_samples, minibatch_size, n_epochs = 1, final_tre
     true_minibatch_size = n_samples if minibatch_size == 'full' else \
         minibatch_size if isinstance(minibatch_size, int) else \
         bad_value(minibatch_size)
-    remaining_samples = int(n_epochs * n_samples)
+    remaining_samples = int(n_epochs * n_samples) if not np.isinf(n_epochs) else np.inf
     base_indices = np.arange(minibatch_size)
     standard_indices = (lambda: slice(i, i+minibatch_size)) if slice_when_possible else (lambda: base_indices+i)
     i = 0

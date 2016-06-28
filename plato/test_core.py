@@ -457,10 +457,12 @@ def test_ival_ishape():
         assert c.ishape == (a.ishape[0], b.ishape[1])
         return c
 
-    foo = np.random.randn(3, 4)
-    bar = np.random.randn(3, 3)
-    baz = np.random.randn(4, 5)
-    hap = np.random.randint(255, size = (4, 5))
+    rng = np.random.RandomState(1234)
+
+    foo = rng.randn(3, 4)
+    bar = rng.randn(3, 3)
+    baz = rng.randn(4, 5)
+    hap = rng.randint(255, size = (4, 5))
 
     f = mat_mult.compile()
     with raises(AssertionError):
@@ -511,6 +513,7 @@ def test_named_outputs_with_trace():
 
 
 if __name__ == '__main__':
+
     test_ival_ishape()
     test_catch_sneaky_updates()
     test_catch_non_updates()

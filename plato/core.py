@@ -2,9 +2,9 @@ from collections import OrderedDict
 from functools import partial
 import inspect
 import logging
-import sys
-from general.local_capture import CaptureLocals
-from general.nested_structures import flatten_struct, expand_struct
+from artemis.general.local_capture import CaptureLocals
+from artemis.general.nested_structures import flatten_struct, expand_struct
+from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
@@ -40,9 +40,9 @@ These methods are described in the ISymbolicFunction interface below.
 """
 
 __author__ = 'peter'
-
-PLATO_LOGGER = logging.getLogger('PlatoLogger')
-PLATO_LOGGER.setLevel(logging.WARN)
+logging.basicConfig()
+PLATO_LOGGER = logging.getLogger('plato')
+PLATO_LOGGER.setLevel(logging.INFO)
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
@@ -272,12 +272,14 @@ class IFormat(object):
 
 
 def _detect_format(data):
-    if _is_tensor(data):
+    if data is None:
+        return NoOutputFormat
+    elif _is_tensor(data):
         return SingleOutputFormat
     elif _is_tuple_of_tensors(data):
         return MultiOutputFormat
-    elif data is None:
-        return NoOutputFormat
+    elif _is_tuple_of_tuples_of_tensors(data):
+        return CollectionOfCollectionsOfTensorsFormat
     elif _is_named_collection(data):
         return NamedCollectionFormat
     else:
@@ -287,6 +289,8 @@ def _detect_format(data):
 def convert_formats(data, src_format, dest_format):
 
     if src_format == dest_format:
+        if src_format == MultiOutputFormat and isinstance(data, list):
+            data = tuple(data)
         return data
     elif src_format is AnyReturnFormat:
         actual_src_format = _detect_format(data)
@@ -374,6 +378,15 @@ class NamedCollectionFormat(IFormat):
             raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
 
 
+class CollectionOfCollectionsOfTensorsFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_tuple_of_tuples_of_tensors(data):
+            raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
+
+
+
 class SymbolicFormatError(Exception):
     pass
 
@@ -386,10 +399,14 @@ def _is_tuple_of_tensors(args):
     return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
 
 
+def _is_tuple_of_tuples_of_tensors(args):
+    return isinstance(args, (list, tuple)) and all(_is_tuple_of_tensors(a) for a in args)
+
+
 def _is_named_collection(arg):
     if not isinstance(arg, dict):
         return False
-    if not all(isinstance(k, basestring) for k in arg.keys()):
+    if not all(isinstance(k, (basestring, int)) for k in arg.keys()):
         return False
     if not all(_is_tensor(v) for v in arg.values()):
         return False
@@ -424,6 +441,16 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
     return trace_variables, trace_callbacks
+
+
+def flatten_tensor_struct(tensor_struct):
+    flat_struct = []
+    for t in tensor_struct:
+        if isinstance(t, (list, tuple)):
+            flat_struct += flatten_tensor_struct(t)
+        else:
+            flat_struct.append(t)
+    return flat_struct
 
 
 class AutoCompilingFunction(object):
@@ -489,7 +516,7 @@ class AutoCompilingFunction(object):
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()
-            args_and_kwarg_tensors = tensor_args + tensor_kwargs.values()
+            args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
 
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
@@ -512,11 +539,11 @@ class AutoCompilingFunction(object):
                 self._n_trace_vars = len(trace_variables)
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
-            PLATO_LOGGER.info('Compiling %s...' % (self._original_fcn.fcn_str(), ))
+            PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
             PLATO_LOGGER.info('Done.\n')
 
-        arg_and_kwarg_values = args + tuple(kwargs[k] for k in self._kwarg_order)
+        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
@@ -603,6 +630,9 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         you have to do an initial pass on CPU, which can be slow.
     :return:
     """
+    if isinstance(data, (list, tuple)) and all(isinstance(d, np.ndarray) for d in data):
+        return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
+
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
 
@@ -616,7 +646,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
                 "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
                 "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
-    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, np.ndarray) and x.dtype == dtype
+    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype
 
     # Need to also downcast ints to int32 if floatX is float32, otherwise things like int_array.mean() return float64
     # objects, which (a) slows things down and (b) causes an error when you try to update 32-bit shared variabkles
@@ -629,9 +659,24 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         'float64' if isinstance(data, float) else \
         'int8' if data.dtype==bool else \
         data.dtype
-    tensor = TensorType(dtype, (None, )*ndim)(name)
-    if add_test_value:
-        tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
+    if isinstance(data, csr_matrix):
+        # Here we make a bunch of hacks to accomodate sparse matrices so that we don't have to change any of our other
+        # code when handling them.   This was assembled in haste before a deadline.  Possibly it could be cleaner.  Probably.
+        from theano import sparse
+        tensor = sparse.csr_matrix(name='unnamed' if name is None else name, dtype=dtype, )
+        if add_test_value:
+            tensor.tag.test_value = data.astype(theano.config.floatX)
+        # Do what theano couldn't and add the dot method to sparse
+        def flattenit(var, ndim):
+            assert var.indim == ndim, "This is a horrendous hack.  We don't actually flatten, we just check to see if it's the right shape.  It's not.  Also it needs test values on to work."
+            return var
+        sparse.SparseVariable.flatten = property(lambda self: lambda ndim: flattenit(self, ndim))
+        sparse.SparseVariable.dot = property(lambda self: lambda other: theano.dot(self, other))
+
+    else:
+        tensor = TensorType(dtype, (None, )*ndim)(name)
+        if add_test_value:
+            tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
 
@@ -719,6 +764,15 @@ def get_tdb_traces():
 
 
 def tdb_trace(var, name = None, callback = None):
+    """
+    Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
+    through the function get_tdb_traces()
+
+    :param var: A symbolic variable
+    :param name: The name that you like to use to refer to the variable.
+    :param callback: Optionally, a callback to add at the end.
+    :return:
+    """
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
@@ -793,13 +847,39 @@ class StateCatcher(object):
         _set_state_catcher(self._outer_catcher)
 
     def add_update(self, shared_var, new_val):
-        assert shared_var not in self._updates, "You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s" % (shared_var, new_val, self._updates[shared_var])
-        self._updates[shared_var] = new_val
+        if shared_var in self._updates:
+            if _ACCUMULATE_UPDATES:
+                self._updates[shared_var] = self._updates[shared_var] + new_val - shared_var  # (w+dw1)+(w+dw2)-w = w+dw1+dw2
+            else:
+                raise AssertionError("You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s.\nIf you want to accumulate both updates, call your update from inside a 'with AccumulateUpdates():'" % (shared_var, new_val, self._updates[shared_var]))
+        else:
+            self._updates[shared_var] = new_val
         if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self):
         return self._updates.items()
+
+
+_ACCUMULATE_UPDATES = False
+
+
+class AccumulateUpdates():
+    """
+    Use this object to enable update accumulation... For example if some parameter w is being used to optimize two
+    different objectives, you may want to add them: w_new = w + delta_w_1 + delta_w_2.  It's generally best to avoid
+    this, and instead add the gradients, and update those with a single optimizer, but this we provide this anyway
+    because we at Plato believe you should be able to hurt yourself if you want to.
+    """
+
+    def __enter__(self, ):
+        global _ACCUMULATE_UPDATES
+        self._oldstate = _ACCUMULATE_UPDATES
+        _ACCUMULATE_UPDATES = True
+
+    def __exit__(self, *args):
+        global _ACCUMULATE_UPDATES
+        _ACCUMULATE_UPDATES = self._oldstate
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):
