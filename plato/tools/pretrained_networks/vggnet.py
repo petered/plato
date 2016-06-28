@@ -1,16 +1,14 @@
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
+
 from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
-
-
 import theano
-from plato.tools.convnet.convnet import ConvLayer, Nonlinearity, Pooler, ConvNet
-
+from plato.tools.convnet.convnet import ConvNet
 from artemis.fileman.file_getter import get_file
 from artemis.general.should_be_builtins import bad_value, memoize
 from scipy.io import loadmat
 import numpy as np
 from theano.gof.graph import Variable
-import theano.tensor as tt
+
 
 __author__ = 'peter'
 
@@ -83,11 +81,6 @@ def get_vgg_layer_specifiers(up_to_layer=None):
     return network_layers
 
 
-
-
-
-
-
 def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1):
     """
     Load the 19-layer VGGNet.
@@ -112,67 +105,6 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
                 spec.b *= scale_biases
 
     return ConvNet.from_init(layer_specs, input_shape=(3, 224, 224), force_shared_parameters = force_shared_parameters)
-
-    # layer_constructor = lambda spec: {
-    #     ConvolverSpec: lambda: ConvLayer(
-    #         w=spec.w,
-    #         b=spec.b if scale_biases==1 else spec.b*scale_biases,
-    #         force_shared_parameters=force_shared_parameters,
-    #         border_mode= {'full': 0, 'same': 1}[spec.mode],
-    #         filter_flip=False
-    #         ),
-    #     NonlinearitySpec: Nonlinearity(spec.type),
-    #     PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
-    #     }[spec.__class__]()
-    # layers = OrderedDict((name, layer_constructor(spec)) for name, spec in layer_specs.iteritems())
-    # return ConvNet(layers)
-
-
-    # filename = get_file(
-    #     relative_name='data/vgg-19.mat',
-    #     url='http://www.vlfeat.org/matconvnet/models/imagenet-vgg-verydeep-19.mat',
-    # )
-    # network_params = loadmat(filename)
-    #
-    # def struct_to_layer(struct):
-    #     layer_type = struct[1][0]
-    #     layer_name = str(struct[0][0])
-    #     assert isinstance(layer_type, basestring)
-    #     if layer_type == 'conv':
-    #         w_orig = struct[2][0, 0]  # (n_rows, n_cols, n_in_maps, n_out_maps)
-    #         # (n_out_maps, n_in_maps, n_rows, n_cols)  (Theano conventions)
-    #         w = w_orig.T.swapaxes(2, 3)
-    #         b = struct[2][0, 1][:, 0]
-    #         padding = 0 if layer_name.startswith('fc') else 1 if layer_name.startswith('conv') else bad_value(layer_name)
-    #         layer = ConvLayer(w, b, force_shared_parameters=force_shared_parameters, border_mode=padding, filter_flip=False)  # Note: Should filter_flip be true...? Need to check
-    #     elif layer_type in ('relu', ):
-    #         layer = Nonlinearity(layer_type)
-    #     elif layer_type == 'softmax':
-    #         layer = Nonlinearity(softmax)
-    #     elif layer_type == 'pool':
-    #         layer = Pooler(region=tuple(struct[3][0].astype(int)), stride=tuple(
-    #             struct[4][0].astype(int)), mode=pooling_mode)
-    #     else:
-    #         raise Exception(
-    #             "Don't know about this '%s' layer type." % layer_type)
-    #     return layer_name, layer
-    #
-    # print 'Loading VGG Net...'
-    # network_layers = OrderedDict(struct_to_layer(network_params['layers'][0, i][
-    #                              0, 0]) for i in xrange(network_params['layers'].shape[1]))
-    #
-    # if up_to_layer is not None:
-    #     if isinstance(up_to_layer, (list, tuple)):
-    #         up_to_layer = network_layers.keys()[max(
-    #             network_layers.keys().index(layer_name) for layer_name in up_to_layer)]
-    #     layer_names = [network_params['layers'][0, i][0, 0][0][0]
-    #                    for i in xrange(network_params['layers'].shape[1])]
-    #     network_layers = OrderedDict((k, network_layers[k]) for k in layer_names[
-    #                                  :layer_names.index(up_to_layer) + 1])
-    #     print 'Done.'
-    # return ConvNet(network_layers)
-
-
 
 
 def im2vgginput(im, shaping_mode = 'squeeze'):
@@ -199,12 +131,7 @@ def im2vgginput(im, shaping_mode = 'squeeze'):
             raise Exception('Unknown shaping mode: "%s"' % (shaping_mode, ))
 
     centered_bgr_im = im[..., ::-1] - np.array([103.939, 116.779, 123.68])
-    # if im.ndim==4:
-    #     feature_map_im = centered_bgr_im.dimshuffle('x', 2, 0, 1) if isinstance(centered_bgr_im, Variable) else np.rollaxis(centered_bgr_im, 2, 0)[None, :, :, :]
-    # elif im.ndim==3:
     feature_map_im = centered_bgr_im.dimshuffle('x', 2, 0, 1) if isinstance(centered_bgr_im, Variable) else np.rollaxis(centered_bgr_im, 2, 0)[None, :, :, :]
-    # else:
-    #     raise Exception('bah')
     return feature_map_im.astype(theano.config.floatX)
 
 
