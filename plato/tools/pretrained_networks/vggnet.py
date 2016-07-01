@@ -53,8 +53,8 @@ def get_vgg_layer_specifiers(up_to_layer=None, normalized_version = False):
             'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'conv5_4', 'relu5_4', 'pool5', 'fc6', 'relu6', 'fc7', 'relu7',
             'fc8', 'prob']
 
-        param_iterator
-        for name in layer_names:
+        # param_iterator
+        # for name in layer_names:
 
 
 
