@@ -5,3 +5,4 @@ matplotlib
 scikit-learn
 ipython[notebook]
 pytest
+-e git+http://github.com/QUVA-Lab/artemis.git#egg=artemis

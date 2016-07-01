@@ -1,4 +1,8 @@
+from numpy.testing.utils import raises
 from collections import OrderedDict, namedtuple
+
+import pickle
+
 from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
 
 import theano
@@ -21,7 +25,7 @@ find_nth_match = lambda bool_arr, n: np.nonzeros
 
 
 @memoize
-def get_vgg_layer_specifiers(up_to_layer=None):
+def get_vgg_layer_specifiers(up_to_layer=None, normalized = False):
     """
     Load the 19-layer VGGNet from the mat file and produce a list of layer specifications which can be used to create
     layers in your architecture of choice.
@@ -87,7 +91,7 @@ def get_vgg_layer_specifiers(up_to_layer=None):
 
 
 
-def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1):
+def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1, normalized=False):
     """
     Load the 19-layer VGGNet.
     Info: https://gist.github.com/ksimonyan/3785162f95cd2d5fee77#file-readme-md
@@ -103,7 +107,10 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
     :param force_shared_parameters: Create net with shared paremeters.
     :return: A ConvNet object representing the VGG network.
     """
-    layer_specs = get_vgg_layer_specifiers(up_to_layer=up_to_layer)
+    if normalized:
+        layer_specs = get_normalized_vgg_net(up_to_layer=up_to_layer)
+    else:
+        layer_specs = get_vgg_layer_specifiers(up_to_layer=up_to_layer)
 
     if scale_biases != 1:
         for spec in layer_specs.values():
@@ -111,6 +118,61 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
                 spec.b *= scale_biases
 
     return ConvNet.from_init(layer_specs, input_shape=(3, 224, 224), force_shared_parameters = force_shared_parameters)
+
+def get_normalized_vgg_net(up_to_layer=None, force_shared_parameters=True):
+    """
+    Load the normalized version of VGG19 discussed here: https://bethgelab.org/deepneuralart/
+
+    """
+    norm_vgg19_file = get_file(
+        relative_name='data/norm-vgg-19.pkl',
+        url = 'https://s3.amazonaws.com/lasagne/recipes/pretrained/imagenet/vgg19_normalized.pkl',
+    )
+    with open(norm_vgg19_file) as f:
+        vgg_struct = pickle.load(f)
+
+    layer_names = ['conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1', 'conv2_1', 'relu2_1', 'conv2_2', 'relu2_2', 'pool2',
+        'conv3_1', 'relu3_1', 'conv3_2', 'relu3_2', 'conv3_3', 'relu3_3', 'conv3_4', 'relu3_4', 'pool3', 'conv4_1',
+        'relu4_1', 'conv4_2', 'relu4_2', 'conv4_3', 'relu4_3', 'conv4_4', 'relu4_4', 'pool4', 'conv5_1', 'relu5_1',
+        'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'conv5_4', 'relu5_4', 'pool5', 'fc6', 'relu6', 'fc7', 'relu7',
+        'fc8', 'prob']
+
+    if isinstance(up_to_layer, list):
+        up_to_layer = up_to_layer[np.argmax([layer_names.index(layer_name) for layer_name in up_to_layer])]
+
+    assert up_to_layer is not None and layer_names.index(up_to_layer) < layer_names.index('fc6'), "This can only be used to load the convolutional portion of vggnet."
+
+    net_spec = OrderedDict()
+    param_iterator = (p for p in vgg_struct['param values'])
+    for layer_name in layer_names:
+        if layer_name.startswith('conv'):
+            w = param_iterator.next()
+            b = param_iterator.next()
+            assert w.ndim==4 and b.ndim==1
+            layer = ConvolverSpec(w=w, b=b, mode = 'same')
+        elif layer_name.startswith('relu'):
+            layer = NonlinearitySpec('relu')
+        elif layer_name.startswith('pool'):
+            layer = PoolerSpec(region=2, stride=2, mode='max')
+        elif layer_name.startswith('fc'):
+            w = param_iterator.next()
+            b = param_iterator.next()
+            assert w.ndim==4 and b.ndim==1
+            layer = ConvolverSpec(w=w, b=b, mode = 'full')
+        elif layer_name == 'prob':
+            layer = NonlinearitySpec('softmax')
+        else:
+            raise Exception("Don't know how to handle layer: '%s'" % (layer_name, ))
+        net_spec[layer_name] = layer
+        if layer_name == up_to_layer:
+            break
+
+    if up_to_layer is None:
+        with raises(StopIteration):
+            param_iterator.next()
+
+    return net_spec
+
 
     # layer_constructor = lambda spec: {
     #     ConvolverSpec: lambda: ConvLayer(
