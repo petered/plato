@@ -40,10 +40,15 @@ def get_evaluation_function(name):
     return {
         'mse': mean_squared_error,
         'mean_squared_error': mean_squared_error,
+        'mean_l1_error': mean_l1_error,
         'percent_argmax_correct': percent_argmax_correct,
         'percent_argmax_incorrect': percent_argmax_incorrect,
         'percent_correct': percent_correct,
         }[name]
+
+
+def mean_l1_error(actual, target):
+    return np.mean(np.sum(np.abs(actual-target), axis=-1), axis=-1)
 
 
 def mean_squared_error(actual, target):
