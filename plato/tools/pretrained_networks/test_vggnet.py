@@ -29,5 +29,6 @@ def test_vggnet():
 
 
 if __name__ == '__main__':
-    # test_vggnet()
-    test_norm_vggnet()
+
+    test_vggnet()
+    # test_norm_vggnet()

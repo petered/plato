@@ -151,7 +151,7 @@ def run_and_plot(training_scheme):
     plot_learning_curves(learning_curves)
 
 
-ExperimentLibrary.standard_dtp = Experiment(
+register_experiment('standard_dtp',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP']),
     description="""Train Difference Target Propagation on MNIST using standard settings, compare to backprop.  This will "
         be used as a baseline agains other experiments.""",
@@ -165,8 +165,7 @@ ExperimentLibrary.standard_dtp = Experiment(
         """
     )
 
-
-ExperimentLibrary.hidden_types = Experiment(
+register_experiment('hidden_types',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP'], n_epochs = 20),
     description="""Lets see change hidden units and try with and without bias.  In our basic spliking implementation,
         our units are like ReLUs with no bias... If relu with no-bias performs badly here, then maybe this is the reason
@@ -205,7 +204,7 @@ ExperimentLibrary.hidden_types = Experiment(
         """
     )
 
-ExperimentLibrary.linear_output_dtp = Experiment(
+register_experiment('linear_output_dtp',
     function = lambda: demo_dtp_varieties(output_activation='linear', predictors = ['MLP', 'DTP']),
     description="See how linear output affects us.  This is mainly meant as a comparison to Linear DTP",
     conclusion = """
@@ -215,7 +214,7 @@ ExperimentLibrary.linear_output_dtp = Experiment(
     )
 
 
-ExperimentLibrary.standard_dtp_noiseless = Experiment(
+register_experiment('standard_dtp_noiseless',
     function = lambda: demo_dtp_varieties(noise=0, predictors=['DTP']),
     description="See if noise is helpful (compare to standard-dtp)",
     conclusion = """
@@ -224,7 +223,7 @@ ExperimentLibrary.standard_dtp_noiseless = Experiment(
         """
     )
 
-ExperimentLibrary.preact_dtp = Experiment(
+register_experiment('preact_dtp',
     function = partial(demo_dtp_varieties, predictors = 'PreAct-DTP'),
     description="Try doing the difference with the pre-activations",
     conclusion = """
@@ -232,7 +231,7 @@ ExperimentLibrary.preact_dtp = Experiment(
         """
     )
 
-ExperimentLibrary.linear_dtp = Experiment(
+register_experiment('linear_dtp',
     function = partial(demo_dtp_varieties, predictors = 'Linear-DTP'),
     versions = {
         'baseline': {},
@@ -253,7 +252,7 @@ ExperimentLibrary.linear_dtp = Experiment(
     """
     )
 
-ExperimentLibrary.relu_dtp = Experiment(
+register_experiment('relu_dtp',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP'], hidden_activation = 'relu'),
     description = "Now try with ReLU hidden units",
     conclusion = """
@@ -262,7 +261,8 @@ ExperimentLibrary.relu_dtp = Experiment(
     """
     )
 
-ExperimentLibrary.compare_dtp_optimizers = Experiment(
+
+register_experiment('compare_dtp_optimizers',
     description="It's claimed that RMSProp helps a lot.  Lets see if this is true.",
     function = partial(demo_dtp_varieties, predictors = 'DTP'),
     versions = {
