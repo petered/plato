@@ -51,7 +51,7 @@ class ConvolverSpec(PrimativeSpecifier):
         self.mode = mode
 
     def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
-        return (n_samples, self.n_maps)+{
+        return (n_samples, self.w.shape[0])+{
             'same': (size_y, size_x),
             'valid': (size_y-self.w.shape[2]+1, size_x-self.w.shape[3]+1),
             'full': (size_y+self.w.shape[2]-1, size_x+self.w.shape[3]-1)
@@ -73,7 +73,7 @@ class PoolerSpec(PrimativeSpecifier):
         self.mode = mode
 
     def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
-        return n_samples, n_maps, size_y/self.stride, size_x/self.stride
+        return n_samples, n_maps, size_y/self.stride[0], size_x/self.stride[1]
 
 
 class DropoutSpec(PrimativeSpecifier):

@@ -3,6 +3,9 @@ scipy
 matplotlib
 scikit-learn
 pytest
+<<<<<<< HEAD
 pillow
 Theano==0.8.0
+=======
+>>>>>>> 64f129df002682861518c7e48dda2854e8bd1eb5
 -e git+http://github.com/QUVA-Lab/artemis.git#egg=artemis

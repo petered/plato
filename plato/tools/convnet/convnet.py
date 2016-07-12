@@ -1,20 +1,17 @@
-import logging
 from collections import OrderedDict
 import numpy as np
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
-from plato.core import symbolic, create_shared_variable
+from plato.core import symbolic, create_shared_variable, tdbprint
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
 from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec
 from theano.tensor.signal.pool import pool_2d
 __author__ = 'peter'
+import logging
 
-logging.basicConfig()
 LOGGER = logging.getLogger('plato')
-LOGGER.setLevel(logging.WARN)
-
 
 @symbolic
 class ConvLayer(FeedForwardModule):
@@ -166,6 +163,7 @@ class ConvNet(IParameterized):
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
+        # tdbprint(abs(named_activations['relu4_2']).mean(), 'mean_abs_relu4_2')
         return named_activations
 
     @staticmethod
@@ -203,7 +201,7 @@ class ConvNet(IParameterized):
                 n_rows /= spec.region[0]
                 n_cols /= spec.region[1]
             layers[spec_name] = specifier_to_layer(spec, force_shared_parameters=force_shared_parameters, rng=rng)
-            LOGGER.info('Layer "%s" (%s) output shape: %s' % (spec_name, spec.__class__.__name__, (n_maps, n_rows, n_cols)))
+            # LOGGER.info('Layer "%s" (%s) output shape: %s' % (spec_name, spec.__class__.__name__, (n_maps, n_rows, n_cols)))
         return ConvNet(layers)
 
     @property
@@ -227,3 +225,22 @@ def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
         PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode),
         DropoutSpec: lambda: DropoutLayer(spec.dropout_rate, rng=rng)
         }[spec.__class__]()
+
+
+def normalize_convnet(convnet, inputs):
+    """
+    Change the convnet in-place, such that the outputs of convolutions have a standard deviation of 1.
+
+    :param convnet:
+    :param inputs:
+    :return:
+    """
+    activations = convnet.get_named_layer_activations.compile()(inputs)
+
+    cum_scale = 1
+    for name, act in activations.iteritems():
+        if isinstance(convnet.layers[name], ConvLayer):
+            this_std = np.std(act)
+            cum_scale = this_std / cum_scale
+            convnet.layers[name].w.set_value(convnet.layers[name].w.get_value()/cum_scale)
+            convnet.layers[name].b.set_value(convnet.layers[name].b.get_value()/this_std)
