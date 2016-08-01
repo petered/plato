@@ -146,7 +146,6 @@ class FullyConnectedTransform(IParameterized):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self.w)
-        current = x.flatten(2).dot(self.w)
         # current = x.dot(self.w)
         # current = theano.dot(x, self.w)
         current = self.normalizer(current) if self.normalizer is not None else current

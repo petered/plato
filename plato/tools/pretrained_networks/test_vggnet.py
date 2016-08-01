@@ -1,4 +1,5 @@
-from plato.tools.pretrained_networks.vggnet import get_vgg_net, get_vggnet_labels, im2vgginput
+from plato.tools.convnet.conv_specifiers import ConvolverSpec
+from plato.tools.pretrained_networks.vggnet import get_vgg_net, get_vggnet_labels, im2vgginput, get_vgg_layer_specifiers
 from utils.datasets.art_gallery import get_image
 import numpy as np
 import pytest
@@ -16,6 +17,11 @@ def test_vggnet():
     assert label == 'American egret, great white heron, Egretta albus'
 
 
+specs = get_vgg_layer_specifiers()
+
+
+print sum(s.w.size()+s.b.size for s in specs if isinstance(s, ConvolverSpec))
+
 # @pytest.mark.slowtest
 # def test_norm_vggnet():
 #
@@ -26,6 +32,8 @@ def test_vggnet():
 #     label = get_vggnet_labels()[np.argmax(out)]
 #     print label
 #     assert label == 'little blue heron, Egretta caerulea'  # Oddly not the same as regular vggnet...
+
+
 
 
 if __name__ == '__main__':

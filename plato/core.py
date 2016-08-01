@@ -223,6 +223,7 @@ class _SymbolicFunctionWrapper(object):
         """
         Partially define the input arguments and return a new symbolic function.
         """
+        fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
             output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
@@ -392,11 +393,11 @@ class SymbolicFormatError(Exception):
 
 
 def _is_tensor(arg):
-    return isinstance(arg, Variable)
+    return isinstance(arg, (Variable, np.ndarray))
 
 
 def _is_tuple_of_tensors(args):
-    return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+    return isinstance(args, (list, tuple)) and all(_is_tensor(arg) for arg in args)
 
 
 def _is_tuple_of_tuples_of_tensors(args):
@@ -550,7 +551,8 @@ class AutoCompilingFunction(object):
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
             PLATO_LOGGER.info('Done.')
 
-        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))
+        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
+        arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
@@ -653,8 +655,11 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         you have to do an initial pass on CPU, which can be slow.
     :return:
     """
-    if isinstance(data, (list, tuple)) and all(isinstance(d, np.ndarray) for d in data):
+    if isinstance(data, (list, tuple)) and all(isinstance(d, (np.ndarray, SharedVariable)) or np.isscalar(d) for d in data):
         return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
+
+    if isinstance(data, SharedVariable):
+        data = data.get_value()
 
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
