@@ -1,4 +1,5 @@
 from artemis.fileman.smart_io import smart_load
+from artemis.general.should_be_builtins import bad_value
 from artemis.plotting.db_plotting import dbplot
 from plato.tools.pretrained_networks.vggnet import get_vgg_net, im2vgginput, get_vgg_label_at
 import numpy as np
@@ -38,8 +39,6 @@ def get_latest_screenshot():
 
 
 def classify(f, im_path):
-    # im_path = os.path.join(get_photo_dir(), filename)
-    # im_path = filename
     im = smart_load(im_path)
     print 'Processing image... "%s"' % (im_path, )
     inputs = im2vgginput(im)
@@ -71,5 +70,12 @@ def demo_file_path():
 
 
 if __name__ == '__main__':
-    # demo_photobooth()
-    demo_file_path()
+
+    VERSION = "photobooth"
+
+    if VERSION == 'photobooth':
+        demo_photobooth()
+    elif VERSION == 'file':
+        demo_file_path()
+    else:
+        bad_value(VERSION)

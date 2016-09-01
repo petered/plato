@@ -29,17 +29,12 @@ class GenerativeAdversarialNetwork(object):
         counterfeit_samples = self.generator(self.rng.normal(size=(data.shape[0], self.noise_dim)))
         real_sample_guesses = self.discriminator(data)
         counterfeit_sample_guesses = self.discriminator(counterfeit_samples)
-
-        # tdbplot(real_sample_guesses.mean(), 'Real prob')
-        # tdbplot(counterfeit_sample_guesses.mean(), 'Fake prob')
-
         self.optimizer(cost = -(tt.log(real_sample_guesses) + tt.log(1-counterfeit_sample_guesses)).mean(), parameters = self.discriminator.parameters)
 
     @symbolic
     def train_generator(self, n_samples):
         counterfeit_sample_guesses = self.discriminator(self.generator(self.rng.normal(size=(n_samples, self.noise_dim))))
         self.optimizer(cost = tt.log(1-counterfeit_sample_guesses).mean(), parameters = self.generator.parameters)
-        # self.optimizer(cost = -tt.log(counterfeit_sample_guesses).mean(), parameters = self.generator.parameters)
 
     @symbolic
     def generate(self, n_samples = None, noise = None):

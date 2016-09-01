@@ -1,7 +1,7 @@
 from artemis.plotting.db_plotting import dbplot
 from plato.tools.gan.gan import GenerativeAdversarialNetwork
 from plato.tools.mlp.mlp import MultiLayerPerceptron
-from plato.tools.optimization.optimizers import GradientDescent, AdaMax
+from plato.tools.optimization.optimizers import AdaMax
 from utils.datasets.mnist import get_mnist_dataset
 from utils.tools.iteration import minibatch_iterate
 
@@ -9,6 +9,16 @@ __author__ = 'peter'
 
 
 def demo_gan_mnist(n_epochs = 20, minibatch_size = 20, n_discriminator_steps=1, noise_dim = 10, plot_period = 100, rng = 1234):
+    """
+    Train a Generative Adversarial network on MNIST data, showing generated samples as training progresses.
+
+    :param n_epochs: Number of epochs to train
+    :param minibatch_size: Size of minibatch to feed in each training iteration
+    :param n_discriminator_steps: Number of steps training discriminator for every step of training generator
+    :param noise_dim: Dimensionality of latent space (from which random samples are pulled)
+    :param plot_period: Plot every N training iterations
+    :param rng: Random number generator or seed
+    """
 
     net = GenerativeAdversarialNetwork(
         discriminator = MultiLayerPerceptron.from_init(w_init=0.01, layer_sizes=[784, 100, 1], hidden_activation='relu', output_activation = 'sig', rng=rng),
@@ -35,6 +45,7 @@ def demo_gan_mnist(n_epochs = 20, minibatch_size = 20, n_discriminator_steps=1, 
             dbplot(minibatch.reshape(-1, 28, 28), "Real")
             dbplot(samples.reshape(-1, 28, 28), "Counterfeit")
             print 'Disp'
+
 
 if __name__ == '__main__':
     demo_gan_mnist()

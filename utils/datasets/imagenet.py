@@ -39,10 +39,6 @@ def get_imagenet_images(indices):
     return [smart_load(f) for f in files]
 
 
-# def get_labels_for_indices(ixs):
-
-
-
 if __name__ == '__main__':
     # Downloads 4 random images out of the first 1000.  You may get 404 errors, etc.  So just run again and again til this works.
     import random
