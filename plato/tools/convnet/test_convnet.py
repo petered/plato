@@ -1,7 +1,8 @@
+from collections import OrderedDict
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.common.training import assess_online_symbolic_predictor
-from plato.tools.convnet.conv_specifiers import ConvInitSpec, NonlinearitySpec, PoolerSpec
-from plato.tools.convnet.convnet import ConvNet
+from plato.tools.convnet.conv_specifiers import ConvInitSpec, NonlinearitySpec, PoolerSpec, ConvolverSpec
+from plato.tools.convnet.convnet import ConvNet, ConvLayer, Pooler, normalize_convnet, Nonlinearity
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import AdaMax
 from utils.benchmarks.train_and_test import percent_argmax_correct
@@ -64,5 +65,30 @@ def test_convnet_serialization():
     assert np.array_equal(results_1, results_2)
 
 
+def test_normalize_convnet():
+
+    rng = np.random.RandomState(1234)
+    input_data = rng.randn(10, 3, 16, 16)
+
+    net = ConvNet(layers=OrderedDict([
+        ('conv_1', ConvLayer(w = rng.randn(5, 3, 3, 3), b = rng.randn(5, ), border_mode=1)),
+        ('pool_1', Pooler((2, 2))),
+        ('non_1', Nonlinearity('relu')),
+        ('conv_2', ConvLayer(w = rng.randn(7, 5, 3, 3), b = rng.randn(7, ), border_mode=1)),
+        ('pool_2', Pooler((2, 2))),
+        ('non_2', Nonlinearity('relu')),
+        ]))
+    normalize_convnet(net, inputs = input_data)
+
+    f = net.get_named_layer_activations.compile()
+
+    act = f(input_data)
+
+    for layer_name in ['conv_1', 'conv_2']:
+        print '{layer}: {act}'.format(layer=layer_name, act=act[layer_name].std())
+        assert 0.9999 < act[layer_name].std() < 1.0001
+
+
 if __name__ == '__main__':
     test_convnet_serialization()
+    test_normalize_convnet()

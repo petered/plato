@@ -223,6 +223,7 @@ class _SymbolicFunctionWrapper(object):
         """
         Partially define the input arguments and return a new symbolic function.
         """
+        fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
             output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
@@ -392,11 +393,11 @@ class SymbolicFormatError(Exception):
 
 
 def _is_tensor(arg):
-    return isinstance(arg, Variable)
+    return isinstance(arg, (Variable, np.ndarray))
 
 
 def _is_tuple_of_tensors(args):
-    return isinstance(args, (list, tuple)) and all(isinstance(arg, Variable) for arg in args)
+    return isinstance(args, (list, tuple)) and all(_is_tensor(arg) for arg in args)
 
 
 def _is_tuple_of_tuples_of_tensors(args):
@@ -467,7 +468,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = True):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = True, debug_print_shapes=False):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -499,6 +500,7 @@ class AutoCompilingFunction(object):
         self._local_values = None
         self._callbacks = []
         self._add_test_values = add_test_values
+        self._debug_print_shapes = debug_print_shapes
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -518,10 +520,19 @@ class AutoCompilingFunction(object):
             self._kwarg_order = tensor_kwargs.keys()
             args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
 
+            PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
-
+            PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
+            self._original_output_format = _detect_format(outputs)
+            if self._original_output_format is NamedCollectionFormat:
+                self._signal_names = outputs.keys()
+
+            if self._debug_print_shapes:
+                self._original_updates = updates
+                self._old_update_shapes = [old.get_value().shape for old, new in updates]
+
             all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
@@ -529,9 +540,6 @@ class AutoCompilingFunction(object):
 
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                self._original_output_format = _detect_format(outputs)
-                if self._original_output_format is NamedCollectionFormat:
-                    self._signal_names = outputs.keys()
                 outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
@@ -541,9 +549,10 @@ class AutoCompilingFunction(object):
 
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
-            PLATO_LOGGER.info('Done.\n')
+            PLATO_LOGGER.info('Done.')
 
-        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))
+        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
+        arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:
@@ -560,7 +569,23 @@ class AutoCompilingFunction(object):
             else:
                 true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
         else:
-            true_out = self._compiled_fcn(*arg_and_kwarg_values)
+            true_out = all_out = self._compiled_fcn(*arg_and_kwarg_values)
+            if self._original_output_format is NamedCollectionFormat:
+                true_out = OrderedDict((k, true_out[k]) for k in self._signal_names)
+
+        if self._debug_print_shapes:
+            if self._debug_print_shapes=='first':
+                self._debug_print_shapes = False
+            new_update_shapes = [old.get_value().shape for old, new in self._original_updates]
+            PLATO_LOGGER.info("Shape info for running function {f}: \n  Inputs Shapes ({n_in}): {inp}\n  Output Shapes ({n_out}): {out}\n  Update Shapes ({n_up}): {updates}".format(
+                f = self._original_fcn.fcn_str(),
+                n_in = len(arg_and_kwarg_values),
+                inp = str(', '.join([str(a.shape).replace(' ', '') if isinstance(a, np.ndarray) else () for a in arg_and_kwarg_values])),
+                n_out = len(true_out),
+                out = str(true_out.shape).replace(' ', '') if isinstance(true_out, np.ndarray) else str(', '.join([str(a.shape).replace(' ', '') for a in all_out])),
+                n_up = len(new_update_shapes),
+                updates = str(', '.join([('%s->%s' % (os, ns)).replace(' ', '') for os, ns in zip(self._old_update_shapes, new_update_shapes)]))
+            ))
 
         for c in self._callbacks:
             c()
@@ -630,8 +655,11 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         you have to do an initial pass on CPU, which can be slow.
     :return:
     """
-    if isinstance(data, (list, tuple)) and all(isinstance(d, np.ndarray) for d in data):
+    if isinstance(data, (list, tuple)) and all(isinstance(d, (np.ndarray, SharedVariable)) or np.isscalar(d) for d in data):
         return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
+
+    if isinstance(data, SharedVariable):
+        data = data.get_value()
 
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
@@ -899,7 +927,7 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
         "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
 
 
-def initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True):
+def initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True, **shared_kwargs):
     """
     Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
     instantiate a parameter:
@@ -939,7 +967,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
 
     if isinstance(initial_value, np.ndarray):
         assert_compatible_shape(initial_value.shape, shape, name = name)
-        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True)
+        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True, **shared_kwargs)
         params = [variable]
         variable_shape = initial_value.shape
     elif isinstance(initial_value, Variable):
@@ -958,11 +986,11 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
         params = []
         variable_shape = None
     else:
-        raise Exception("Don't know how to instantiate variable from %s" % initial_value)
+        raise Exception("Don't know how to instantiate variable from %s" % (initial_value, ))
     return variable, params, variable_shape
 
 
-def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True):
+def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True, **shared_kwargs):
     """
     :param initializer_fcn: Can be:
         - An array.  It may be cast to floatX.  It's verified with shape if shape is provided
@@ -971,5 +999,8 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     :param shape: Either a tuple or an integer
     :return: A shared variable, containing the numpy array returned by the initializer.
     """
-    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX)
+    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX, **shared_kwargs)
     return shared_var
+
+
+

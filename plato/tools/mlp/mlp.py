@@ -1,11 +1,10 @@
 from artemis.general.numpy_helpers import get_rng
 from artemis.general.should_be_builtins import bad_value
 from plato.interfaces.helpers import get_named_activation_function, batch_normalize
-from plato.core import create_shared_variable, symbolic_simple, symbolic_named_output, symbolic
+from plato.core import create_shared_variable, symbolic_simple, symbolic
 from plato.interfaces.interfaces import IParameterized
 import theano.tensor as tt
 import numpy as np
-import theano
 
 
 @symbolic_simple
@@ -85,6 +84,8 @@ class MultiLayerPerceptron(IParameterized):
         return cls(weights=weights, **init_args)
 
 
+
+
 @symbolic_simple
 class Layer(IParameterized):
     """
@@ -146,9 +147,6 @@ class FullyConnectedTransform(IParameterized):
 
     def __call__(self, x):
         current = x.flatten(2).dot(self.w)
-        current = x.flatten(2).dot(self.w)
-        # current = x.dot(self.w)
-        # current = theano.dot(x, self.w)
         current = self.normalizer(current) if self.normalizer is not None else current
         if self.log_scale is not None:
             current = current * tt.exp(self.log_scale)
@@ -158,23 +156,6 @@ class FullyConnectedTransform(IParameterized):
     @property
     def parameters(self):
         return [self.w] + ([self.b] if self._use_bias else []) + ([self.log_scale] if self.log_scale is not None else [])
-
-
-@symbolic_simple
-class ConvolutionalTransform(IParameterized):
-
-    def __init__(self, w, b=0, stride = (1, 1)):
-        self.w = create_shared_variable(w, name = 'w')
-        self.b = create_shared_variable(b, name = 'b')
-        self._stride = stride
-
-    def __call__(self, x):
-        y = tt.nnet.conv2d(x, self._w, border_mode='valid', subsample = self._stride) + self._b.dimshuffle('x', 0, 'x', 'x')
-        return y
-
-    @property
-    def parameters(self):
-        return [self.w, self.b]
 
 
 def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation = 'maxout', rng = None, **other_args):

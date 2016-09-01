@@ -80,7 +80,7 @@ ExperimentLibrary.profile_vggnet = Experiment(
           Second Pass: Elapsed time is 0.6635s
           Total: 13.11s
 
-
+    Conclusion... the problem is test values.  The first pass, with test values, takes an eternity.
     """
     )
 

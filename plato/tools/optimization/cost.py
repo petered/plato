@@ -133,6 +133,14 @@ def l1_norm_mse(actual, target, eps = 1e-7):
     return mean_squared_error(normed_actual, normed_target)
 
 
+def l1_error(actual, target):
+    return abs(actual-target).sum(axis=1).mean(axis=0)
+
+def l1_norm_error(actual, target, eps = 1e-7):
+    normed_actual = actual/tt.maximum(eps, tt.sum(abs(actual), axis = 1, keepdims = True))
+    normed_target = target/tt.maximum(eps, tt.sum(abs(target), axis = 1, keepdims = True))
+    return l1_error(normed_actual, normed_target)
+
 def get_named_cost_function(name):
     return {
         'nll': negative_log_likelihood,
@@ -143,5 +151,6 @@ def get_named_cost_function(name):
         'percent_correct': percent_correct,
         'cos': mean_cosine_distance,
         'norm-mse': norm_mse,
-        'onehot-mse': onehot_mse
+        'onehot-mse': onehot_mse,
+        'norm_l1_error': l1_norm_error
         }[name]

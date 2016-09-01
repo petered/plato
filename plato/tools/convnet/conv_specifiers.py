@@ -1,4 +1,5 @@
 from artemis.fileman.primitive_specifiers import PrimativeSpecifier
+from artemis.general.should_be_builtins import bad_value
 
 __author__ = 'peter'
 
@@ -14,12 +15,22 @@ class ConvInitSpec(PrimativeSpecifier):
         self.mode = mode
         self.use_bias = use_bias
 
+    def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
+        return (n_samples, self.n_maps)+{
+            'same': (size_y, size_x),
+            'valid': (size_y-self.filter_size[0]+1, size_x-self.filter_size[1]+1),
+            'full': (size_y+self.filter_size[0]-1, size_x+self.filter_size[1]-1)
+            }[self.mode]
+
 
 class NonlinearitySpec(PrimativeSpecifier):
 
     def __init__(self, func):
         assert isinstance(func, basestring), 'func must be a string identifying the nonlinearity.. eg "relu".  Got %s' % (func, )
         self.func = func
+
+    def shape_transfer(self, shape):
+        return shape
 
 
 class ConvolverSpec(PrimativeSpecifier):
@@ -40,6 +51,13 @@ class ConvolverSpec(PrimativeSpecifier):
         self.b=b
         self.mode = mode
 
+    def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
+        return (n_samples, self.w.shape[0])+{
+            'same': (size_y, size_x),
+            'valid': (size_y-self.w.shape[2]+1, size_x-self.w.shape[3]+1),
+            'full': (size_y+self.w.shape[2]-1, size_x+self.w.shape[3]-1)
+            }[self.mode]
+
 
 class PoolerSpec(PrimativeSpecifier):
 
@@ -51,9 +69,16 @@ class PoolerSpec(PrimativeSpecifier):
             stride=region
         elif isinstance(stride, int):
             stride = (stride, stride)
+        elif isinstance(stride, tuple):
+            assert len(stride)==2
+        else:
+            bad_value(stride, "Expected None, and int, or a tuple of length 2.  Not %s" % (stride, ))
         self.region = region
         self.stride = stride
         self.mode = mode
+
+    def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
+        return n_samples, n_maps, size_y/self.stride[0], size_x/self.stride[1]
 
 
 class DropoutSpec(PrimativeSpecifier):
@@ -61,6 +86,9 @@ class DropoutSpec(PrimativeSpecifier):
     def __init__(self, dropout_rate):
         assert 0 <= dropout_rate < 1
         self.dropout_rate = dropout_rate
+
+    def shape_transfer(self, (n_samples, n_maps, size_y, size_x)):
+        return n_samples, n_maps, size_y, size_x
 
 
 class FullyConnectedSpec(PrimativeSpecifier):
@@ -74,3 +102,12 @@ class FullyConnectedSpec(PrimativeSpecifier):
         assert b is False or (b.ndim==1 and w.shape[1] == len(b)), "Number of output maps must match"
         self.w=w
         self.b=b
+
+    def shape_transfer(self, input_shape):
+        if len(input_shape)==4:
+            n_samples, n_maps, size_y, size_x = input_shape
+            assert n_maps*size_y*size_x == self.w.shape[0]
+            return n_samples, self.w.shape[1], 1, 1
+        elif len(input_shape)==2:
+            n_samples, input_dims = input_shape
+            return n_samples, self.w.shape[1]
