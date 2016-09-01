@@ -257,15 +257,20 @@ def get_normalized_vgg_net(up_to_layer=None, force_shared_parameters=True):
     # return ConvNet(network_layers)
 
 
-def im2vgginput(im, shaping_mode = 'squeeze'):
+def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
     """
     :param im: A (size_y, size_x, 3) array representing a RGB image on a [0, 255] scale, or a
         (n_samples, size_y, size_x, 3) array representing an array of such images.
-    :returns: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
+    :param shaping_mode: 'squeeze': Squeezes the image into the desired shape.
+        'crop': Crops the center region (of the desired shape) out.
+    :returns: A (n_samples, 3, 224, 224) array representing the BGR image that's ready to feed into VGGNet
 
     """
     if not isinstance(im, np.ndarray):
-        return np.concatenate([im2vgginput(m, shaping_mode = shaping_mode) for m in im])
+        return np.concatenate([im2vgginput(m, shaping_mode = shaping_mode) for m in im]) if len(im)>0 else np.zeros((0, 3, 224, 224))
+
+    if im.ndim==2:
+        im = np.repeat(im[:, :, None], repeats=3, axis=2)
 
     if any(m.shape[-2:-1] != (224, 224) for m in im):
         if shaping_mode == 'squeeze':
@@ -279,7 +284,9 @@ def im2vgginput(im, shaping_mode = 'squeeze'):
             im = im[..., row_start:row_start+224, col_start:col_start+224, :]
         else:
             raise Exception('Unknown shaping mode: "%s"' % (shaping_mode, ))
-    centered_bgr_im = im[..., ::-1] - np.array([103.939, 116.779, 123.68])
+
+    bgr_im = im if already_bgr else im[..., ::-1]
+    centered_bgr_im = bgr_im - np.array([103.939, 116.779, 123.68])
     feature_map_im = np.rollaxis(centered_bgr_im, -1, -3)
     if feature_map_im.ndim==3:
         feature_map_im = feature_map_im[None, ...]

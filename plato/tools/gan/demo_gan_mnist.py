@@ -14,7 +14,6 @@ def demo_gan_mnist(n_epochs = 20, minibatch_size = 20, n_discriminator_steps=1, 
         discriminator = MultiLayerPerceptron.from_init(w_init=0.01, layer_sizes=[784, 100, 1], hidden_activation='relu', output_activation = 'sig', rng=rng),
         generator = MultiLayerPerceptron.from_init(w_init=0.1, layer_sizes=[noise_dim, 200, 784], hidden_activation='relu', output_activation = 'sig', rng=rng),
         noise_dim=noise_dim,
-        # optimizer=GradientDescent(eta=0.01),
         optimizer=AdaMax(0.001),
         rng=rng
         )

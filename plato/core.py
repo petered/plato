@@ -927,7 +927,7 @@ def assert_compatible_shape(actual_shape, desired_shape, name = None):
         "Actual shape %s%s did not correspond to specified shape, %s" % (actual_shape, '' if name is None else ' of %s' %(name, ), desired_shape)
 
 
-def initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True):
+def initialize_param(initial_value, shape = None, name = None, cast_floats_to_floatX = True, **shared_kwargs):
     """
     Takes care of the common stuff associated with initializing a parameter.  There are a few ways you may want to
     instantiate a parameter:
@@ -967,7 +967,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
 
     if isinstance(initial_value, np.ndarray):
         assert_compatible_shape(initial_value.shape, shape, name = name)
-        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True)
+        variable = theano.shared(typecast(initial_value), name = name, borrow = True, allow_downcast=True, **shared_kwargs)
         params = [variable]
         variable_shape = initial_value.shape
     elif isinstance(initial_value, Variable):
@@ -990,7 +990,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
     return variable, params, variable_shape
 
 
-def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True):
+def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floats_to_floatX = True, **shared_kwargs):
     """
     :param initializer_fcn: Can be:
         - An array.  It may be cast to floatX.  It's verified with shape if shape is provided
@@ -999,7 +999,7 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     :param shape: Either a tuple or an integer
     :return: A shared variable, containing the numpy array returned by the initializer.
     """
-    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX)
+    shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX, **shared_kwargs)
     return shared_var
 
 

@@ -1,5 +1,7 @@
 from collections import OrderedDict
 import numpy as np
+from plato.tools.common.config import float_precision
+import theano
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
 from plato.core import symbolic, create_shared_variable, tdbprint
@@ -114,11 +116,11 @@ class DropoutLayer(FeedForwardModule):
         self.shape = shape
 
     def __call__(self, x):
-        dropped_units = self.rng.binomial(n=1, p=self.dropout_rate, size=x.shape if self.shape is None else self.shape)
-        return tt.switch(dropped_units, 0, x)
+        dropped_units = self.rng.binomial(n=1, p=self.dropout_rate, size=x.shape if self.shape is None else self.shape, dtype = theano.config.floatX)
+        return tt.switch(dropped_units, tt.constant(0, dtype=theano.config.floatX), x)
 
     def test_call(self, x):
-        return x * (1 - self.dropout_rate)
+        return x / tt.constant(1 - self.dropout_rate, dtype = theano.config.floatX)
 
     def to_spec(self):
         return DropoutSpec(self.dropout_rate)
@@ -170,12 +172,12 @@ class ConvNet(IParameterized):
     def from_init(specifiers, input_shape, w_init=0.01, force_shared_parameters = True, rng=None):
         """
         Convenient initialization function.
-        :param specifiers:
-        :param input_shape:
-        :param w_init:
+        :param specifiers: List/OrderedDict of layer speciefier objects (see conv_specifiers.py)
+        :param input_shape: Input shape (n_maps, n_rows, n_cols)
+        :param w_init: Initial weight magnitude (if specifiers call for weight initialization)
         :param force_shared_parameters: Use shared parameters for conv layer (allows training).
-        :param rng:
-        :return:
+        :param rng: Random Number Generator (or None)
+        :return: A ConvNet
         """
         rng = get_rng(rng)
         n_maps, n_rows, n_cols = input_shape

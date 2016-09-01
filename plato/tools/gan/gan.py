@@ -1,6 +1,5 @@
 from plato.core import symbolic
 from plato.interfaces.helpers import get_theano_rng
-from plato.tools.misc.tdb_plotting import tdbplot
 import theano.tensor as tt
 __author__ = 'peter'
 

@@ -1,4 +1,5 @@
 from artemis.fileman.primitive_specifiers import PrimativeSpecifier
+from artemis.general.should_be_builtins import bad_value
 
 __author__ = 'peter'
 
@@ -68,6 +69,10 @@ class PoolerSpec(PrimativeSpecifier):
             stride=region
         elif isinstance(stride, int):
             stride = (stride, stride)
+        elif isinstance(stride, tuple):
+            assert len(stride)==2
+        else:
+            bad_value(stride, "Expected None, and int, or a tuple of length 2.  Not %s" % (stride, ))
         self.region = region
         self.stride = stride
         self.mode = mode

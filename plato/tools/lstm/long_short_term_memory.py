@@ -123,6 +123,7 @@ class LSTMLayer(object):
             hidden_layer_type = hidden_layer_type
             )
 
+    613 735 1900
 
 class AutoencodingLSTM(object):
     """
