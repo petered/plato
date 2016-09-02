@@ -1,8 +1,7 @@
 import pickle
-from artemis.plotting.db_plotting import dbplot
 import os
 from utils.datasets.datasets import DataSet, DataCollection
-from artemis.fileman.file_getter import get_file
+from artemis.fileman.file_getter import get_file, get_archive
 import numpy as np
 
 
@@ -23,12 +22,12 @@ def get_cifar_10_dataset(n_training_samples = None, n_test_samples = None, norma
     # TODO: Make method for downloading/unpacking data (from http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz)
     # We have this for single files already, but in this case the gz contains a folder with the files in it.
 
-    directory = 'data/cifar-10-batches-py'
+    directory = get_archive(relative_path='data/cifar-10', url = 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz')
 
     n_batches_to_read = 5 if n_training_samples is None else int(np.ceil(n_training_samples/10000.))
 
-    file_paths = [get_file(os.path.join(os.path.join(directory, 'data_batch_%s' % (i, )))) for i in xrange(1, n_batches_to_read+1)] \
-        + [get_file(os.path.join(os.path.join(directory, 'test_batch')))]
+    file_paths = [get_file(os.path.join(directory, 'cifar-10-batches-py', 'data_batch_%s' % (i, ))) for i in xrange(1, n_batches_to_read+1)] \
+        + [get_file(os.path.join(directory, 'cifar-10-batches-py', 'test_batch'))]
 
     data = []
     for file_path in file_paths:
