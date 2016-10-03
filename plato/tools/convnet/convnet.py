@@ -149,6 +149,7 @@ class ConvNet(IParameterized):
         """
         return self.get_named_layer_activations(inp).values()[-1]
 
+    @symbolic
     def test_call(self, inp):
         return self.get_named_layer_activations(inp, test_call=True).values()[-1]
 

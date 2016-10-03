@@ -468,7 +468,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = True, debug_print_shapes=False):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
