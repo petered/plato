@@ -48,10 +48,10 @@ def demo_dbn_mnist(plot = True):
         )
 
         # Compile the functions you're gonna use.
-        train_first_layer = dbn.get_constrastive_divergence_function(visible_layers = 'vis', hidden_layers='hid', optimizer=SimpleGradientDescent(eta = 0.01), n_gibbs = 1, persistent=True).compile()
-        free_energy_of_first_layer = dbn.get_free_energy_function(visible_layers='vis', hidden_layers='hid').compile()
-        train_second_layer = dbn.get_constrastive_divergence_function(visible_layers=('hid', 'lab'), hidden_layers='ass', input_layers=('vis', 'lab'), n_gibbs=1, persistent=True).compile()
-        predict_label = dbn.get_inference_function(input_layers = 'vis', output_layers='lab', path = [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab')], smooth = True).compile()
+        train_first_layer = dbn.get_constrastive_divergence_function(visible_layers = 'vis', hidden_layers='hid', optimizer=SimpleGradientDescent(eta = 0.01), n_gibbs = 1, persistent=True).compile(add_test_values = True)
+        free_energy_of_first_layer = dbn.get_free_energy_function(visible_layers='vis', hidden_layers='hid').compile(add_test_values = True)
+        train_second_layer = dbn.get_constrastive_divergence_function(visible_layers=('hid', 'lab'), hidden_layers='ass', input_layers=('vis', 'lab'), n_gibbs=1, persistent=True).compile(add_test_values = True)
+        predict_label = dbn.get_inference_function(input_layers = 'vis', output_layers='lab', path = [('vis', 'hid'), ('hid', 'ass'), ('ass', 'lab')], smooth = True).compile(add_test_values = True)
 
         encode_label = OneHotEncoding(n_classes=10)
 

@@ -464,7 +464,7 @@ def test_ival_ishape():
     baz = rng.randn(4, 5)
     hap = rng.randint(255, size = (4, 5))
 
-    f = mat_mult.compile()
+    f = mat_mult.compile(add_test_values = True)
     with raises(AssertionError):
         z = f(foo, bar)
 

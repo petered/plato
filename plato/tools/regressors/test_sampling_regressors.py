@@ -31,8 +31,8 @@ def test_samplers_not_broken():
 
     for name, sampler in samplers.iteritems():
         print 'Running Test for Sampler %s' % name
-        sampling_fcn = sampler.predict.compile()
-        update_fcn = sampler.train.compile()
+        sampling_fcn = sampler.predict.compile(add_test_values = True)
+        update_fcn = sampler.train.compile(add_test_values = True)
         for _ in xrange(2):
             out = sampling_fcn(x_tr)
             assert out.shape == (n_samples, 1)
@@ -47,7 +47,7 @@ def test_gibbs_logistic_regressor():
                 n_alpha = 1,
                 possible_ws= (-1, 1),
                 seed = 2143
-                ).compile(),
+                ).compile(add_test_values = True),
         n_extra_tests = 8,
         n_epochs=20
         )
@@ -60,7 +60,7 @@ def test_herded_logistic_regressor():
             HerdedGibbsRegressor(n_dim_in = n_dim_in, n_dim_out = n_dim_out,
                 n_alpha = 1,
                 possible_ws= (-1, 1),
-                ).compile(),
+                ).compile(add_test_values = True),
         n_epochs=20
         )
 
@@ -78,7 +78,7 @@ def test_gibbs_logistic_regressor_full_update():
                     n_alpha = n_dim_in,  # All weights updated in one go.
                     possible_ws= (-1, 1),
                     seed = 2143
-                    ).compile(),
+                    ).compile(add_test_values = True),
             n_epochs=80
             )
 

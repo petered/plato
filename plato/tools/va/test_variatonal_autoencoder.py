@@ -75,12 +75,6 @@ def test_gaussian_prob(n_samples = 10, n_dims = 784):
     assert np.all(logp < 0)
 
 
-if __name__ == '__main__':
-
-    test_gaussian_prob()
-    test_variational_autoencoder()
-
-
 def test_demo_simple_vae_on_mnist():
     demo_simple_vae_on_mnist(binary_x=True)
     demo_simple_vae_on_mnist(binary_x=False)
@@ -88,3 +82,12 @@ def test_demo_simple_vae_on_mnist():
 
 def test_demo_variational_autoencoder():
     demo_variational_autoencoder()
+
+
+if __name__ == '__main__':
+
+    test_demo_variational_autoencoder()
+    test_demo_simple_vae_on_mnist()
+    test_gaussian_prob()
+    test_variational_autoencoder()
+

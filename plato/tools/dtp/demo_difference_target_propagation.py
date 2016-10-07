@@ -48,7 +48,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
                 ),
             cost_function = mean_squared_error,
             optimizer = get_named_optimizer(optimizer, learning_rate),
-            ).compile(),
+            ).compile(add_test_values = True),
         'DTP': lambda: DifferenceTargetMLP.from_initializer(
             input_size = input_size,
             output_size = target_size,
@@ -61,7 +61,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             noise = noise,
             rng = rng,
             use_bias = use_bias,
-            ).compile(),
+            ).compile(add_test_values = True),
         'PreAct-DTP': lambda: DifferenceTargetMLP.from_initializer(
             input_size = input_size,
             output_size = target_size,
@@ -75,7 +75,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             layer_constructor = PreActivationDifferenceTargetLayer.from_initializer,
             rng = rng,
             use_bias = use_bias,
-            ).compile(),
+            ).compile(add_test_values = True),
         'Linear-DTP': lambda: LinearDifferenceTargetMLP.from_initializer(
             input_size = input_size,
             output_size = target_size,
@@ -89,7 +89,7 @@ def get_predictor(predictor_type, input_size, target_size, hidden_sizes = [240],
             rng = rng,
             use_bias = use_bias,
             # layer_constructor = LinearDifferenceTargetLayer.from_initializer
-            ).compile(),
+            ).compile(add_test_values = True),
         }[predictor_type]()
 
 

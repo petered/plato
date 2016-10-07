@@ -22,8 +22,8 @@ def test_autoencoding_lstm(
     rng = np.random.RandomState(seed)
     aelstm = AutoencodingLSTM(n_input = 8, n_hidden=50, initializer_fcn = lambda shape: 0.01*rng.randn(*shape))
 
-    gen_fcn = aelstm.get_generation_function(maintain_state=True, rng = rng).compile()
-    train_fcn = aelstm.get_training_function(update_states=True, optimizer = AdaMax(alpha = 0.1)).compile()
+    gen_fcn = aelstm.get_generation_function(maintain_state=True, rng = rng).compile(add_test_values = True)
+    train_fcn = aelstm.get_training_function(update_states=True, optimizer = AdaMax(alpha = 0.1)).compile(add_test_values = True)
 
     def prime_and_gen(primer, n_steps):
         onehot_primer = encoder(np.array(primer))

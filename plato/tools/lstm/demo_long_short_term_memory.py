@@ -48,8 +48,8 @@ def demo_lstm_novelist(
     the_prophet = AutoencodingLSTM(n_input=n_char, n_hidden=n_hidden,
         initializer_fcn=lambda shape: 0.01*rng.randn(*shape), hidden_layer_type = hidden_layer_type)
 
-    training_fcn = the_prophet.get_training_function(optimizer=AdaMax(alpha = 0.01), update_states=True).compile()
-    generating_fcn = the_prophet.get_generation_function(stochastic=True).compile()
+    training_fcn = the_prophet.get_training_function(optimizer=AdaMax(alpha = 0.01), update_states=True).compile(add_test_values = True)
+    generating_fcn = the_prophet.get_generation_function(stochastic=True).compile(add_test_values = True)
 
     printer = TextWrappingPrinter(newline_every=100)
 
