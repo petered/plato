@@ -48,9 +48,9 @@ def demo_variational_autoencoder(
         rng = rng
         )
 
-    training_fcn = model.train.compile()
+    training_fcn = model.train.compile(add_test_values = True)
 
-    sampling_fcn = model.sample.compile()
+    sampling_fcn = model.sample.compile(add_test_values = True)
 
     for i, minibatch in enumerate(minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs)):
 

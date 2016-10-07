@@ -247,7 +247,7 @@ class MultipleDiagonalGaussianDistribution(IDistribution):
         self.sigma_sq = sigma_sq
 
     def sample(self, n, rng):
-        mu_shape = self.mu.tag.test_value.shape
+        mu_shape = self.mu.ishape
         return rng.normal(size = (n, )+mu_shape) * tt.sqrt(self.sigma_sq) + self.mu
 
     def kl_divergence(self, other):

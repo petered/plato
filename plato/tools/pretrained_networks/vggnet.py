@@ -131,7 +131,6 @@ def get_normalized_vgg_net(up_to_layer=None, force_shared_parameters=True):
         'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'conv5_4', 'relu5_4', 'pool5', 'fc6', 'relu6', 'fc7', 'relu7',
         'fc8', 'prob']
 
-
     if isinstance(up_to_layer, list):
         up_to_layer = up_to_layer[np.argmax([layer_names.index(layer_name) for layer_name in up_to_layer])]
 
