@@ -468,7 +468,7 @@ def test_ival_ishape():
     with raises(AssertionError):
         z = f(foo, bar)
 
-    f = mat_mult.compile()
+    f = mat_mult.compile(add_test_values = True)
     with raises(AssertionError):
         z = f(foo, hap)
 
@@ -501,7 +501,7 @@ def test_named_outputs_with_trace():
         tdb_trace(tt.tan(x), 'tan(x)')
         return {'cos': tt.cos(x), 'sin': tt.sin(x), 'exp': tt.exp(x), 'log': tt.log(x)}
 
-    f = do_some_ops.compile()
+    f = do_some_ops.compile(add_test_values = True)
     rng = np.random.RandomState(0)
     x = rng.rand(10)*np.pi*2
     out = f(x)

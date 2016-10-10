@@ -1,3 +1,4 @@
+from collections import namedtuple
 from artemis.general.should_be_builtins import bad_value
 import numpy as np
 
@@ -89,6 +90,43 @@ def zip_minibatch_iterate(arrays, minibatch_size, n_epochs=1):
     while ixs[0] < end:
         yield tuple(a[ixs % total_size] for a in arrays)
         ixs+=minibatch_size
+
+
+IterationInfo = namedtuple('IterationInfo', ['iteration', 'epoch', 'sample', 'time', 'test_now'])
+
+
+def zip_minibatch_iterate_info(arrays, minibatch_size, n_epochs, test_epochs = None):
+    """
+    Iterate through minibatches of arrays and yield info about the state of iteration though training.
+
+    :param arrays:
+    :param arrays: A collection of arrays, all of which must have the same shape[0]
+    :param minibatch_size: The number of samples per minibatch
+    :param n_epochs: The number of epochs to run for
+    :param test_epochs: A list of epochs to test at.
+    :return: (array_minibatches, info)
+        arrays is a tuple of minibatches from arrays
+        info is an IterationInfo object returning information about the state of iteration.
+    """
+    import time
+    n_samples = float(arrays[0].shape[0])
+    next_text_point = 0 if test_epochs is not None and len(test_epochs)>0 else None
+    start_time = time.time()
+    for i, arrays in enumerate(zip_minibatch_iterate(arrays, minibatch_size=minibatch_size, n_epochs=n_epochs)):
+        epoch = i*minibatch_size/n_samples
+        test_now = (next_text_point is not None) and (epoch >= test_epochs[next_text_point])
+        if test_now:
+            next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
+        info = IterationInfo(
+            iteration = i,
+            epoch = epoch,
+            sample = i*minibatch_size,
+            time = time.time()-start_time,
+            test_now = test_now
+            )
+        yield arrays, info
+
+
 
 
 def minibatch_iterate(data, minibatch_size, n_epochs=1):

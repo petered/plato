@@ -16,7 +16,7 @@ def test_difference_target_mlp():
             optimizer_constructor = lambda: SimpleGradientDescent(0.01),
             w_init_mag=0.01,
             rng = 1234
-            ).compile(),
+            ).compile(add_test_values = True),
         minibatch_size=10,
         n_epochs=10,
         )

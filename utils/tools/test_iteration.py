@@ -1,5 +1,6 @@
 import pytest
-from utils.tools.iteration import minibatch_index_generator, checkpoint_minibatch_index_generator
+from utils.tools.iteration import minibatch_index_generator, checkpoint_minibatch_index_generator, \
+    zip_minibatch_iterate_info
 
 __author__ = 'peter'
 import numpy as np
@@ -50,6 +51,38 @@ def test_checkpoint_minibatch_generator():
                 raise Exception("Failed to stop iteration")
 
 
+def test_minibatch_iterate_info():
+
+    n_samples = 100
+    minibatch_size = 10
+
+    training_arr = np.random.randn(n_samples, 12)
+    test_arr = np.random.randint(10, size=n_samples)
+
+
+    test_epochs = []
+
+    iter = 0
+
+    for (training_minibatch, test_minibatch), info in zip_minibatch_iterate_info((training_arr, test_arr),
+                n_epochs = 1.5, minibatch_size=minibatch_size, test_epochs=[0, 0.5, 1, 1.5]):
+
+        ixs = (np.arange(minibatch_size)+iter*minibatch_size) % n_samples
+        epoch = iter * minibatch_size / float(n_samples)
+
+        assert np.allclose(epoch, info.epoch)
+        assert np.array_equal(ixs, np.arange(info.sample, info.sample+minibatch_size) % n_samples)
+        assert np.array_equal(training_minibatch, training_arr[ixs])
+        assert np.array_equal(test_minibatch, test_arr[ixs])
+
+        if info.test_now:
+            test_epochs.append(info.epoch)
+
+        iter += 1
+    assert test_epochs == [0, 0.5, 1]  # Note... last test time is not included... difficult to say what should be expected here.
+
+
 if __name__ == '__main__':
+    test_minibatch_iterate_info()
     test_minibatch_index_generator()
     test_checkpoint_minibatch_generator()
