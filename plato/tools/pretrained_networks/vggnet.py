@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import pickle
+from artemis.fileman.disk_memoize import memoize_to_disk
 from numpy.testing.utils import assert_raises
 from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
 import theano
@@ -80,7 +81,6 @@ def get_vgg_layer_specifiers(up_to_layer=None):
                                      :layer_names.index(up_to_layer) + 1])
     print 'Done.'
     return network_layers
-
 
 
 def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1, normalized=False):
