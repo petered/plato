@@ -183,7 +183,7 @@ class ConvNet(IParameterized):
         n_maps, n_rows, n_cols = input_shape
         layers = OrderedDict()
         if isinstance(specifiers, (list, tuple)):
-            specifiers = OrderedDict(enumerate(specifiers))
+            specifiers = OrderedDict((str(i), val) for i, val in enumerate(specifiers))
         for spec_name, spec in specifiers.iteritems():
             if isinstance(spec, ConvInitSpec):
                 spec = ConvolverSpec(
