@@ -1,6 +1,8 @@
 from collections import namedtuple
+import itertools
 from artemis.general.should_be_builtins import bad_value
 import numpy as np
+import time
 
 __author__ = 'peter'
 
@@ -82,7 +84,8 @@ def zip_minibatch_iterate(arrays, minibatch_size, n_epochs=1):
     :param n_epochs: The number of epochs to run for
     :yield: len(arrays) arrays, each of shape: (minibatch_size, )+arr.shape[1:]
     """
-    assert isinstance(arrays, (list, tuple)), 'Need at least one array' and len(arrays)>0
+    assert isinstance(arrays, (list, tuple)), 'You need to provide an array or collection of arrays.'
+    assert len(arrays)>0, 'Need at least one array'
     total_size = arrays[0].shape[0]
     assert all(a.shape[0] == total_size for a in arrays), 'All arrays must have the same length!  Lengths are: %s' % ([len(arr) for arr in arrays])
     end = total_size*n_epochs
@@ -93,6 +96,36 @@ def zip_minibatch_iterate(arrays, minibatch_size, n_epochs=1):
 
 
 IterationInfo = namedtuple('IterationInfo', ['iteration', 'epoch', 'sample', 'time', 'test_now'])
+
+
+def iteration_info(n_samples, minibatch_size, test_epochs = None):
+    """
+    Create an iterator that keeps track of the state of minibatch iteration, and simplifies the scheduling of tests.
+    You can izip this iterator with one that returns your data.
+
+    :param n_samples: Number of samples in the dataset.
+    :param minibatch_size: Size of minibatches
+    :param test_epochs: Epochs on which you'd like to run tests
+    :yield: IterationInfo objects which contain info about the state of iteration.
+    """
+    next_text_point = 0 if test_epochs is not None and len(test_epochs)>0 else None
+    start_time = time.time()
+    n_samples = float(n_samples)
+    if minibatch_size=='full':
+        minibatch_size = n_samples
+    for i in itertools.count(0):
+        epoch = i*minibatch_size/n_samples
+        test_now = (next_text_point is not None) and (epoch >= test_epochs[next_text_point])
+        if test_now:
+            next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
+        info = IterationInfo(
+            iteration = i,
+            epoch = epoch,
+            sample = i*minibatch_size,
+            time = time.time()-start_time,
+            test_now = test_now
+            )
+        yield info
 
 
 def zip_minibatch_iterate_info(arrays, minibatch_size, n_epochs, test_epochs = None):
@@ -108,25 +141,11 @@ def zip_minibatch_iterate_info(arrays, minibatch_size, n_epochs, test_epochs = N
         arrays is a tuple of minibatches from arrays
         info is an IterationInfo object returning information about the state of iteration.
     """
-    import time
-    n_samples = float(arrays[0].shape[0])
-    next_text_point = 0 if test_epochs is not None and len(test_epochs)>0 else None
-    start_time = time.time()
-    for i, arrays in enumerate(zip_minibatch_iterate(arrays, minibatch_size=minibatch_size, n_epochs=n_epochs)):
-        epoch = i*minibatch_size/n_samples
-        test_now = (next_text_point is not None) and (epoch >= test_epochs[next_text_point])
-        if test_now:
-            next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
-        info = IterationInfo(
-            iteration = i,
-            epoch = epoch,
-            sample = i*minibatch_size,
-            time = time.time()-start_time,
-            test_now = test_now
-            )
+    for arrays, info in itertools.izip(
+            zip_minibatch_iterate(arrays, minibatch_size=minibatch_size, n_epochs=n_epochs),
+            iteration_info(n_samples=arrays[0].shape[0], minibatch_size=minibatch_size, test_epochs=test_epochs)
+            ):
         yield arrays, info
-
-
 
 
 def minibatch_iterate(data, minibatch_size, n_epochs=1):
@@ -144,3 +163,21 @@ def minibatch_iterate(data, minibatch_size, n_epochs=1):
     while ixs[0] < end:
         yield data[ixs % len(data)]
         ixs+=minibatch_size
+
+
+def minibatch_iterate_info(data, minibatch_size, n_epochs, test_epochs = None):
+    """
+    Iterate through data and yield info about the iteration
+    :param data: An (n_samples, ...) array of data
+    :param minibatch_size: Size of the minibatches
+    :param n_epochs: Number of epochs to iterate for
+    :param test_epochs: A list of epochs to test at.
+    :return:(minibatch, info)
+        minibatch is a minibatch of data (minibatch_size, ...)
+        info is an IterationInfo object returning information about the state of iteration.
+    """
+    for arrays, info in itertools.izip(
+            minibatch_iterate(data, minibatch_size=minibatch_size, n_epochs=n_epochs),
+            iteration_info(n_samples=data.shape[0], minibatch_size=minibatch_size, test_epochs=test_epochs)
+            ):
+        yield arrays, info

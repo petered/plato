@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import add_update, create_shared_variable
+from plato.core import add_update, create_shared_variable, StateCatcher
 from plato.interfaces.decorators import symbolic_updater
 import theano.tensor as tt
 import theano
@@ -25,6 +25,25 @@ class UniformParameterOptimizer(IGradientOptimizer):
     """
 
     def __call__(self, cost, parameters, constants = []):
+        """
+        Compute gradient-based parameter updates, and apply them.
+        Deprecated - use the more clear "update_parameters"
+        """
+        self.update_parameters(cost=cost, parameters=parameters, constants=constants)
+
+    def get_updates(self, cost, parameters, constants = []):
+        """
+        Get the gradient-based parameter updates, but do not apply them.
+        return: A list of (shared_var, new_val) pairs representing the updates.
+        """
+        with StateCatcher(swallow_updates=True) as sc:
+            self(cost=cost, parameters=parameters, constants=constants)
+        return sc.get_updates()
+
+    def update_parameters(self, cost, parameters, constants = []):
+        """
+        Compute gradient-based parameter updates, and apply them.
+        """
         gradients = theano.grad(cost, parameters, consider_constant = constants)  # Can be faster than [theano.grad(p) for p in parameters]
         self.update_from_gradients(parameters, gradients)
 

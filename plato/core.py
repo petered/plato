@@ -283,6 +283,8 @@ def _detect_format(data):
         return CollectionOfCollectionsOfTensorsFormat
     elif _is_named_collection(data):
         return NamedCollectionFormat
+    elif _is_constant(data):
+        return ConstantFormat
     else:
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
@@ -387,6 +389,13 @@ class CollectionOfCollectionsOfTensorsFormat(IFormat):
             raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
 
 
+class ConstantFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not isinstance(data, (float, int, np.ndarray)):
+            raise SymbolicFormatError("Data should be a constant, numeric data (numpy or python float, etc).  Right now it looks like this: %s" % (data, ))
+
 
 class SymbolicFormatError(Exception):
     pass
@@ -412,6 +421,10 @@ def _is_named_collection(arg):
     if not all(_is_tensor(v) for v in arg.values()):
         return False
     return True
+
+
+def _is_constant(arg):
+    return isinstance(arg, (float, int, np.ndarray, np.number))
 
 
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
@@ -839,6 +852,9 @@ def _set_state_catcher(val):
 
 def add_update(shared_var, new_val):
     """
+    Add a shared-variable update.  This will store an update, so that in your compiled function, your shared variable
+    will be updated
+
     :param shared_var: A theano SharedVariable object
     :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
     """
@@ -846,6 +862,20 @@ def add_update(shared_var, new_val):
     state_catcher = _get_state_catcher()
     assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
     state_catcher.add_update(shared_var, new_val)
+
+
+def add_updates(updates):
+    """
+    Add multiple shared-variable updates.
+
+    :param updates: Can be:
+        A list of 2-tuples of (shared_var, new_value)
+        A dict of shared_var -> new_value
+    """
+    if isinstance(updates, dict):
+        updates = updates.items()
+    for shared_var, new_val in updates:
+        add_update(shared_var, new_val)
 
 
 class StateCatcher(object):
@@ -859,8 +889,10 @@ class StateCatcher(object):
 
     def __init__(self, swallow_updates = False):
         """
-        :param swallow_updates: A boolean.  True if you'd like to "swallow" all updates produced, and not pass them on to any
-            outer state-catcher.  False if you'd like to pass updates to the outer StateCatcher.
+        :param swallow_updates: A boolean.
+            True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
+              unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
+            False if you'd like to pass updates to the outer StateCatcher.
         :return:
         """
         self.swallow_updates = swallow_updates
