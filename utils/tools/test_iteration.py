@@ -59,16 +59,13 @@ def test_minibatch_iterate_info():
     training_arr = np.random.randn(n_samples, 12)
     test_arr = np.random.randint(10, size=n_samples)
 
-
     test_epochs = []
-
-    iter = 0
-
+    iterator = 0
     for (training_minibatch, test_minibatch), info in zip_minibatch_iterate_info((training_arr, test_arr),
                 n_epochs = 1.5, minibatch_size=minibatch_size, test_epochs=[0, 0.5, 1, 1.5]):
 
-        ixs = (np.arange(minibatch_size)+iter*minibatch_size) % n_samples
-        epoch = iter * minibatch_size / float(n_samples)
+        ixs = (np.arange(minibatch_size)+iterator*minibatch_size) % n_samples
+        epoch = iterator * minibatch_size / float(n_samples)
 
         assert np.allclose(epoch, info.epoch)
         assert np.array_equal(ixs, np.arange(info.sample, info.sample+minibatch_size) % n_samples)
@@ -78,7 +75,7 @@ def test_minibatch_iterate_info():
         if info.test_now:
             test_epochs.append(info.epoch)
 
-        iter += 1
+        iterator += 1
     assert test_epochs == [0, 0.5, 1]  # Note... last test time is not included... difficult to say what should be expected here.
 
 

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import add_update, create_shared_variable, StateCatcher
+from plato.core import add_update, create_shared_variable, StateCatcher, tdbprint
 from plato.interfaces.decorators import symbolic_updater
 import theano.tensor as tt
 import theano
@@ -54,6 +54,11 @@ class UniformParameterOptimizer(IGradientOptimizer):
         of pseudo-gradient)) use this.
         """
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
+
+        # from plato.core import tdbprint
+        # for i, g in enumerate(gradients):
+        #     tdbprint(g, 'grad %s' % i,)
+
         for p, g in zip(parameters, gradients):
             self._update_param(p, g)
 

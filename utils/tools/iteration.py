@@ -105,19 +105,32 @@ def iteration_info(n_samples, minibatch_size, test_epochs = None):
 
     :param n_samples: Number of samples in the dataset.
     :param minibatch_size: Size of minibatches
-    :param test_epochs: Epochs on which you'd like to run tests
+    :param test_epochs: Epochs on which you'd like to run tests.  You can also enter
+        'every', which will test once-per-epoch,
+        'always', which will test on every iteration
+        'never', which will never test.
     :yield: IterationInfo objects which contain info about the state of iteration.
     """
-    next_text_point = 0 if test_epochs is not None and len(test_epochs)>0 else None
+    # next_text_point = 0 if test_epochs is not None and len(test_epochs)>0 else None
     start_time = time.time()
     n_samples = float(n_samples)
     if minibatch_size=='full':
         minibatch_size = n_samples
+    if isinstance(test_epochs, str):
+        assert test_epochs in ('always', 'never', 'every')
+    last_epoch = -float('inf')
     for i in itertools.count(0):
         epoch = i*minibatch_size/n_samples
-        test_now = (next_text_point is not None) and (epoch >= test_epochs[next_text_point])
-        if test_now:
-            next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
+        
+        test_now = (
+                True if test_epochs=='always' else
+                False if test_epochs=='never' else
+                round(epoch)>round(last_epoch) if test_epochs == 'every' else
+                bad_value(test_epochs)
+            ) if isinstance(test_epochs, basestring) else \
+            np.searchsorted(test_epochs, epoch, side='right') > np.searchsorted(test_epochs, last_epoch, side='right')
+        # if test_now:
+        #     next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
         info = IterationInfo(
             iteration = i,
             epoch = epoch,
@@ -126,6 +139,7 @@ def iteration_info(n_samples, minibatch_size, test_epochs = None):
             test_now = test_now
             )
         yield info
+        last_epoch = epoch
 
 
 def zip_minibatch_iterate_info(arrays, minibatch_size, n_epochs, test_epochs = None):

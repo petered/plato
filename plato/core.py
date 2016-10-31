@@ -451,7 +451,7 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
         ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
         return all(ancestors_are_computable)
 
-    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves)}
+    trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
     return trace_variables, trace_callbacks
@@ -481,7 +481,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, **theano_function_kwargs):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -514,6 +514,7 @@ class AutoCompilingFunction(object):
         self._callbacks = []
         self._add_test_values = add_test_values
         self._debug_print_shapes = debug_print_shapes
+        self.theano_function_kwargs = theano_function_kwargs
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -561,7 +562,7 @@ class AutoCompilingFunction(object):
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
         arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
