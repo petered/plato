@@ -25,9 +25,10 @@ class ProgressIndicator(object):
         self._post_info_callback = post_info_callback
 
     def __call__(self, iteration = None):
+        self.print_update(iteration)
 
+    def print_update(self, iteration=None):
         self._i = self._i+1 if iteration is None else iteration+1
-
         self._current_time = time.time()
         if self._should_update() or self._i == self._expected_iterations:
             frac = float(self._i)/self._expected_iterations
@@ -36,6 +37,7 @@ class ProgressIndicator(object):
             self._last_update = self._i if self._update_unit == 'iterations' else self._current_time
             print 'Progress: %s%%.  %.1fs Elapsed, %.1fs Remaining.%s' \
                 % (int(100*frac), elapsed, remaining, (', %s' % (self._post_info_callback(), )) if self._post_info_callback is not None else '')
+
 
     def _should_update_time(self):
         return self._current_time-self._last_update > self._update_interval
