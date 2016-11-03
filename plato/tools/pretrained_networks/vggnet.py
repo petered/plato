@@ -183,7 +183,7 @@ def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
     :returns: A (n_samples, 3, 224, 224) array representing the BGR image that's ready to feed into VGGNet
 
     """
-    if not isinstance(im, np.ndarray):
+    if not isinstance(im, np.ndarray) or im.ndim==4:
         return np.concatenate([im2vgginput(m, shaping_mode = shaping_mode) for m in im]) if len(im)>0 else np.zeros((0, 3, 224, 224))
 
     if im.ndim==2:
@@ -233,8 +233,11 @@ def get_vggnet_labels():
 _VGG_LABELS = None
 
 
-def get_vgg_label_at(label_index):
+def get_vgg_label_at(label_index, short=False):
     global _VGG_LABELS
     if _VGG_LABELS is None:
         _VGG_LABELS = get_vggnet_labels()
-    return _VGG_LABELS[label_index]
+    label = _VGG_LABELS[label_index]
+    if short:
+        label = label[:label.index(',')] if ',' in label else label
+    return label

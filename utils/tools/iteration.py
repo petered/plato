@@ -118,6 +118,7 @@ def iteration_info(n_samples, minibatch_size, test_epochs = None):
         minibatch_size = n_samples
     if isinstance(test_epochs, str):
         assert test_epochs in ('always', 'never', 'every')
+
     last_epoch = -float('inf')
     for i in itertools.count(0):
         epoch = i*minibatch_size/n_samples
@@ -128,6 +129,7 @@ def iteration_info(n_samples, minibatch_size, test_epochs = None):
                 round(epoch)>round(last_epoch) if test_epochs == 'every' else
                 bad_value(test_epochs)
             ) if isinstance(test_epochs, basestring) else \
+            False if test_epochs is None else \
             np.searchsorted(test_epochs, epoch, side='right') > np.searchsorted(test_epochs, last_epoch, side='right')
         # if test_now:
         #     next_text_point = next_text_point+1 if next_text_point < len(test_epochs)-1 else None
