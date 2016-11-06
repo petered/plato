@@ -1,9 +1,11 @@
+import numpy as np
+import pytest
+
 from artemis.general.mymath import softmax
 from plato.tools.optimization.cost import percent_correct, mean_squared_error, negative_log_likelihood, \
     softmax_negative_log_likelihood, normalized_negative_log_likelihood
-import numpy as np
-from utils.tools.processors import OneHotEncoding
-import pytest
+from artemis.ml.tools.processors import OneHotEncoding
+
 
 __author__ = 'peter'
 

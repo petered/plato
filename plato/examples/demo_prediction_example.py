@@ -1,16 +1,18 @@
+from sklearn.ensemble.forest import RandomForestClassifier
+import numpy as np
+
 from artemis.general.test_mode import is_test_mode, set_test_mode
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from sklearn.ensemble.forest import RandomForestClassifier
-from utils.benchmarks.plot_learning_curves import plot_learning_curves
+from artemis.ml.predictors import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors
 from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.datasets.mnist import get_mnist_dataset
-import numpy as np
-from utils.predictors.perceptron import Perceptron
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.ml.predictors.perceptron import Perceptron
 from utils.tools.mymath import sqrtspace
+
 
 __author__ = 'peter'
 

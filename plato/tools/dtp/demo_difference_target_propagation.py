@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from functools import partial
-from artemis.fileman.experiment_record import run_experiment, register_experiment, ExperimentLibrary, Experiment
+
+from artemis.fileman.experiment_record import register_experiment, ExperimentLibrary
 from artemis.general.test_mode import is_test_mode
 from artemis.plotting.pyplot_plus import set_default_figure_size
 from plato.tools.dtp.difference_target_prop_variations import PreActivationDifferenceTargetLayer, LinearDifferenceTargetMLP
@@ -9,12 +10,12 @@ from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
-from utils.benchmarks.plot_learning_curves import plot_learning_curves
+from artemis.ml.predictors import plot_learning_curves
 from utils.benchmarks.predictor_comparison import compare_predictors
 from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.mymath import sqrtspace
-from utils.tools.processors import OneHotEncoding
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.general.mymath import sqrtspace
+from artemis.ml.tools.processors import OneHotEncoding
 
 
 __author__ = 'peter'

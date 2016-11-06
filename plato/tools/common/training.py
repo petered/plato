@@ -1,11 +1,13 @@
+import time
+
 from artemis.general.checkpoint_counter import CheckPointCounter
 from plato.core import create_shared_variable, symbolic
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from utils.benchmarks.predictor_comparison import LearningCurveData, dataset_to_testing_sets
-from utils.benchmarks.train_and_test import get_evaluation_function
-from utils.tools.iteration import minibatch_index_generator
-from utils.tools.processors import RunningAverage
-import time
+from artemis.ml.predictors.train_and_test import get_evaluation_function
+from artemis.ml.tools.iteration import minibatch_index_generator
+from artemis.ml.tools.processors import RunningAverage
+
 
 __author__ = 'peter'
 

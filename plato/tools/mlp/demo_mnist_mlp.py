@@ -1,16 +1,18 @@
 import logging
+
+import theano.tensor as tt
+import numpy as np
+
 from artemis.fileman.experiment_record import register_experiment, run_experiment
 from artemis.general.test_mode import is_test_mode, set_test_mode
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from artemis.plotting.db_plotting import dbplot
-from utils.benchmarks.plot_learning_curves import plot_learning_curves
+from artemis.ml.predictors import plot_learning_curves
 from utils.benchmarks.predictor_comparison import assess_online_predictor
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.mymath import sqrtspace
-import theano.tensor as tt
-import numpy as np
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.general.mymath import sqrtspace
 
 
 __author__ = 'peter'

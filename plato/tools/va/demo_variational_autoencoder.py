@@ -1,12 +1,14 @@
+import numpy as np
+
 from artemis.general.numpy_helpers import get_rng
 from artemis.general.test_mode import is_test_mode
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.variational_autoencoder import VariationalAutoencoder, \
     EncoderDecoderNetworks
 from artemis.plotting.db_plotting import dbplot
-from utils.tools.iteration import minibatch_iterate
-from utils.datasets.mnist import get_mnist_dataset
-import numpy as np
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.ml.datasets.mnist import get_mnist_dataset
+
 
 __author__ = 'peter'
 

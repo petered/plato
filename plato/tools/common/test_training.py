@@ -1,7 +1,7 @@
 from plato.tools.common.training import assess_online_symbolic_predictor
 from plato.tools.optimization.optimizers import GradientDescent
 from plato.tools.regressors.online_regressor import OnlineRegressor
-from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
+from artemis.ml.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 
 __author__ = 'peter'
 

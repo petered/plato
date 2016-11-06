@@ -2,7 +2,7 @@ from plato.interfaces.helpers import SlowBatchNormalize
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.mlp.modified_mlps import SequentialMultiLayerPerceptron
 from plato.tools.optimization.optimizers import GradientDescent
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
 
 __author__ = 'peter'
 

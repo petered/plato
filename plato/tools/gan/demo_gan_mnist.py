@@ -2,8 +2,8 @@ from artemis.plotting.db_plotting import dbplot
 from plato.tools.gan.gan import GenerativeAdversarialNetwork
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.optimizers import AdaMax
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.iteration import minibatch_iterate
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.ml.tools.iteration import minibatch_iterate
 
 __author__ = 'peter'
 
