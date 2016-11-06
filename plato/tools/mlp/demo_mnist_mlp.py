@@ -5,10 +5,10 @@ import numpy as np
 
 from artemis.fileman.experiment_record import register_experiment, run_experiment
 from artemis.general.test_mode import is_test_mode, set_test_mode
+from artemis.ml.predictors.predictor_comparison import assess_online_predictor
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from artemis.plotting.db_plotting import dbplot
 from artemis.ml.predictors import plot_learning_curves
-from utils.benchmarks.predictor_comparison import assess_online_predictor
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
 from artemis.ml.datasets.mnist import get_mnist_dataset

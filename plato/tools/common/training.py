@@ -1,9 +1,9 @@
 import time
 
 from artemis.general.checkpoint_counter import CheckPointCounter
+from artemis.ml.predictors.predictor_comparison import dataset_to_testing_sets, LearningCurveData
 from plato.core import create_shared_variable, symbolic
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
-from utils.benchmarks.predictor_comparison import LearningCurveData, dataset_to_testing_sets
 from artemis.ml.predictors.train_and_test import get_evaluation_function
 from artemis.ml.tools.iteration import minibatch_index_generator
 from artemis.ml.tools.processors import RunningAverage
@@ -122,16 +122,3 @@ def assess_online_symbolic_predictor(predictor, dataset, evaluation_function, te
         train_fcn(indices)
 
     return record
-    #         time_for_a_test, done = checker.check(current_epoch)
-    #     for (n_samples_seen, input_minibatch, target_minibatch) in \
-    #             dataset.training_set.minibatch_iterator(minibatch_size = minibatch_size, epochs = float('inf'), single_channel = True):
-    #         current_epoch = (float(last_n_samples_seen))/dataset.training_set.n_samples
-    #         last_n_samples_seen = n_samples_seen
-    #         time_for_a_test, done = checker.check(current_epoch)
-    #         if time_for_a_test:
-    #             do_test(current_epoch)
-    #         if done:
-    #             break
-    #         predictor.train(input_minibatch, target_minibatch)
-    #
-    # return record
