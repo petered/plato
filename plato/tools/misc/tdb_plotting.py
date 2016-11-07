@@ -37,7 +37,7 @@ def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
         draw_every = _tdb_plot_every
 
     if plot_type is not None:
-        _CONSTRUCTORS[name] = lambda: plot_type
+        _CONSTRUCTORS[name] = plot_type
         # Following is a kludge - the data is flattened in LivePlot, so we reference
         # it by the "flattened" key.
         # get_dbplot_stream().add_plot_type("['%s']" % name, plot_type=plot_type)
