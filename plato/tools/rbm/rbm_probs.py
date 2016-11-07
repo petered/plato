@@ -1,8 +1,10 @@
-from artemis.general.numpy_helpers import get_rng
-from artemis.general.mymath import sigm, binary_permutations, cummean
 import numpy as np
 from sklearn.svm.classes import LinearSVC
-from utils.benchmarks.train_and_test import percent_correct
+
+from artemis.general.numpy_helpers import get_rng
+from artemis.general.mymath import sigm, binary_permutations, cummean
+from artemis.ml.predictors.train_and_test import percent_correct
+
 
 __author__ = 'peter'
 

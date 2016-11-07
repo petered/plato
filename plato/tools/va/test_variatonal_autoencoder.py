@@ -1,13 +1,15 @@
+import theano.tensor as tt
+import numpy as np
+import pytest
+
 from plato.core import symbolic
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.demo_gaussian_vae import demo_simple_vae_on_mnist
 from plato.tools.va.demo_variational_autoencoder import demo_variational_autoencoder
 from plato.tools.va.variational_autoencoder import VariationalAutoencoder, EncoderDecoderNetworks
-from utils.tools.iteration import minibatch_iterate
-from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
-import theano.tensor as tt
-import numpy as np
-import pytest
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.ml.datasets.synthetic_clusters import get_synthetic_clusters_dataset
+
 
 __author__ = 'peter'
 

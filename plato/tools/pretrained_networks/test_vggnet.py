@@ -1,7 +1,9 @@
-from plato.tools.pretrained_networks.vggnet import get_vgg_net, get_vggnet_labels, im2vgginput
-from utils.datasets.art_gallery import get_image
 import numpy as np
 import pytest
+
+from plato.tools.pretrained_networks.vggnet import get_vgg_net, get_vggnet_labels, im2vgginput
+from artemis.ml.datasets.art_gallery import get_image
+
 __author__ = 'peter'
 
 

@@ -1,9 +1,11 @@
+from pytest import raises
+
 from plato.tools.optimization.old_sampling import simple_binary_gibbs_regressor, simple_herded_binary_gibbs_regressor, \
     OldGibbsRegressor
 from plato.tools.regressors.simple_sampling_regressors import GibbsRegressor, HerdedGibbsRegressor
-from utils.datasets.synthetic_logistic import get_logistic_regression_data
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
-from pytest import raises
+from artemis.ml.datasets.synthetic_logistic import get_logistic_regression_data
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
+
 
 __author__ = 'peter'
 

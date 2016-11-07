@@ -1,7 +1,7 @@
 from plato.tools.optimization.optimizers import GradientDescent
 from plato.tools.regressors.demo_mnist_regression import demo_mnist_online_regression
 from plato.tools.regressors.online_regressor import OnlineRegressor
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
 
 __author__ = 'peter'
 

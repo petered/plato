@@ -1,11 +1,12 @@
+import theano
+import theano.tensor as tt
+import numpy as np
+
 from artemis.general.should_be_builtins import bad_value
 from plato.core import symbolic_multi, add_update
 from plato.interfaces.decorators import symbolic_updater, symbolic_simple
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-import theano
-import theano.tensor as tt
-from utils.graph_utils import FactorGraph, InferencePath
-import numpy as np
+from plato.tools.common.graph_utils import FactorGraph, InferencePath
 
 
 class DeepBeliefNet(object):

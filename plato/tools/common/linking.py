@@ -1,4 +1,3 @@
-from __builtin__ import property
 from plato.core import symbolic_multi
 from plato.interfaces.interfaces import IParameterized
 

@@ -1,6 +1,6 @@
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
 from plato.tools.dtp.demo_difference_target_propagation import ExperimentLibrary
 
 __author__ = 'peter'
