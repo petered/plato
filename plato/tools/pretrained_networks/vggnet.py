@@ -27,7 +27,7 @@ def get_vgg_layer_specifiers(up_to_layer=None):
     Load the 19-layer VGGNet from the mat file and produce a list of layer specifications which can be used to create
     layers in your architecture of choice.
     Info: https://gist.github.com/ksimonyan/3785162f95cd2d5fee77#file-readme-md
-    More Details: http://cs231n.github.io/convolutional-networks/#case
+    More Details: http://cs231n.github.io/convolutional-convnets/#case
 
     :param up_to_layer: The layer to stop at.  Or a list of layers, in which case the network will go to the highest.
         Layers are identified by their string names:
@@ -87,7 +87,7 @@ def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1
     """
     Load the 19-layer VGGNet.
     Info: https://gist.github.com/ksimonyan/3785162f95cd2d5fee77#file-readme-md
-    More Details: http://cs231n.github.io/convolutional-networks/#case
+    More Details: http://cs231n.github.io/convolutional-convnets/#case
 
     :param up_to_layer: The layer to stop at.  Or a list of layers, in which case the network will go to the highest.
         Layers are identified by their string names:

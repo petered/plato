@@ -154,7 +154,7 @@ def run_and_plot(training_scheme):
 register_experiment('standard_dtp',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP']),
     description="""Train Difference Target Propagation on MNIST using standard settings, compare to backprop.  This will "
-        be used as a baseline agains other experiments.""",
+        be used as a baseline agains other mlp.""",
     versions = {'10_epoch': dict(n_epochs=10), '20_epoch': dict(n_epochs=20)},
     current_version='10_epoch',
     conclusion = """

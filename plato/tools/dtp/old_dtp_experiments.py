@@ -466,7 +466,7 @@ register_experiment(
 
 
 """
-Other experiments done by changing code temporarily (and so not available here)
+Other mlp done by changing code temporarily (and so not available here)
 
 all-relu-dtp-nobias
 We try removing biases from Difference Target propagation with RELU units.  This
