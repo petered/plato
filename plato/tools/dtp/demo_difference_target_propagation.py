@@ -2,6 +2,7 @@ from collections import OrderedDict
 from functools import partial
 from artemis.fileman.experiment_record import register_experiment, ExperimentLibrary
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import compare_predictors
 from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from artemis.plotting.pyplot_plus import set_default_figure_size
@@ -148,7 +149,7 @@ def demo_dtp_varieties(
 
 def run_and_plot(training_scheme):
     learning_curves = training_scheme()
-    learning_curve_plots(learning_curves)
+    plot_learning_curves(learning_curves)
 
 
 register_experiment('standard_dtp',

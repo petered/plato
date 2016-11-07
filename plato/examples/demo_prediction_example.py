@@ -1,7 +1,7 @@
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from sklearn.ensemble.forest import RandomForestClassifier
 import numpy as np
 from artemis.general.mymath import sqrtspace
-
 from artemis.general.test_mode import is_test_mode, set_test_mode
 from artemis.ml.predictors.predictor_comparison import compare_predictors
 from artemis.ml.predictors.train_and_test import percent_argmax_correct
@@ -9,7 +9,6 @@ from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from artemis.ml.predictors import learning_curve_plots
 from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.perceptron import Perceptron
 
@@ -80,4 +79,4 @@ if __name__ == '__main__':
         n_epochs=30,
         minibatch_size=20,
         )
-    learning_curve_plots(records)
+    plot_learning_curves(records)

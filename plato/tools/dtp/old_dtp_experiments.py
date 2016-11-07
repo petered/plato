@@ -124,7 +124,7 @@ def demo_perceptron_dtp(
         test_epochs = sqrtspace(0, n_epochs, n_tests),
         )
 
-    learning_curve_plots(result)
+    plot_learning_curves(result)
 
 
 def demo_run_dtp_on_mnist(
