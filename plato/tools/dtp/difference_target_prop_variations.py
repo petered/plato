@@ -1,11 +1,13 @@
+import numpy as np
+import theano
+
 from artemis.general.numpy_helpers import get_rng
 from plato.core import add_update
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.tools.dtp.difference_target_prop import DifferenceTargetLayer, ITargetPropLayer, DifferenceTargetMLP
-import numpy as np
 from plato.tools.optimization.cost import mean_squared_error
-import theano
-from utils.bureaucracy import kwarg_map
+from plato.tools.common.bureaucracy import kwarg_map
+
 
 __author__ = 'peter'
 

@@ -1,5 +1,7 @@
 import pytest
-from utils.graph_utils import SignalGraph, clean_graph
+
+from plato.tools.common.graph_utils import SignalGraph, clean_graph
+
 
 __author__ = 'peter'
 

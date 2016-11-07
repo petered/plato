@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.optimization.cost import get_named_cost_function

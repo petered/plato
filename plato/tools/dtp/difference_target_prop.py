@@ -1,14 +1,17 @@
 from abc import abstractmethod
+
+import theano
+import theano.tensor as tt
+import numpy as np
+
 from plato.core import symbolic_updater, symbolic_simple
 from artemis.general.numpy_helpers import get_rng
 from plato.interfaces.helpers import get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_squared_error
 from plato.tools.common.online_predictors import ISymbolicPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-import theano
-import theano.tensor as tt
-import numpy as np
-from utils.bureaucracy import kwarg_map
+from plato.tools.common.bureaucracy import kwarg_map
+
 
 __author__ = 'peter'
 

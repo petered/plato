@@ -18,7 +18,6 @@ def multichannel(fcn):
     return lambda args: (fcn(*args), )
 
 
-
 def kwarg_map(element_constructor, **kwarg_lists):
     """
     A helper function for when you want to construct a chain of objects with individual arguments for each one.  Can

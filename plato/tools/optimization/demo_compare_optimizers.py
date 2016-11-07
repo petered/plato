@@ -6,7 +6,7 @@ from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
-from artemis.ml.predictors import plot_learning_curves
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import compare_predictors
 from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from artemis.ml.datasets.mnist import get_mnist_dataset

@@ -1,8 +1,9 @@
 from collections import OrderedDict
 from functools import partial
-
 from artemis.fileman.experiment_record import register_experiment, ExperimentLibrary
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.predictors.predictor_comparison import compare_predictors
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from artemis.plotting.pyplot_plus import set_default_figure_size
 from plato.tools.dtp.difference_target_prop_variations import PreActivationDifferenceTargetLayer, LinearDifferenceTargetMLP
 from plato.tools.optimization.cost import mean_squared_error
@@ -10,9 +11,7 @@ from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
-from artemis.ml.predictors import plot_learning_curves
-from utils.benchmarks.predictor_comparison import compare_predictors
-from utils.benchmarks.train_and_test import percent_argmax_correct
+from artemis.ml.predictors import learning_curve_plots
 from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.general.mymath import sqrtspace
 from artemis.ml.tools.processors import OneHotEncoding
@@ -149,7 +148,7 @@ def demo_dtp_varieties(
 
 def run_and_plot(training_scheme):
     learning_curves = training_scheme()
-    plot_learning_curves(learning_curves)
+    learning_curve_plots(learning_curves)
 
 
 register_experiment('standard_dtp',

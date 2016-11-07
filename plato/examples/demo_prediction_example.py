@@ -9,7 +9,7 @@ from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from artemis.ml.predictors import plot_learning_curves
+from artemis.ml.predictors import learning_curve_plots
 from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.perceptron import Perceptron
 
@@ -80,4 +80,4 @@ if __name__ == '__main__':
         n_epochs=30,
         minibatch_size=20,
         )
-    plot_learning_curves(records)
+    learning_curve_plots(records)
