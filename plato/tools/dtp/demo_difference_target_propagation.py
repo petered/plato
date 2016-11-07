@@ -1,7 +1,10 @@
 from collections import OrderedDict
 from functools import partial
-from artemis.fileman.experiment_record import run_experiment, register_experiment, ExperimentLibrary, Experiment
+from artemis.fileman.experiment_record import register_experiment, ExperimentLibrary
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
+from artemis.ml.predictors.predictor_comparison import compare_predictors
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from artemis.plotting.pyplot_plus import set_default_figure_size
 from plato.tools.dtp.difference_target_prop_variations import PreActivationDifferenceTargetLayer, LinearDifferenceTargetMLP
 from plato.tools.optimization.cost import mean_squared_error
@@ -9,12 +12,10 @@ from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import get_named_optimizer
-from utils.benchmarks.plot_learning_curves import plot_learning_curves
-from utils.benchmarks.predictor_comparison import compare_predictors
-from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.mymath import sqrtspace
-from utils.tools.processors import OneHotEncoding
+from artemis.ml.predictors import learning_curve_plots
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.general.mymath import sqrtspace
+from artemis.ml.tools.processors import OneHotEncoding
 
 
 __author__ = 'peter'
@@ -154,7 +155,7 @@ def run_and_plot(training_scheme):
 register_experiment('standard_dtp',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP']),
     description="""Train Difference Target Propagation on MNIST using standard settings, compare to backprop.  This will "
-        be used as a baseline agains other experiments.""",
+        be used as a baseline agains other mlp.""",
     versions = {'10_epoch': dict(n_epochs=10), '20_epoch': dict(n_epochs=20)},
     current_version='10_epoch',
     conclusion = """

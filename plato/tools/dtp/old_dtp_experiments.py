@@ -1,17 +1,19 @@
+import numpy as np
 from artemis.fileman.experiment_record import register_experiment, run_experiment
 from artemis.general.test_mode import is_test_mode
-import numpy as np
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
+from artemis.ml.predictors.predictor_comparison import assess_online_predictor, compare_predictors
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, PreActivationDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax, RMSProp, GradientDescent
 from artemis.plotting.db_plotting import dbplot
-from utils.benchmarks.plot_learning_curves import plot_learning_curves
-from utils.benchmarks.predictor_comparison import compare_predictors, assess_online_predictor
-from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.bureaucracy import multichannel
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.mymath import sqrtspace
+from artemis.ml.predictors import learning_curve_plots
+from plato.tools.common.bureaucracy import multichannel
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.general.mymath import sqrtspace
+
 
 __author__ = 'peter'
 
@@ -464,7 +466,7 @@ register_experiment(
 
 
 """
-Other experiments done by changing code temporarily (and so not available here)
+Other mlp done by changing code temporarily (and so not available here)
 
 all-relu-dtp-nobias
 We try removing biases from Difference Target propagation with RELU units.  This

@@ -2,7 +2,8 @@ from abc import ABCMeta, abstractmethod
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.optimization.cost import get_named_cost_function
-from utils.predictors.i_predictor import IPredictor
+from artemis.ml.predictors.i_predictor import IPredictor
+
 
 __author__ = 'peter'
 

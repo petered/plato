@@ -1,3 +1,6 @@
+import theano
+import numpy as np
+
 from artemis.general.should_be_builtins import bad_value
 from artemis.general.test_mode import is_test_mode
 from plato.core import EnableOmniscence
@@ -5,10 +8,9 @@ from plato.tools.rbm.restricted_boltzmann_machine import simple_rbm
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 from artemis.plotting.db_plotting import dbplot
-import theano
-from utils.tools.iteration import minibatch_iterate
-from utils.datasets.mnist import get_mnist_dataset
-import numpy as np
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.ml.datasets.mnist import get_mnist_dataset
+
 
 __author__ = 'peter'
 

@@ -1,14 +1,16 @@
+import pytest
+
 from plato.interfaces.decorators import symbolic_updater
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.mlp.demo_mnist_mlp import demo_mnist_mlp
 from plato.tools.mlp.mlp import create_maxout_network, MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-import pytest
-from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.tools.iteration import zip_minibatch_iterate
-from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
+from artemis.ml.tools.iteration import zip_minibatch_iterate
+from artemis.ml.datasets.synthetic_clusters import get_synthetic_clusters_dataset
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
+
 
 __author__ = 'peter'
 

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from functools import partial
 from plato.interfaces.decorators import tdb_trace, get_tdb_traces
 from artemis.plotting.db_plotting import dbplot
@@ -12,8 +13,10 @@ Special debug plotter that can handle theano variables.
 
 _CONSTRUCTORS = {}
 
+_tdb_plot_every = None
 
-def tdbplot(var, name = None, plot_type = None, **kwargs):
+
+def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
     """
     Debug plot which can handle theano variables.
 
@@ -30,18 +33,30 @@ def tdbplot(var, name = None, plot_type = None, **kwargs):
     if name is None:
         name = '%s-%s' % (str(var), hex(id(var)))
 
+    if draw_every is None:
+        draw_every = _tdb_plot_every
+
     if plot_type is not None:
         _CONSTRUCTORS[name] = lambda: plot_type
         # Following is a kludge - the data is flattened in LivePlot, so we reference
         # it by the "flattened" key.
         # get_dbplot_stream().add_plot_type("['%s']" % name, plot_type=plot_type)
 
-    tdb_trace(var, name, callback=partial(set_plot_data_and_update, name=name))
+    tdb_trace(var, name, callback=partial(set_plot_data_and_update, name=name, draw_every=draw_every))
 
 
-def set_plot_data_and_update(name):
+@contextmanager
+def use_tdbplot_period(draw_every):
+    global _tdb_plot_every
+    old_value = _tdb_plot_every
+    _tdb_plot_every = draw_every
+    yield
+    _tdb_plot_every = old_value
+
+
+def set_plot_data_and_update(name, draw_every=None):
     data = get_tdb_traces()[name]
-    dbplot(data, name, plot_constructor=_CONSTRUCTORS[name] if name in _CONSTRUCTORS else None)
+    dbplot(data, name, plot_type=_CONSTRUCTORS[name] if name in _CONSTRUCTORS else None, draw_every=draw_every)
 
 
     # PLOT_DATA.update(get_tdb_traces())

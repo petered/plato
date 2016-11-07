@@ -1,13 +1,13 @@
+import theano
+import numpy as np
+
 from artemis.general.test_mode import set_test_mode
 from plato.tools.lstm.demo_long_short_term_memory import demo_lstm_novelist
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
-import theano
-from utils.tools.iteration import minibatch_iterate
-from utils.datasets.bounce_data import get_bounce_data
-import numpy as np
-from utils.tools.processors import OneHotEncoding
-import pytest
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.ml.tools.processors import OneHotEncoding
+
 
 __author__ = 'peter'
 
@@ -66,3 +66,31 @@ if __name__ == '__main__':
     set_test_mode(True)
     test_autoencoding_lstm()
     test_demo_lstm()
+
+
+def get_bounce_data(width = 8, n_rounds = 1, onehot = False):
+    """
+    Data bounes between a max and min value.
+
+    [0,1,2,3,2,1,0,1,2,3,2,1,0,...]
+
+    :param period:
+    :param n_rounds:
+    :param onehot:
+    :return:
+    """
+
+    period = width*2 - 2
+    n_samples = period * n_rounds
+
+    x = np.arange(n_samples)
+
+    x %= period
+    x[x>=width] = period - x[x>=width]
+
+    if onehot:
+        onehot_x = np.zeros((n_samples, width))
+        onehot_x[np.arange(n_samples), x] = 1
+        return onehot_x
+    else:
+        return x

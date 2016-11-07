@@ -283,6 +283,8 @@ def _detect_format(data):
         return CollectionOfCollectionsOfTensorsFormat
     elif _is_named_collection(data):
         return NamedCollectionFormat
+    elif _is_constant(data):
+        return ConstantFormat
     else:
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
@@ -387,6 +389,13 @@ class CollectionOfCollectionsOfTensorsFormat(IFormat):
             raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
 
 
+class ConstantFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not isinstance(data, (float, int, np.ndarray)):
+            raise SymbolicFormatError("Data should be a constant, numeric data (numpy or python float, etc).  Right now it looks like this: %s" % (data, ))
+
 
 class SymbolicFormatError(Exception):
     pass
@@ -414,6 +423,10 @@ def _is_named_collection(arg):
     return True
 
 
+def _is_constant(arg):
+    return isinstance(arg, (float, int, np.ndarray, np.number))
+
+
 def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
     """
     :param all_outputs: A list of symbolic variables returned, and update values.  This is
@@ -438,7 +451,7 @@ def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
         ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
         return all(ancestors_are_computable)
 
-    trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves)}
+    trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
     # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
     return trace_variables, trace_callbacks
@@ -468,7 +481,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, **theano_function_kwargs):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -501,6 +514,7 @@ class AutoCompilingFunction(object):
         self._callbacks = []
         self._add_test_values = add_test_values
         self._debug_print_shapes = debug_print_shapes
+        self.theano_function_kwargs = theano_function_kwargs
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -548,7 +562,7 @@ class AutoCompilingFunction(object):
                 outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
 
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
         arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
@@ -839,6 +853,9 @@ def _set_state_catcher(val):
 
 def add_update(shared_var, new_val):
     """
+    Add a shared-variable update.  This will store an update, so that in your compiled function, your shared variable
+    will be updated
+
     :param shared_var: A theano SharedVariable object
     :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
     """
@@ -846,6 +863,20 @@ def add_update(shared_var, new_val):
     state_catcher = _get_state_catcher()
     assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
     state_catcher.add_update(shared_var, new_val)
+
+
+def add_updates(updates):
+    """
+    Add multiple shared-variable updates.
+
+    :param updates: Can be:
+        A list of 2-tuples of (shared_var, new_value)
+        A dict of shared_var -> new_value
+    """
+    if isinstance(updates, dict):
+        updates = updates.items()
+    for shared_var, new_val in updates:
+        add_update(shared_var, new_val)
 
 
 class StateCatcher(object):
@@ -859,8 +890,10 @@ class StateCatcher(object):
 
     def __init__(self, swallow_updates = False):
         """
-        :param swallow_updates: A boolean.  True if you'd like to "swallow" all updates produced, and not pass them on to any
-            outer state-catcher.  False if you'd like to pass updates to the outer StateCatcher.
+        :param swallow_updates: A boolean.
+            True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
+              unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
+            False if you'd like to pass updates to the outer StateCatcher.
         :return:
         """
         self.swallow_updates = swallow_updates

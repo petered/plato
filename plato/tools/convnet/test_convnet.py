@@ -1,14 +1,17 @@
 from collections import OrderedDict
+import pickle
+
+import numpy as np
+
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.common.training import assess_online_symbolic_predictor
-from plato.tools.convnet.conv_specifiers import ConvInitSpec, NonlinearitySpec, PoolerSpec, ConvolverSpec
+from plato.tools.convnet.conv_specifiers import ConvInitSpec, NonlinearitySpec, PoolerSpec
 from plato.tools.convnet.convnet import ConvNet, ConvLayer, Pooler, normalize_convnet, Nonlinearity
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import AdaMax
-from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.datasets.cifar import get_cifar_10_dataset
-import pickle
-import numpy as np
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
+from artemis.ml.datasets.cifar import get_cifar_10_dataset
+
 
 __author__ = 'peter'
 

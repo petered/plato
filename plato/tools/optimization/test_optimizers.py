@@ -1,7 +1,7 @@
 from plato.tools.optimization.demo_compare_optimizers import get_experiments
 from plato.tools.optimization.optimizers import GradientDescent, Adam, AdaMax
 from plato.tools.regressors.online_regressor import OnlineRegressor
-from utils.predictors.predictor_tests import assert_online_predictor_not_broken
+from artemis.ml.predictors.predictor_tests import assert_online_predictor_not_broken
 
 
 def _test_optimizer_on_simple_classification_problem(optimizer):

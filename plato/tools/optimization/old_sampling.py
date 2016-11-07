@@ -5,7 +5,6 @@ import theano
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
 import numpy as np
-from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
 
@@ -15,6 +14,8 @@ general cousins, but we keep them around because they're unintimidating and can 
 test the correctness of the general samplers in the special case.
 """
 
+
+bernoulli = lambda k, p: (p**k)*((1-p)**(1-k))  # Maybe a not the fastest way to do it but whatevs
 
 def simple_binary_gibbs_regressor(n_dim_in, n_dim_out, sample_y = False, seed = None):
     """

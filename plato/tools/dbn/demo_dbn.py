@@ -1,13 +1,15 @@
+import numpy as np
+
 from artemis.general.test_mode import is_test_mode
 from plato.core import EnableOmniscence
 from plato.tools.dbn.dbn import DeepBeliefNet
 from plato.tools.rbm.rbm_parts import StochasticNonlinearity, FullyConnectedBridge
-import numpy as np
 from plato.tools.optimization.optimizers import SimpleGradientDescent
 from artemis.plotting.db_plotting import dbplot
-from utils.benchmarks.train_and_test import percent_argmax_correct
-from utils.datasets.mnist import get_mnist_dataset
-from utils.tools.processors import OneHotEncoding
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.ml.tools.processors import OneHotEncoding
+
 
 __author__ = 'peter'
 

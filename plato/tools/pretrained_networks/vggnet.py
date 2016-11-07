@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import pickle
+from artemis.fileman.disk_memoize import memoize_to_disk
 from numpy.testing.utils import assert_raises
 from plato.tools.convnet.conv_specifiers import ConvolverSpec, NonlinearitySpec, PoolerSpec
 import theano
@@ -26,7 +27,7 @@ def get_vgg_layer_specifiers(up_to_layer=None):
     Load the 19-layer VGGNet from the mat file and produce a list of layer specifications which can be used to create
     layers in your architecture of choice.
     Info: https://gist.github.com/ksimonyan/3785162f95cd2d5fee77#file-readme-md
-    More Details: http://cs231n.github.io/convolutional-networks/#case
+    More Details: http://cs231n.github.io/convolutional-convnets/#case
 
     :param up_to_layer: The layer to stop at.  Or a list of layers, in which case the network will go to the highest.
         Layers are identified by their string names:
@@ -82,12 +83,11 @@ def get_vgg_layer_specifiers(up_to_layer=None):
     return network_layers
 
 
-
 def get_vgg_net(up_to_layer=None, force_shared_parameters=True, scale_biases = 1, normalized=False):
     """
     Load the 19-layer VGGNet.
     Info: https://gist.github.com/ksimonyan/3785162f95cd2d5fee77#file-readme-md
-    More Details: http://cs231n.github.io/convolutional-networks/#case
+    More Details: http://cs231n.github.io/convolutional-convnets/#case
 
     :param up_to_layer: The layer to stop at.  Or a list of layers, in which case the network will go to the highest.
         Layers are identified by their string names:
@@ -183,7 +183,7 @@ def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
     :returns: A (n_samples, 3, 224, 224) array representing the BGR image that's ready to feed into VGGNet
 
     """
-    if not isinstance(im, np.ndarray):
+    if not isinstance(im, np.ndarray) or im.ndim==4:
         return np.concatenate([im2vgginput(m, shaping_mode = shaping_mode) for m in im]) if len(im)>0 else np.zeros((0, 3, 224, 224))
 
     if im.ndim==2:
@@ -233,8 +233,11 @@ def get_vggnet_labels():
 _VGG_LABELS = None
 
 
-def get_vgg_label_at(label_index):
+def get_vgg_label_at(label_index, short=False):
     global _VGG_LABELS
     if _VGG_LABELS is None:
         _VGG_LABELS = get_vggnet_labels()
-    return _VGG_LABELS[label_index]
+    label = _VGG_LABELS[label_index]
+    if short:
+        label = label[:label.index(',')] if ',' in label else label
+    return label

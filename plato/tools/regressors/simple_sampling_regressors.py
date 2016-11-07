@@ -6,9 +6,10 @@ from plato.tools.optimization.sampling import sample_categorical
 import theano
 from theano import tensor as tt
 from theano.tensor.shared_randomstreams import RandomStreams
-from utils.tools.mymath import bernoulli
 
 __author__ = 'peter'
+
+bernoulli = lambda k, p: (p**k)*((1-p)**(1-k))  # Maybe a not the fastest way to do it but whatevs
 
 
 class GibbsRegressor(ISymbolicPredictor):

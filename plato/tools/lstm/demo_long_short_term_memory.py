@@ -1,12 +1,13 @@
+import numpy as np
+import theano
+
 from artemis.general.newline_writer import TextWrappingPrinter
 from artemis.general.test_mode import is_test_mode
 from plato.tools.lstm.long_short_term_memory import AutoencodingLSTM
 from plato.tools.optimization.optimizers import AdaMax
-from utils.tools.iteration import minibatch_iterate
-from utils.datasets.books import read_book
-import numpy as np
-from utils.tools.processors import OneHotEncoding
-import theano
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.ml.datasets.books import read_book
+from artemis.ml.tools.processors import OneHotEncoding
 
 
 def demo_lstm_novelist(

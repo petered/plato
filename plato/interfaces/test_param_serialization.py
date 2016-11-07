@@ -1,14 +1,16 @@
 import pickle
 from pickle import PicklingError
+
+import pytest
+import numpy as np
+
 from plato.interfaces.param_serialzation import dumps_params, loads_params
 from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-import pytest
-from utils.benchmarks.train_and_test import train_online_predictor, evaluate_predictor, percent_argmax_correct
-from utils.datasets.synthetic_clusters import get_synthetic_clusters_dataset
-import numpy as np
+from artemis.ml.predictors.train_and_test import train_online_predictor, evaluate_predictor, percent_argmax_correct
+from artemis.ml.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 
 
 __author__ = 'peter'
