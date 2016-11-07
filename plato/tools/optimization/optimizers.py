@@ -54,11 +54,6 @@ class UniformParameterOptimizer(IGradientOptimizer):
         of pseudo-gradient)) use this.
         """
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
-
-        # from plato.core import tdbprint
-        # for i, g in enumerate(gradients):
-        #     tdbprint(g, 'grad %s' % i,)
-
         for p, g in zip(parameters, gradients):
             self._update_param(p, g)
 

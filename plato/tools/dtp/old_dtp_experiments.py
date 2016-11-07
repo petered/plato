@@ -1,15 +1,15 @@
 import numpy as np
-
 from artemis.fileman.experiment_record import register_experiment, run_experiment
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
+from artemis.ml.predictors.predictor_comparison import assess_online_predictor, compare_predictors
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, PreActivationDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax, RMSProp, GradientDescent
 from artemis.plotting.db_plotting import dbplot
 from artemis.ml.predictors import learning_curve_plots
-from utils.benchmarks.predictor_comparison import compare_predictors, assess_online_predictor
-from utils.benchmarks.train_and_test import percent_argmax_correct
 from plato.tools.common.bureaucracy import multichannel
 from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.general.mymath import sqrtspace
@@ -46,7 +46,7 @@ def demo_compare_dtp_methods(
         accumulators=accumulator
         )
 
-    learning_curve_plots(learning_curves)
+    plot_learning_curves(learning_curves)
 
 
 def demo_compare_dtp_optimizers(
@@ -92,7 +92,7 @@ def demo_compare_dtp_optimizers(
         evaluation_function = percent_argmax_correct,
         )
 
-    learning_curve_plots(learning_curves)
+    plot_learning_curves(learning_curves)
 
 
 def demo_perceptron_dtp(
@@ -177,7 +177,7 @@ def demo_run_dtp_on_mnist(
         test_callback=lambda p: dbplot(p.symbolic_predictor.layers[0].w.get_value().T.reshape(-1, 28, 28))
         )
 
-    learning_curve_plots(result)
+    plot_learning_curves(result)
 
 
 
