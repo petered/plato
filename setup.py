@@ -2,7 +2,6 @@
 
 from setuptools import setup
 import plato
-import utils
 
 setup(name='plato',
       author='Plato',
