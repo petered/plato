@@ -108,6 +108,10 @@ def get_named_activation_function(activation_name):
     return symbolic_simple(fcn)
 
 
+def compute_activation(x, activation_name):
+    return get_named_activation_function(activation_name)(x)
+
+
 def get_parameters_or_not(module):
     """ Return parameters if the given module is an IParameterized object, else return an empty list."""
     return module.parameters if isinstance(module, IParameterized) else []

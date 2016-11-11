@@ -818,9 +818,11 @@ def tdb_trace(var, name = None, callback = None):
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
+
     _TRACE_VARIABLES[name] = var
     if callback is not None:
         _TRACE_CALLBACKS[name] = callback
+    return name
 
 
 def clear_tdb_traces():
@@ -832,10 +834,18 @@ def printit(var_name, var_val):
     print '%s: %s' % (var_name, var_val)
 
 
+name_counts = {}
+
+
 def tdbprint(var, name = None):
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
+    elif '%c' in name:
+        name_counts[name] = 0 if name not in name_counts else name_counts[name] + 1
+        num = 0 if name not in name_counts else name_counts[name]
+        name = name.replace('%c', str(num))
+
     tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
 
 
@@ -1036,4 +1046,11 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     return shared_var
 
 
+
+def create_constant(value, name=None, cast_floats_to_floatX=True):
+
+    if isinstance(value, float) or value.dtype == 'float' and cast_floats_to_floatX:
+        return tt.constant(value, name=name, dtype=theano.config.floatX)
+    else:
+        return tt.constant(value, name=name)
 

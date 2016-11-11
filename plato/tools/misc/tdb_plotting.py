@@ -16,6 +16,9 @@ _CONSTRUCTORS = {}
 _tdb_plot_every = None
 
 
+name_counts = {}
+
+
 def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
     """
     Debug plot which can handle theano variables.
@@ -32,12 +35,16 @@ def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
 
     if name is None:
         name = '%s-%s' % (str(var), hex(id(var)))
+    elif '%c' in name:
+        name_counts[name] = 0 if name not in name_counts else name_counts[name] + 1
+        num = 0 if name not in name_counts else name_counts[name]
+        name = name.replace('%c', str(num))
 
     if draw_every is None:
         draw_every = _tdb_plot_every
 
     if plot_type is not None:
-        _CONSTRUCTORS[name] = lambda: plot_type
+        _CONSTRUCTORS[name] = plot_type if isinstance (plot_type, basestring) else (lambda: plot_type)
         # Following is a kludge - the data is flattened in LivePlot, so we reference
         # it by the "flattened" key.
         # get_dbplot_stream().add_plot_type("['%s']" % name, plot_type=plot_type)
