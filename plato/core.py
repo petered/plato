@@ -196,7 +196,7 @@ class _SymbolicFunctionWrapper(object):
     def scan(self, **scan_kwargs):
         """
         Apply a scan to this function.  For arguments, see thr
-        :param scan_kwargs: See theano.scan doc
+        :param scan_kwargs: See theano.scan doc: http://deeplearning.net/software/theano/library/scan.html#theano.scan
         :return:
         """
         outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)

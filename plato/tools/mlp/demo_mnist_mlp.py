@@ -3,7 +3,7 @@ import logging
 import theano.tensor as tt
 import numpy as np
 
-from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.fileman.experiment_record import register_experiment, run_experiment, experiment_root
 from artemis.general.test_mode import is_test_mode, set_test_mode
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import assess_online_predictor
@@ -18,6 +18,7 @@ from artemis.general.mymath import sqrtspace
 __author__ = 'peter'
 
 
+@experiment_root
 def demo_mnist_mlp(
         minibatch_size = 10,
         learning_rate = 0.1,
