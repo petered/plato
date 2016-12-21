@@ -48,14 +48,25 @@ class UniformParameterOptimizer(IGradientOptimizer):
         self.update_from_gradients(parameters, gradients)
 
     @symbolic_updater
-    def update_from_gradients(self, parameters, gradients):
+    def update_from_gradients(self, parameters, gradients, clip = None):
         """
         A secondary entry point (if for whatever reason you want to get the gradients yourself (e.g. if it's some kind
         of pseudo-gradient)) use this.
+        :param parameters: A list of shared variables
+        :param gradients: A list of corresponding gradients
+        :param clip: Optionally, a 2-tuple indicating the range in which to clip parameters, (or
         """
+        if clip is not None and not isinstance(clip, (list, tuple)):
+            clip = (-clip, clip)
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
         for p, g in zip(parameters, gradients):
-            self._update_param(p, g)
+            if clip is None:
+                self._update_param(p, g)
+            else:
+                with StateCatcher(swallow_updates=True) as sc:
+                    self._update_param(p, g)
+
+                sc.get_updates()
 
     @abstractmethod
     def _update_param(self, param, gradient):

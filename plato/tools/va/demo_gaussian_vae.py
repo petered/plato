@@ -1,12 +1,12 @@
 import numpy as np
-
-from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.experiments.experiment_record import run_experiment
+from artemis.experiments.deprecated import register_experiment
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.plotting.db_plotting import dbplot
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.gaussian_variational_autoencoder import GaussianVariationalAutoencoder
-from artemis.plotting.db_plotting import dbplot
-from artemis.ml.tools.iteration import minibatch_iterate
-from artemis.ml.datasets.mnist import get_mnist_dataset
 
 
 __author__ = 'peter'

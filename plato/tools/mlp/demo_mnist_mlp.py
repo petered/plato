@@ -1,18 +1,18 @@
 import logging
 
-import theano.tensor as tt
 import numpy as np
-
-from artemis.fileman.experiment_record import register_experiment, run_experiment, experiment_root
+import theano.tensor as tt
+from artemis.experiments.experiment_record import run_experiment, experiment_root
+from artemis.experiments.deprecated import register_experiment
+from artemis.general.mymath import sqrtspace
 from artemis.general.test_mode import is_test_mode, set_test_mode
+from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import assess_online_predictor
-from plato.tools.mlp.mlp import MultiLayerPerceptron
 from artemis.plotting.db_plotting import dbplot
 from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.optimizers import get_named_optimizer
-from artemis.ml.datasets.mnist import get_mnist_dataset
-from artemis.general.mymath import sqrtspace
 
 
 __author__ = 'peter'
@@ -93,6 +93,7 @@ def demo_mnist_mlp(
     if plot:
         plot_learning_curves(results)
 
+    return results
 
 register_experiment(
     name = 'MNIST-tanh-MLP[300,10]',

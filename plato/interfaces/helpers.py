@@ -107,6 +107,10 @@ def get_named_activation_function(activation_name):
          }[activation_name]
     return symbolic_simple(fcn)
 
+#
+# def get_named_activation_derivative(activation_name):
+#     fcn = {}
+#
 
 def compute_activation(x, activation_name):
     return get_named_activation_function(activation_name)(x)

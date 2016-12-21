@@ -1,19 +1,18 @@
 import numpy as np
-from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.experiments.experiment_record import run_experiment
+from artemis.experiments.deprecated import register_experiment
+from artemis.general.mymath import sqrtspace
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import assess_online_predictor, compare_predictors
 from artemis.ml.predictors.train_and_test import percent_argmax_correct
+from artemis.plotting.db_plotting import dbplot
+from plato.tools.common.bureaucracy import multichannel
 from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP, DifferenceTargetLayer
 from plato.tools.dtp.difference_target_prop_variations import PerceptronLayer, PreActivationDifferenceTargetLayer
 from plato.tools.optimization.cost import mean_squared_error, mean_abs_error
 from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax, RMSProp, GradientDescent
-from artemis.plotting.db_plotting import dbplot
-from artemis.ml.predictors import learning_curve_plots
-from plato.tools.common.bureaucracy import multichannel
-from artemis.ml.datasets.mnist import get_mnist_dataset
-from artemis.general.mymath import sqrtspace
-
 
 __author__ = 'peter'
 

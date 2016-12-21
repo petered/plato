@@ -1,5 +1,6 @@
 from artemis.general.numpy_helpers import get_rng
 from artemis.general.should_be_builtins import bad_value
+from artemis.ml.tools.neuralnets import initialize_network_params
 from plato.interfaces.helpers import get_named_activation_function, batch_normalize
 from plato.core import create_shared_variable, symbolic_simple, symbolic
 from plato.interfaces.interfaces import IParameterized
@@ -13,8 +14,7 @@ class MultiLayerPerceptron(IParameterized):
     A Multi-Layer Perceptron.
     """
 
-    def __init__(self, weights, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, scale_param = False, use_bias = True):
+    def __init__(self, layers):
         """
         :param weights: A list of initial weight matrices of shapes:
             [(n_in, n_hidden_0), (n_hidden_0, n_hidden_1), ... (n_hidden_N, n_out)]
@@ -26,22 +26,7 @@ class MultiLayerPerceptron(IParameterized):
             really makes sense when normalize_minibatch is True.
         :param use_bias: If False, do not use biases.
         """
-
-        assert all(w_in.shape[-1]==w_out.shape[-2] for w_in, w_out in zip(weights[:-1], weights[1:]))
-        n_layers = len(weights)
-
-        self.layers = [
-            Layer(
-                linear_transform = FullyConnectedTransform(
-                    w = w,
-                    normalize_minibatch = normalize_minibatch if layer_no<(n_layers-1) else None,
-                    scale = scale_param,
-                    use_bias = use_bias
-                    ),
-                nonlinearity = nonlinearity
-                )
-            for w, nonlinearity, layer_no in zip(weights, [hidden_activation] * (n_layers-1) + [output_activation], xrange(n_layers))
-            ]
+        self.layers = layers
 
     def __call__(self, x):
         for lay in self.layers:
@@ -58,10 +43,10 @@ class MultiLayerPerceptron(IParameterized):
 
     @property
     def parameters(self):
-        return sum([l.parameters for l in self.layers], [])
+        return [param for layer in self.layers for param in layer.parameters]
 
     @classmethod
-    def from_init(cls, w_init, layer_sizes, rng=None, last_layer_zero=False, **init_args):
+    def from_init(cls, w_init, layer_sizes, w_init_dist='normal', rng=None, last_layer_zero=False, **init_args):
         """
         :param w_init: Can be:
             - A scalar, in which case w_init will be interpreted as the standard deviation for the Normally distributed initial weights.
@@ -72,18 +57,40 @@ class MultiLayerPerceptron(IParameterized):
             the last layer will all be zero.
         :param **init_args: See MultiLayerPerceptron constructor
         """
+        assert len(layer_sizes)>1, "A Multi-layer perceptron with only 1 layer don't make no sense.  Remember, input/output layers must be specified."
         if hasattr(w_init, '__call__'):
             assert rng is None, "If w_init is callable, the random number generator (rng) doesn't do anything, and shouldn't be specified."
         else:
             rng = get_rng(rng)
             w_init_mag = w_init
-            w_init = lambda n_inputs, n_outputs: w_init_mag * rng.randn(n_in, n_out)
-        weights = [w_init(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
+        #     w_init = lambda n_inputs, n_outputs: w_init_mag * rng.randn(n_in, n_out)
+        # weights = [w_init(n_in, n_out) for n_in, n_out in zip(layer_sizes[:-1], layer_sizes[1:])]
+
+            weights = initialize_network_params(layer_sizes=layer_sizes, mag=w_init, base_dist=w_init_dist, include_biases=False, rng=rng)
+
         if last_layer_zero:
             weights[-1][:] = 0
-        return cls(weights=weights, **init_args)
+        return cls.from_weights(weights=weights, **init_args)
 
-
+    @classmethod
+    def from_weights(cls, weights, hidden_activation = 'sig', output_activation = 'sig',
+            normalize_minibatch = False, scale_param = False, use_bias = True):
+        assert all(w_in.shape[-1] == w_out.shape[-2] for w_in, w_out in zip(weights[:-1], weights[1:]))
+        n_layers = len(weights)
+        layers = [
+            Layer(
+                linear_transform=FullyConnectedTransform(
+                    w=w,
+                    normalize_minibatch=normalize_minibatch if layer_no < (n_layers - 1) else None,
+                    scale=scale_param,
+                    use_bias=use_bias
+                ),
+                nonlinearity=nonlinearity
+            )
+            for w, nonlinearity, layer_no in
+            zip(weights, [hidden_activation] * (n_layers - 1) + [output_activation], xrange(n_layers))
+            ]
+        return MultiLayerPerceptron(layers)
 
 
 @symbolic_simple
@@ -172,4 +179,4 @@ def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation 
     # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
     if output_activation != 'maxout':
         weights.append(w_init*rng.randn(layer_sizes[-2], layer_sizes[-1]))
-    return MultiLayerPerceptron(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)
+    return MultiLayerPerceptron.from_weights(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)

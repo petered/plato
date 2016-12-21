@@ -1,17 +1,17 @@
-from artemis.fileman.experiment_record import run_experiment
+from artemis.experiments.experiment_record import run_experiment
+from artemis.general.mymath import sqrtspace
 from artemis.general.test_mode import is_test_mode, set_test_mode
-from artemis.plotting.pyplot_plus import set_default_figure_size
-from plato.tools.optimization.cost import softmax_negative_log_likelihood, mean_squared_error
-from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
-from plato.tools.mlp.mlp import MultiLayerPerceptron
-from plato.tools.common.online_predictors import GradientBasedPredictor
-from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
+from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import compare_predictors
 from artemis.ml.predictors.train_and_test import percent_argmax_correct
-from artemis.ml.datasets.mnist import get_mnist_dataset
-from artemis.general.mymath import sqrtspace
 from artemis.ml.tools.processors import OneHotEncoding
+from artemis.plotting.pyplot_plus import set_default_figure_size
+from plato.tools.common.online_predictors import GradientBasedPredictor
+from plato.tools.dtp.difference_target_prop import DifferenceTargetMLP
+from plato.tools.mlp.mlp import MultiLayerPerceptron
+from plato.tools.optimization.cost import softmax_negative_log_likelihood, mean_squared_error
+from plato.tools.optimization.optimizers import SimpleGradientDescent, AdaMax
 
 __author__ = 'peter'
 

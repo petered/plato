@@ -197,6 +197,8 @@ class _SymbolicFunctionWrapper(object):
         """
         Apply a scan to this function.  For arguments, see thr
         :param scan_kwargs: See theano.scan doc: http://deeplearning.net/software/theano/library/scan.html#theano.scan
+            Summary, inputs are taken in the order:
+            [sequences[0], ... sequences[-1], outputs_info[0], ... outputs_info[-1], non_sequences[0], ... non_sequences[-1]]
         :return:
         """
         outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
@@ -1046,7 +1048,6 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     return shared_var
 
 
-
 def create_constant(value, name=None, cast_floats_to_floatX=True):
 
     if isinstance(value, float) or value.dtype == 'float' and cast_floats_to_floatX:
@@ -1054,3 +1055,17 @@ def create_constant(value, name=None, cast_floats_to_floatX=True):
     else:
         return tt.constant(value, name=name)
 
+
+def initialize_constant(shape, fill_value, name=None, cast_floats_to_floatX=True):
+    """
+    Initialize a theano constant.  Cast floats to the dtype in theano.config.floatX
+    :param fill_value: A scalar - the value to fill in
+    :param shape: The shape (a tuple of real or symbolic integers)
+    :param name:
+    :return: A theano constant
+    """
+
+    if isinstance(fill_value, float) and cast_floats_to_floatX:
+        return tt.zeros(shape, dtype=theano.config.floatX)+fill_value
+    else:
+        return tt.zeros(shape, dtype = type(fill_value))+fill_value

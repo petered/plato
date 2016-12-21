@@ -1,11 +1,12 @@
-from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.experiments.experiment_record import run_experiment
+from artemis.experiments.deprecated import register_experiment
+from artemis.general.mymath import sqrtspace
 from artemis.general.test_mode import is_test_mode
-from plato.tools.regressors.online_regressor import OnlineRegressor
-from plato.tools.optimization.optimizers import get_named_optimizer
+from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import assess_online_predictor
-from artemis.ml.datasets.mnist import get_mnist_dataset
-from artemis.general.mymath import sqrtspace
+from plato.tools.optimization.optimizers import get_named_optimizer
+from plato.tools.regressors.online_regressor import OnlineRegressor
 
 __author__ = 'peter'
 
