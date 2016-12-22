@@ -43,7 +43,7 @@ class MultiLayerPerceptron(IParameterized):
 
     @property
     def parameters(self):
-        return [param for layer in self.layers for param in layer.parameters]
+        return [param for layer in self.layers if hasattr(layer, 'parameters') for param in layer.parameters]
 
     @classmethod
     def from_init(cls, w_init, layer_sizes, w_init_dist='normal', rng=None, last_layer_zero=False, **init_args):
