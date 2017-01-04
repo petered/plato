@@ -1,5 +1,5 @@
 import numpy as np
-from plato.core import symbolic_simple, add_update, create_shared_variable
+from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.basic import softmax
 import theano
@@ -85,6 +85,10 @@ def softmax(x, axis=1):
     return e_x / e_x.sum(axis=axis, keepdims=True)
 
 
+def relu(x):
+    return tt.maximum(x, 0)
+
+
 def get_named_activation_function(activation_name):
     fcn = {
         'softmax': softmax,
@@ -93,7 +97,7 @@ def get_named_activation_function(activation_name):
         'tanh': tt.tanh,
         'lin': lambda x: x,
         'exp': lambda x: tt.exp(x),
-        'relu': lambda x: tt.maximum(x, 0),
+        'relu': relu,
         'rect-lin': lambda x: tt.maximum(0, x),
         'softmax-last': tt.nnet.softmax,
         'softplus': lambda x: tt.nnet.softplus(x),
@@ -168,3 +172,29 @@ class SlowBatchCenter(object):
         new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant).astype(theano.config.floatX)
         add_update(running_mean, new_running_mean)
         return x - running_mean
+
+
+def batchify_function(fcn, batch_size):
+    """
+    Given a symbolic function, transform it so that computes its input in a sequence of minibatches, instead of in
+    one go.  This can be useful when:
+        - You want to perform an operation on a large array but don't have enough memory to do it all in one go
+        - Your function has state, and you want to update it with each step.
+
+    *NOTE: Currently this only works when the length of your arguments evently divides into the batch size
+
+    :param fcn: A symbolic function of the form out = f(*args)
+    :param args: A list of arguments.  All arguments must have the same arg.shape[0]
+    :param batch_size: An integer indicating the size of the batches in which you'd like to process your data.
+    :return:
+    """
+
+    @symbolic
+    def batch_function(*args):
+        start_ixs = tt.arange(0, args[0].shape[0], batch_size)
+        @symbolic
+        def process_batch(start_ix, end_ix):
+            return fcn(*[arg[start_ix:end_ix] for arg in args])
+        out = process_batch.scan(sequences = [start_ixs, start_ixs+batch_size])
+        return out.reshape((-1, )+tuple(out.shape[i] for i in xrange(2, out.ndim)), ndim=out.ndim-1)
+    return batch_function

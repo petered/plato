@@ -690,14 +690,13 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
                 "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
                 "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
-    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype
-
+    is_dtype = lambda x, dtype: (isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype) or (isinstance(dtype, type) and isinstance(x, dtype))
+    is_float = lambda x: is_dtype(x, float) or is_dtype(x, 'float32') or is_dtype(x, 'float64')
     # Need to also downcast ints to int32 if floatX is float32, otherwise things like int_array.mean() return float64
     # objects, which (a) slows things down and (b) causes an error when you try to update 32-bit shared variabkles
     # with 64 bit values.
-
     dtype = \
-        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_dtype(data, float))) else \
+        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_float(data))) else \
         'int32' if (cast_to_floatx=='float' and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
         'int64' if isinstance(data, (bool, int)) else \
         'float64' if isinstance(data, float) else \
