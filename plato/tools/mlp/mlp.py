@@ -63,13 +63,13 @@ class MultiLayerPerceptron(IParameterized):
         return cls.from_weights(weights=weights, biases=None if use_bias else False, **init_args)
 
     @classmethod
-    def from_weights(cls, weights, biases = None, hidden_activation = 'sig', output_activation = 'sig',
-            normalize_minibatch = False, scale_param = False):
+    def from_weights(cls, weights, biases = None, hidden_activations ='sig', output_activation ='sig',
+                     normalize_minibatch = False, scale_param = False):
         """
         :param weights: A list of weight matrices with shapes: [(n_in, n_hid1), (n_hid1, n_hid2), ..., (n_hid_last, n_out)]
         :param biases: Either (1) A list of biases with shapes [(n_hid1, ), ... (n_out, )], (2) None, indicating zero
             biases, or (3) False, indicating "don't use biases"
-        :param hidden_activation: The hidden activation function
+        :param hidden_activations: The hidden activation function
         :param output_activation: The output activation function
         :param normalize_minibatch: True to normalize by mean and standard-deviation over the minibatch.
         :param scale_param: Add a parameter in addition to the biases for rescaling before the nonlinearity.  Only
@@ -91,7 +91,7 @@ class MultiLayerPerceptron(IParameterized):
                 nonlinearity=nonlinearity
             )
             for w, b, nonlinearity, layer_no in
-                izip_equal(weights, [0.]*len(weights) if biases is None else biases, [hidden_activation] * (n_layers - 1) + [output_activation], xrange(n_layers))
+                izip_equal(weights, [False]*len(weights) if biases is False else [0.]*len(weights) if biases in (True, None) else biases, [hidden_activations] * (n_layers - 1) + [output_activation], xrange(n_layers))
                 ]
         return MultiLayerPerceptron(layers)
 
@@ -182,4 +182,4 @@ def create_maxout_network(layer_sizes, maxout_widths, w_init, output_activation 
     # Note... we're intentionally starting the zip with maxout widths because we know it may be one element shorter than the layer-sizes
     if output_activation != 'maxout':
         weights.append(w_init*rng.randn(layer_sizes[-2], layer_sizes[-1]))
-    return MultiLayerPerceptron.from_weights(weights=weights, hidden_activation='maxout', output_activation=output_activation, **other_args)
+    return MultiLayerPerceptron.from_weights(weights=weights, hidden_activations='maxout', output_activation=output_activation, **other_args)

@@ -209,7 +209,7 @@ class _SymbolicFunctionWrapper(object):
     def _call_with_updates_returned(self, *args, **kwargs):
         with StateCatcher(swallow_updates=True) as sc:
             outputs = self(*args, **kwargs)
-        return outputs, sc.get_updates()
+        return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
 
@@ -289,6 +289,8 @@ def _detect_format(data):
         return ConstantFormat
     else:
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
+
+
 
 
 def convert_formats(data, src_format, dest_format):
@@ -401,6 +403,7 @@ class ConstantFormat(IFormat):
 
 class SymbolicFormatError(Exception):
     pass
+
 
 
 def _is_tensor(arg):
@@ -529,8 +532,8 @@ class AutoCompilingFunction(object):
         """
 
         if self._compiled_fcn is None:  # Need to do first pass and compile.
-
             d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
+
             tensor_args = [d2t(arg) for arg in args]
             tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
             self._kwarg_order = tensor_kwargs.keys()

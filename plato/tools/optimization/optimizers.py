@@ -245,6 +245,33 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
         add_update(param, param*multiplier)
 
 
+class PIDOptimizer(UniformParameterOptimizer):
+    """ Gradient descent, with all bells and whistles"""
+
+    def __init__(self, kp=0.1, ki=0, kd=0):
+        """
+        :param eta: The learning rate
+        """
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+    def _update_param(self, param, gradient):
+        new_param = param
+        if self.kp != 0:
+            new_param -= self.kp * gradient
+        if self.ki != 0:
+            grad_integral = create_shared_variable(np.zeros_like(param.get_value()))
+            new_gradient_integral = grad_integral + grad_integral
+            add_update(grad_integral, new_gradient_integral)
+            new_param -= self.ki * new_gradient_integral
+        if self.kd != 0:
+            grad_last = create_shared_variable(np.zeros_like(param.get_value()))
+            add_update(grad_last, gradient)
+            new_param -= self.kd * (gradient - grad_last)
+        add_update(param, new_param)
+
+
 def get_named_optimizer(name, learning_rate, rng = None):
     """
     Convenience function for easily specifying optimizers.

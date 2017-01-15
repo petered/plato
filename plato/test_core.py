@@ -512,23 +512,47 @@ def test_named_outputs_with_trace():
     assert np.allclose(get_tdb_traces()['tan(x)'], np.tan(x))
 
 
+def test_arbitrary_structures():
+
+    @symbolic
+    def my_func(a):
+        """
+        :param a: A list of 2-tuples
+        :return: A dict of keys: lists
+        """
+        lists = zip(*a)
+        from string import ascii_lowercase
+        return {letter: arrs for letter, arrs in zip(ascii_lowercase, lists)}
+
+    f = my_func.compile()
+
+    rng = np.random.RandomState(1234)
+    inputs = [(rng.randn(2, 3), rng.randn(2, 3)), (rng.randn(2, 3), rng.randn(2, 3))]
+    out = f(inputs)
+
+
+
+
+
+
 if __name__ == '__main__':
 
-    test_ival_ishape()
-    test_catch_sneaky_updates()
-    test_catch_non_updates()
-    test_scan()
-    test_strrep()
-    test_omniscence()
-    test_named_arguments()
-    test_stateless_symbolic_function()
-    test_stateful_symbolic_function()
-    test_debug_trace()
-    test_method_caching_bug()
-    test_pure_updater()
-    test_function_format_checking()
-    test_callable_format_checking()
-    test_inhereting_from_decorated()
-    test_dual_decoration()
-    test_named_outputs()
-    test_named_outputs_with_trace()
+    # test_ival_ishape()
+    # test_catch_sneaky_updates()
+    # test_catch_non_updates()
+    # test_scan()
+    # test_strrep()
+    # test_omniscence()
+    # test_named_arguments()
+    # test_stateless_symbolic_function()
+    # test_stateful_symbolic_function()
+    # test_debug_trace()
+    # test_method_caching_bug()
+    # test_pure_updater()
+    # test_function_format_checking()
+    # test_callable_format_checking()
+    # test_inhereting_from_decorated()
+    # test_dual_decoration()
+    # test_named_outputs()
+    # test_named_outputs_with_trace()
+    test_arbitrary_structures()
