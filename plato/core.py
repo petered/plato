@@ -3,7 +3,7 @@ from functools import partial
 import inspect
 import logging
 from artemis.general.local_capture import CaptureLocals
-from artemis.general.nested_structures import flatten_struct, expand_struct
+from artemis.general.nested_structures import flatten_struct, expand_struct, NestedType
 from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
@@ -291,8 +291,6 @@ def _detect_format(data):
         raise SymbolicFormatError("Data is not in any known format for a symbolic return: %s" % (data, ))
 
 
-
-
 def convert_formats(data, src_format, dest_format):
 
     if src_format == dest_format:
@@ -330,10 +328,11 @@ class AnyReturnFormat(IFormat):
 
     @staticmethod
     def check(data, f):
-        try:
-            _detect_format(data)  # This will check if the data is in any familiar format.
-        except SymbolicFormatError:
-            raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
+        pass
+        # try:
+        #     _detect_format(data)  # This will check if the data is in any familiar format.
+        # except SymbolicFormatError:
+        #     raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
 
 
 class SingleOutputFormat(IFormat):
@@ -521,6 +520,9 @@ class AutoCompilingFunction(object):
         self._debug_print_shapes = debug_print_shapes
         self.theano_function_kwargs = theano_function_kwargs
 
+        self._input_format = None
+        self._output_format = None
+
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
         __builtins__['locinfo'] = get_local_info
@@ -531,66 +533,85 @@ class AutoCompilingFunction(object):
         returns the result, in numpy arrays.
         """
 
-        if self._compiled_fcn is None:  # Need to do first pass and compile.
-            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
+        input_data = (args, kwargs)
 
-            tensor_args = [d2t(arg) for arg in args]
-            tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
-            self._kwarg_order = tensor_kwargs.keys()
-            args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
+        if self._compiled_fcn is None:  # Runs on the first pass
+
+            # d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
+
+            self._input_format = NestedType.from_data(input_data)
+            flat_input_data = self._input_format.get_leaves(input_data)
+            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values) for d in flat_input_data]
+            tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
+
+            # tensor_args = [d2t(arg) for arg in args]
+            # tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
+            # self._kwarg_order = tensor_kwargs.keys()
+            # args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
 
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
-            self._original_output_format = _detect_format(outputs)
-            if self._original_output_format is NamedCollectionFormat:
-                self._signal_names = outputs.keys()
+
+            self._output_format = NestedType.from_data(outputs)
+            flat_output_tensors = self._output_format.get_leaves(outputs) if outputs is not None else []
+
+            # self._original_output_format = _detect_format(outputs)
+            # if self._original_output_format is NamedCollectionFormat:
+            #     self._signal_names = outputs.keys()
 
             if self._debug_print_shapes:
                 self._original_updates = updates
                 self._old_update_shapes = [old.get_value().shape for old, new in updates]
 
-            all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
+            # all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
+
+            # Add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the output
+            all_outputs_and_updates = self._output_format.get_leaves(outputs) + [new for old, new in updates]
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
             self._callbacks += trace_callbacks
-
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
+                # outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
                 self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
-                self._n_outputs = len(outputs)
+                self._n_outputs = len(flat_output_tensors)
                 self._n_trace_vars = len(trace_variables)
-                outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
+                flat_output_tensors = flat_output_tensors+trace_variables.values()+self._original_fcn.locals().values()
 
+            # Compile the theano function
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
-        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
+        # Ok, so this code runs every time you call the "compiled" function.
+        if not self._input_format.is_type_for(input_data):
+            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected input format: {}".format(self._input_format))
+        arg_and_kwarg_values = self._input_format.get_leaves(input_data)
+        # arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
         arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
 
         # Now, run the actual numeric function!
-        if self._there_are_debug_variables:
-            # Separate out the debug variables from the output.
+        if self._there_are_debug_variables:  # Need to take care of stripping off the debug variables
             all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            true_out = all_out[:self._n_outputs]
+            flat_output_data = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
             _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
-            if self._original_output_format is NamedCollectionFormat:
-                true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
-            else:
-                true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
-        else:
-            true_out = all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            if self._original_output_format is NamedCollectionFormat:
-                true_out = OrderedDict((k, true_out[k]) for k in self._signal_names)
+            # if self._original_output_format is NamedCollectionFormat:
+            #     true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
+            # else:
+            #     true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
+        else:  # Normal case
+            flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)
+            # if self._original_output_format is NamedCollectionFormat:
+            #     true_out = OrderedDict((k, true_out[k]) for k in self._signal_names)
+        true_out = self._output_format.expand_from_leaves(flat_output_data, check_types=False) if len(flat_output_data)>0 else ()
 
         if self._debug_print_shapes:
             if self._debug_print_shapes=='first':
@@ -600,7 +621,7 @@ class AutoCompilingFunction(object):
                 f = self._original_fcn.fcn_str(),
                 n_in = len(arg_and_kwarg_values),
                 inp = str(', '.join([str(a.shape).replace(' ', '') if isinstance(a, np.ndarray) else () for a in arg_and_kwarg_values])),
-                n_out = len(true_out),
+                n_out = len(flat_output_data),
                 out = str(true_out.shape).replace(' ', '') if isinstance(true_out, np.ndarray) else str(', '.join([str(a.shape).replace(' ', '') for a in all_out])),
                 n_up = len(new_update_shapes),
                 updates = str(', '.join([('%s->%s' % (os, ns)).replace(' ', '') for os, ns in zip(self._old_update_shapes, new_update_shapes)]))

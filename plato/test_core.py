@@ -1,4 +1,6 @@
 from abc import abstractmethod
+
+from artemis.general.hashing import compute_fixed_hash, fixed_hash_eq
 from plato.interfaces.helpers import create_shared_variable
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
@@ -21,7 +23,7 @@ def test_stateless_symbolic_function():
 
     f1 = multiply_by_two
     assert f1.compile()(2) == 4
-    assert f1.to_format(symbolic_multi).compile()(2) == [4]
+    assert f1.to_format(symbolic_multi).compile()(2) == (4, )
 
     # Case 2: Method
     class GenericClass(object):
@@ -36,7 +38,7 @@ def test_stateless_symbolic_function():
     obj = GenericClass()
     f2 = obj.multiply_by_two
     assert f2.compile()(2) == 4
-    assert f2.to_format(symbolic_multi).compile()(2) == [4]
+    assert f2.to_format(symbolic_multi).compile()(2) == (4, )
 
     # Case 3: Callable class
     @symbolic
@@ -50,7 +52,7 @@ def test_stateless_symbolic_function():
 
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
-    assert f3.to_format(symbolic_multi).compile()(2) == [4]
+    assert f3.to_format(symbolic_multi).compile()(2) == (4, )
 
 
 def test_stateful_symbolic_function():
@@ -302,7 +304,6 @@ def test_debug_trace():
     clear_tdb_traces()  # Needed due to unresolved thing where the drace callback happens on every symbolic function call in the future somehow.
 
 
-
 def test_named_arguments():
     """
     We allow named arguments in Plato.  Note that you have to
@@ -321,7 +322,7 @@ def test_named_arguments():
         assert f(x=2, y=4, z=3.)
     f = add_and_div.compile()
     assert f(x=2, y=4, z=3.) == 2
-    with raises(KeyError):
+    with raises(TypeError):
         # You were inconsistent - used args the first time, kwargs the second.
         assert f(2, 4, 3.)
     assert f(y=4, x=2, z=3.) == 2
@@ -515,14 +516,12 @@ def test_named_outputs_with_trace():
 def test_arbitrary_structures():
 
     @symbolic
-    def my_func(a):
+    def my_func(inp):
         """
         :param a: A list of 2-tuples
         :return: A dict of keys: lists
         """
-        lists = zip(*a)
-        from string import ascii_lowercase
-        return {letter: arrs for letter, arrs in zip(ascii_lowercase, lists)}
+        return {'a': [inp[0][0], inp[1][0]], 'b':[inp[0][1], inp[1][1]]}
 
     f = my_func.compile()
 
@@ -530,29 +529,27 @@ def test_arbitrary_structures():
     inputs = [(rng.randn(2, 3), rng.randn(2, 3)), (rng.randn(2, 3), rng.randn(2, 3))]
     out = f(inputs)
 
-
-
-
+    assert fixed_hash_eq(out, {'a': [inputs[0][0], inputs[1][0]], 'b': [inputs[0][1], inputs[1][1]]})
 
 
 if __name__ == '__main__':
 
-    # test_ival_ishape()
-    # test_catch_sneaky_updates()
-    # test_catch_non_updates()
-    # test_scan()
-    # test_strrep()
-    # test_omniscence()
-    # test_named_arguments()
-    # test_stateless_symbolic_function()
-    # test_stateful_symbolic_function()
-    # test_debug_trace()
-    # test_method_caching_bug()
-    # test_pure_updater()
-    # test_function_format_checking()
-    # test_callable_format_checking()
-    # test_inhereting_from_decorated()
-    # test_dual_decoration()
-    # test_named_outputs()
-    # test_named_outputs_with_trace()
+    test_ival_ishape()
+    test_catch_sneaky_updates()
+    test_catch_non_updates()
+    test_scan()
+    test_strrep()
+    test_omniscence()
+    test_named_arguments()
+    test_stateless_symbolic_function()
+    test_stateful_symbolic_function()
+    test_debug_trace()
+    test_method_caching_bug()
+    test_pure_updater()
+    test_function_format_checking()
+    test_callable_format_checking()
+    test_inhereting_from_decorated()
+    test_dual_decoration()
+    test_named_outputs()
+    test_named_outputs_with_trace()
     test_arbitrary_structures()
