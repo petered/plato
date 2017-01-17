@@ -94,7 +94,6 @@ def symbolic_named_output(fcn):
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=NamedCollectionFormat, update_format=PassAnythingFormat)(fcn)
 
 
-
 class SymbolicFunction(object):
 
     def __init__(self, input_format = None, output_format = None, update_format = None):
@@ -202,6 +201,10 @@ class _SymbolicFunctionWrapper(object):
         :return:
         """
         outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
+        if isinstance(outputs, (list, tuple)):
+            # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
+            # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
+            outputs = outputs[:-1]
         for (shared_var, new_val) in updates.items():
             add_update(shared_var, new_val)
         return outputs
@@ -209,6 +212,8 @@ class _SymbolicFunctionWrapper(object):
     def _call_with_updates_returned(self, *args, **kwargs):
         with StateCatcher(swallow_updates=True) as sc:
             outputs = self(*args, **kwargs)
+        if isinstance(outputs, (list, tuple)):  # Necessary evil to force theano.scan to return collection even if length is 1.
+            outputs = outputs + type(outputs)([tt.zeros(())])
         return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
@@ -537,38 +542,29 @@ class AutoCompilingFunction(object):
 
         if self._compiled_fcn is None:  # Runs on the first pass
 
-            # d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
-
+            # Find tensor versions of inputs based on data in first-call, collect list of inputs
             self._input_format = NestedType.from_data(input_data)
             flat_input_data = self._input_format.get_leaves(input_data)
             args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values) for d in flat_input_data]
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
-            # tensor_args = [d2t(arg) for arg in args]
-            # tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
-            # self._kwarg_order = tensor_kwargs.keys()
-            # args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
-
+            # Call the function to get symbolic outputs and updates
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
             with StateCatcher(swallow_updates=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
 
+            # Detect output format, collect list of outputs
             self._output_format = NestedType.from_data(outputs)
             flat_output_tensors = self._output_format.get_leaves(outputs) if outputs is not None else []
 
-            # self._original_output_format = _detect_format(outputs)
-            # if self._original_output_format is NamedCollectionFormat:
-            #     self._signal_names = outputs.keys()
-
+            # If necessary, save update info for debug print
             if self._debug_print_shapes:
                 self._original_updates = updates
                 self._old_update_shapes = [old.get_value().shape for old, new in updates]
 
-            # all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
-
-            # Add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the output
+            # Find and add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the list of outputs
             all_outputs_and_updates = self._output_format.get_leaves(outputs) + [new for old, new in updates]
             trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
             self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
@@ -589,9 +585,8 @@ class AutoCompilingFunction(object):
 
         # Ok, so this code runs every time you call the "compiled" function.
         if not self._input_format.is_type_for(input_data):
-            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected input format: {}".format(self._input_format))
+            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected format: {}, but got: {}".format(self._input_format), NestedType.from_data(input_data))
         arg_and_kwarg_values = self._input_format.get_leaves(input_data)
-        # arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
         arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
 
         # Now, run the actual numeric function!
@@ -603,14 +598,8 @@ class AutoCompilingFunction(object):
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
             _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
-            # if self._original_output_format is NamedCollectionFormat:
-            #     true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
-            # else:
-            #     true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
         else:  # Normal case
             flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            # if self._original_output_format is NamedCollectionFormat:
-            #     true_out = OrderedDict((k, true_out[k]) for k in self._signal_names)
         true_out = self._output_format.expand_from_leaves(flat_output_data, check_types=False) if len(flat_output_data)>0 else ()
 
         if self._debug_print_shapes:
