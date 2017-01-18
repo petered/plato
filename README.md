@@ -1,5 +1,7 @@
 #Plato
 
+![](https://github.com/petered/data/blob/master/images/plato.jpg?raw=true)
+
 Welcome to the Plato repo.  
 
 Plato is a python package built on top of [Theano](http://deeplearning.net/software/theano/) with a few objectives:
