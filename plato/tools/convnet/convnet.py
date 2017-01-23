@@ -154,7 +154,7 @@ class ConvNet(IParameterized):
         return self.get_named_layer_activations(inp, test_call=True).values()[-1]
 
     @symbolic
-    def get_named_layer_activations(self, x, test_call=False):
+    def get_named_layer_activations(self, x, include_input = False, test_call=False):
         """
         :param x: A (n_samples, n_colours, size_y, size_x) input image
         :param test_call: True if you want to call it on a test set... this may affect things like dropout.
@@ -162,7 +162,7 @@ class ConvNet(IParameterized):
             If you instantiated the convnet with an OrderedDict, the keys will correspond to the keys for the layers.
             Otherwise, they will correspond to the index which identifies the order of the layer.
         """
-        named_activations = OrderedDict()
+        named_activations = OrderedDict([('input', x)]) if include_input else OrderedDict()
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
