@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import add_update, create_shared_variable, StateCatcher, tdbprint
+from plato.core import add_update, create_shared_variable, StateCatcher, tdbprint, CaptureUpdates
 from plato.interfaces.decorators import symbolic_updater
 import theano.tensor as tt
 import theano
@@ -36,7 +36,7 @@ class UniformParameterOptimizer(IGradientOptimizer):
         Get the gradient-based parameter updates, but do not apply them.
         return: A list of (shared_var, new_val) pairs representing the updates.
         """
-        with StateCatcher(swallow_updates=True) as sc:
+        with CaptureUpdates(swallow=True) as sc:
             self(cost=cost, parameters=parameters, constants=constants)
         return sc.get_updates()
 
@@ -63,7 +63,7 @@ class UniformParameterOptimizer(IGradientOptimizer):
             if clip is None:
                 self._update_param(p, g)
             else:
-                with StateCatcher(swallow_updates=True) as sc:
+                with CaptureUpdates(swallow=True) as sc:
                     self._update_param(p, g)
 
                 sc.get_updates()

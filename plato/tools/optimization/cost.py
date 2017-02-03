@@ -95,9 +95,26 @@ def mean_single_xe(actual, target):
 
 
 @symbolic_simple
-def softmax_mean_xe(actual, target):
+def categorical_xe(actual, target):
+    """
+    :param actual: A (n_samples, n_dim) array of outputs. Careful! It is assumed that actual is normalized.
+    :param target: A (n_samples, ) array of integer labels
+    :return: A scalar cost
+    """
+    return tt.nnet.categorical_crossentropy(actual, target).mean(axis=0)
+
+
+@symbolic_simple
+def softmax_xe(actual, target):
+    """
+    Take softmax of actual, then apply categorical cross entropy.
+    :param actual:  A (n_samples, n_dim) array of outputs
+    :param target: A (n_samples, ) array of integer labels
+    :return: A scalar cost
+    """
     normalized_actual = tt.nnet.softmax(actual)
-    return mean_xe(normalized_actual, target)
+    return categorical_xe(normalized_actual, target)
+    # return mean_xe(normalized_actual, target)
 
 
 @symbolic_simple
@@ -136,10 +153,12 @@ def l1_norm_mse(actual, target, eps = 1e-7):
 def l1_error(actual, target):
     return abs(actual-target).sum(axis=1).mean(axis=0)
 
+
 def l1_norm_error(actual, target, eps = 1e-7):
     normed_actual = actual/tt.maximum(eps, tt.sum(abs(actual), axis = 1, keepdims = True))
     normed_target = target/tt.maximum(eps, tt.sum(abs(target), axis = 1, keepdims = True))
     return l1_error(normed_actual, normed_target)
+
 
 def get_named_cost_function(name):
     return {
@@ -152,5 +171,7 @@ def get_named_cost_function(name):
         'cos': mean_cosine_distance,
         'norm-mse': norm_mse,
         'onehot-mse': onehot_mse,
-        'norm_l1_error': l1_norm_error
+        'norm_l1_error': l1_norm_error,
+        'softmax-xe': softmax_xe,
+        'categorical-xe': categorical_xe
         }[name]

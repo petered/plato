@@ -172,7 +172,7 @@ class _SymbolicFunctionWrapper(object):
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs), self.fcn)
 
-        with StateCatcher(swallow_updates=False) as sc:
+        with CaptureUpdates(swallow=False) as sc:
             if ENABLE_OMNISCENCE:
                 with CaptureLocals() as c:
                     if self.attached_instance is None:
@@ -204,16 +204,18 @@ class _SymbolicFunctionWrapper(object):
         if isinstance(outputs, (list, tuple)):
             # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
             # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
-            outputs = outputs[:-1]
+            outputs = outputs[:-2]
         for (shared_var, new_val) in updates.items():
             add_update(shared_var, new_val)
         return outputs
 
     def _call_with_updates_returned(self, *args, **kwargs):
-        with StateCatcher(swallow_updates=True) as sc:
+        with CaptureUpdates(swallow=True) as sc:
             outputs = self(*args, **kwargs)
         if isinstance(outputs, (list, tuple)):  # Necessary evil to force theano.scan to return collection even if length is 1.
-            outputs = outputs + type(outputs)([tt.zeros(())])
+            outputs = outputs + type(outputs)([tt.zeros(()), tt.zeros(())])
+        elif outputs is None:
+            outputs = tt.zeros(())
         return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
@@ -550,8 +552,10 @@ class AutoCompilingFunction(object):
 
             # Call the function to get symbolic outputs and updates
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
-            with StateCatcher(swallow_updates=True) as sc:
+            with CaptureUpdates(swallow=True) as sc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
+            if outputs is None:
+                outputs = ()
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
 
@@ -903,7 +907,7 @@ def add_updates(updates):
         add_update(shared_var, new_val)
 
 
-class StateCatcher(object):
+class CaptureUpdates(object):
     """
     Used to catch updates.  Usage:
 
@@ -912,15 +916,15 @@ class StateCatcher(object):
     updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
     """
 
-    def __init__(self, swallow_updates = False):
+    def __init__(self, swallow = False):
         """
-        :param swallow_updates: A boolean.
+        :param swallow: A boolean.
             True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
               unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
-            False if you'd like to pass updates to the outer StateCatcher.
+            False if you'd like to pass updates on to be applied when the function compiles.
         :return:
         """
-        self.swallow_updates = swallow_updates
+        self.swallow = swallow
 
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
@@ -931,6 +935,9 @@ class StateCatcher(object):
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
+    def __getitem__(self, shared_variable):
+        return self._updates[shared_variable]
+
     def add_update(self, shared_var, new_val):
         if shared_var in self._updates:
             if _ACCUMULATE_UPDATES:
@@ -939,11 +946,14 @@ class StateCatcher(object):
                 raise AssertionError("You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s.\nIf you want to accumulate both updates, call your update from inside a 'with AccumulateUpdates():'" % (shared_var, new_val, self._updates[shared_var]))
         else:
             self._updates[shared_var] = new_val
-        if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+        if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
-    def get_updates(self):
-        return self._updates.items()
+    def get_updates(self, as_dict = False):
+        return OrderedDict(self._updates.items()) if as_dict else self._updates.items()
+
+
+StateCatcher = CaptureUpdates  # Backwards compatibility
 
 
 _ACCUMULATE_UPDATES = False
@@ -1058,6 +1068,18 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     """
     shared_var, _, _ = initialize_param(initializer_fcn, shape = shape, name = name, cast_floats_to_floatX=cast_floats_to_floatX, **shared_kwargs)
     return shared_var
+
+
+def create_shared_variable_from_zeros(shape, name = None, **shared_kwargs):
+    """
+    Create a share variable from an array of zeros.
+    :param shape: The shape of the variable.
+    :param name: (Optionally, the name)
+    :param shared_kwargs: Other keyword args for shared variable construction
+    :return: A theano shared variable.
+    """
+    assert name is None or isinstance(name, basestring)  # Mostly checks that you didn't accidentally call like create_shared_variable_from_zeros(3, 4)
+    return create_shared_variable(initializer_fcn=np.zeros(shape), name=name, **shared_kwargs)
 
 
 def create_constant(value, name=None, cast_floats_to_floatX=True):

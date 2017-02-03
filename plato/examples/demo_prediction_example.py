@@ -22,7 +22,7 @@ def compare_example_predictors(
         minibatch_size = 10,
     ):
     """
-    This demo shows how we can compare different online predictors.  The demo trains both predictors on the dataset,
+    This demo shows how we can side_by_side different online predictors.  The demo trains both predictors on the dataset,
     returning an object that contains the results.
 
     :param test_mode: Set this to True to just run the demo quicky (but not to completion) to see that it doesn't break.

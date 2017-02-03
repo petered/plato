@@ -249,7 +249,7 @@ register_experiment(
 
 
 register_experiment(
-    name = 'compare-multi-level-perceptron-dtp',
+    name = 'side_by_side-multi-level-perceptron-dtp',
     function = lambda: demo_compare_dtp_methods(
         predictor_constructors={
             'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),
@@ -264,7 +264,7 @@ register_experiment(
     )
 
 register_experiment(
-    name = 'compare-multi-level-perceptron-dtp-avg',
+    name = 'side_by_side-multi-level-perceptron-dtp-avg',
     function = lambda: demo_compare_dtp_methods(
         predictor_constructors={
             'perceptron': lambda n_in, n_out: make_multi_level_perceptron(n_in, n_out, hidden_sizes=[], lin_dtp=False),

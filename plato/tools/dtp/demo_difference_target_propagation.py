@@ -154,7 +154,7 @@ def run_and_plot(training_scheme):
 
 register_experiment('standard_dtp',
     function = partial(demo_dtp_varieties, predictors = ['MLP', 'DTP']),
-    description="""Train Difference Target Propagation on MNIST using standard settings, compare to backprop.  This will "
+    description="""Train Difference Target Propagation on MNIST using standard settings, side_by_side to backprop.  This will "
         be used as a baseline agains other mlp.""",
     versions = {'10_epoch': dict(n_epochs=10), '20_epoch': dict(n_epochs=20)},
     current_version='10_epoch',
@@ -217,7 +217,7 @@ register_experiment('linear_output_dtp',
 
 register_experiment('standard_dtp_noiseless',
     function = lambda: demo_dtp_varieties(noise=0, predictors=['DTP']),
-    description="See if noise is helpful (compare to standard-dtp)",
+    description="See if noise is helpful (side_by_side to standard-dtp)",
     conclusion = """
         DTP: 94.40
         So noise may be helpful but not critical.s
