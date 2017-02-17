@@ -54,6 +54,8 @@ def negative_log_likelihood_dangerous(actual, target):
     normalized_negative_log_likelihood instead, and if you have a softmax on the input, theano should
     (hopefully) optimize away the normalization step.
     """
+    assert actual.ndim==2
+    assert target.ndim==1
     return -tt.log(actual[tt.arange(actual.shape[0]), target]).mean()
 
 
@@ -92,6 +94,16 @@ def mean_single_xe(actual, target):
     :return: A scalar cost
     """
     return mean_xe(actual, target[:, None])
+
+
+@symbolic_simple
+def logistic_xe(actual, target):
+    """
+    :param actual:
+    :param target:
+    :return:
+    """
+    return mean_xe(tt.nnet.sigmoid(actual), target)
 
 
 @symbolic_simple
@@ -160,8 +172,7 @@ def l1_norm_error(actual, target, eps = 1e-7):
     return l1_error(normed_actual, normed_target)
 
 
-def get_named_cost_function(name):
-    return {
+_loss_dict = {
         'nll': negative_log_likelihood,
         'nll-d': negative_log_likelihood_dangerous,
         'mse': mean_squared_error,
@@ -173,5 +184,15 @@ def get_named_cost_function(name):
         'onehot-mse': onehot_mse,
         'norm_l1_error': l1_norm_error,
         'softmax-xe': softmax_xe,
-        'categorical-xe': categorical_xe
-        }[name]
+        'categorical-xe': categorical_xe,
+        'logistic-xe': logistic_xe,
+        }
+
+
+def add_named_loss_function(loss_name, func):
+    assert loss_name not in _loss_dict, 'Loss "{}" is already in the dict'.format(loss_name)
+    _loss_dict[loss_name] = func
+
+
+def get_named_cost_function(name):
+    return _loss_dict[name]

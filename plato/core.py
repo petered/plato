@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from contextlib import contextmanager
 from functools import partial
 import inspect
 import logging
@@ -209,6 +210,24 @@ class _SymbolicFunctionWrapper(object):
             add_update(shared_var, new_val)
         return outputs
 
+    def eval(self, *args, **kwargs):
+        """
+        Compile and evaluate the function for the given inputs.
+        :param args: Arguments to the function
+        :param kwargs: Keyword
+        :return:
+        """
+        f = self.compile()
+        return f(*args, **kwargs)
+
+    def __eq__(self, other):
+        # Note: This is a bit of a lazy implementation - just tests if the wrapped functions are the same.  Not sure what
+        # contexts this will be used in so it may be necessary to wrap other attributes.
+        if isinstance(other, self.__class__):
+            if self.fcn==other.fcn:
+                return True
+        return False
+
     def _call_with_updates_returned(self, *args, **kwargs):
         with CaptureUpdates(swallow=True) as sc:
             outputs = self(*args, **kwargs)
@@ -232,6 +251,7 @@ class _SymbolicFunctionWrapper(object):
         """
         Partially define the input arguments and return a new symbolic function.
         """
+        # fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
             output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
@@ -754,7 +774,6 @@ def get_local_info(locals_of_calling_frame=None):
     info = {k: var_info(v) for k, v in locals_of_calling_frame.iteritems()}
     return info
 
-
 def var_info(var):
 
     if isinstance(var, Variable) and hasattr(var.tag, 'test_value'):
@@ -907,6 +926,15 @@ def add_updates(updates):
         add_update(shared_var, new_val)
 
 
+# def get_latest_update(shared_var):
+#     """
+#     Get the latest update to a shared variable, or just return the original variable otherwise.
+#     :param shared_var: A theano shared variable
+#     :return: The updated value, or just the shared var.
+#     """
+#     _get_state_catcher()
+
+
 class CaptureUpdates(object):
     """
     Used to catch updates.  Usage:
@@ -975,6 +1003,16 @@ class AccumulateUpdates():
     def __exit__(self, *args):
         global _ACCUMULATE_UPDATES
         _ACCUMULATE_UPDATES = self._oldstate
+
+
+@contextmanager
+def accumulate_updates():
+    global _ACCUMULATE_UPDATES
+    _oldstate = _ACCUMULATE_UPDATES
+    _ACCUMULATE_UPDATES = True
+    yield
+    _ACCUMULATE_UPDATES = _oldstate
+
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):

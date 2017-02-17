@@ -65,7 +65,6 @@ class UniformParameterOptimizer(IGradientOptimizer):
             else:
                 with CaptureUpdates(swallow=True) as sc:
                     self._update_param(p, g)
-
                 sc.get_updates()
 
     @abstractmethod
