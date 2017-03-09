@@ -215,7 +215,7 @@ def vgginput2im(feat):
     :param feat: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
     :returns: A (size_y, size_x, 3) array representing a RGB image.
     """
-    bgr_im = (feat.dimshuffle(0, 2, 3, 1) if isinstance(feat, Variable) else np.rollaxis(feat, 0, 2))[0, :, :, :]
+    bgr_im = (feat.dimshuffle(0, 2, 3, 1) if isinstance(feat, Variable) else np.rollaxis(feat, 1, 4))[0, :, :, :]
     decentered_rgb_im = (bgr_im + np.array([103.939, 116.779, 123.68]))[:, :, ::-1]
     return decentered_rgb_im
 
