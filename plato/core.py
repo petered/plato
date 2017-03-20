@@ -1091,7 +1091,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
         params = []
         variable_shape = None
     else:
-        raise Exception("Don't know how to instantiate variable from %s" % (initial_value, ))
+        raise Exception("Don't know how to instantiate variable from data of format {}.  \nData: {}".format(NestedType.from_data(initial_value), initial_value, ))
     return variable, params, variable_shape
 
 

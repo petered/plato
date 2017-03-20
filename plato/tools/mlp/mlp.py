@@ -40,7 +40,7 @@ class MultiLayerPerceptron(IParameterized):
         return [param for layer in self.layers if hasattr(layer, 'parameters') for param in layer.parameters]
 
     @classmethod
-    def from_init(cls, w_init, layer_sizes, w_init_dist='normal', rng=None, last_layer_zero=False, use_bias=True, **init_args):
+    def from_init(cls, layer_sizes, w_init='xavier', w_init_dist='normal', rng=None, last_layer_zero=False, use_bias=True, **init_args):
         """
         :param w_init: Can be:
             - A scalar, in which case w_init will be interpreted as the standard deviation for the Normally distributed initial weights.
