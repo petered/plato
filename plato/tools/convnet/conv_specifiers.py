@@ -64,7 +64,7 @@ class PoolerSpec(PrimativeSpecifier):
     def __init__(self, region, mode, stride=None):
         if isinstance(region, int):
             region = (region, region)
-        assert mode in ('max', 'average')
+        # assert mode in ('max', 'average')
         if stride is None:
             stride=region
         elif isinstance(stride, int):

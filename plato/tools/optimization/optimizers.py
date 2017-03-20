@@ -31,14 +31,14 @@ class UniformParameterOptimizer(IGradientOptimizer):
         """
         self.update_parameters(cost=cost, parameters=parameters, constants=constants)
 
-    def get_updates(self, cost, parameters, constants = []):
+    def get_updates(self, cost, parameters, constants = [], as_dict = False):
         """
         Get the gradient-based parameter updates, but do not apply them.
         return: A list of (shared_var, new_val) pairs representing the updates.
         """
         with CaptureUpdates(swallow=True) as sc:
             self(cost=cost, parameters=parameters, constants=constants)
-        return sc.get_updates()
+        return sc.get_updates(as_dict=as_dict)
 
     def update_parameters(self, cost, parameters, constants = []):
         """
