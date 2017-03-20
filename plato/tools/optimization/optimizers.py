@@ -18,6 +18,19 @@ class IGradientOptimizer(object):
         :return: Updates: A list of updates to whatever parameters
         """
 
+    @abstractmethod
+    def get_updates(self, cost, parameters, constants = []):
+        pass
+
+    @abstractmethod
+    def update_parameters(self, cost, parameters, constants=[]):
+        pass
+
+    @abstractmethod
+    def update_from_gradients(self, parameters, gradients, clip=None):
+        pass
+
+
 @symbolic_updater
 class UniformParameterOptimizer(IGradientOptimizer):
     """
