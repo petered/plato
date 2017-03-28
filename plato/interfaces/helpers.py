@@ -3,10 +3,17 @@ from plato.core import symbolic_simple, add_update, create_shared_variable, symb
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.basic import softmax
 import theano
+from theano.compile.sharedvalue import SharedVariable
+from theano.gof.type import Type
+from theano.ifelse import ifelse
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
+from theano.tensor.elemwise import TensorType, TensorVariable
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
+import types
+
+from theano.tensor.sharedvar import TensorSharedVariable
 
 __author__ = 'peter'
 
@@ -200,3 +207,44 @@ def batchify_function(fcn, batch_size):
         out = process_batch.scan(sequences = [start_ixs, start_ixs+batch_size])
         return out.reshape((-1, )+tuple(out.shape[i] for i in xrange(2, out.ndim)), ndim=out.ndim-1)
     return batch_function
+
+
+@symbolic
+def on_first_pass(first, after):
+    """
+    Return some value on the first past, and another after that.  This may be useful, for example, when a variable's
+    value depends on shared variables whose shapes have not yet been initialized.
+
+    :param first: Value to return on first pass
+    :param after: Value to return after that.
+    :return: first, if called on the first pass, otherwise after.
+    """
+    first_switch = theano.shared(1, 'initializing_switch')
+    add_update(first_switch, 0)
+    return ifelse(first_switch, first, after)
+
+
+class ReshapingSharedVariable(TensorSharedVariable):
+    """A shared variable with a dynamic shape."""
+
+    def __add__(self, other):
+        return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+
+    def __mul__(self, other):
+        return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
+
+def shared_like(x, value=0., **kwargs):
+    """
+    Return a Shared Variable with dynamic shape. e.g.
+        accumulator = shared_like(x)
+        new_accum_val = accumulator+x
+    :param x: A symbolic variable
+    :param value: The initial value for this variable
+    :param kwargs: Other args to pass to theano.shared
+    :return: A ReshapingSharedVariabe
+    """
+    out = theano.shared(np.zeros((0, )*x.ndim, dtype=x.dtype), **kwargs)
+    out.__class__ = ReshapingSharedVariable
+    out.initial_value = value
+    return out

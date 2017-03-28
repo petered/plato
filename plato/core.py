@@ -567,7 +567,7 @@ class AutoCompilingFunction(object):
             # Find tensor versions of inputs based on data in first-call, collect list of inputs
             self._input_format = NestedType.from_data(input_data)
             flat_input_data = self._input_format.get_leaves(input_data)
-            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values) for d in flat_input_data]
+            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
             # Call the function to get symbolic outputs and updates
@@ -744,8 +744,10 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         # code when handling them.   This was assembled in haste before a deadline.  Possibly it could be cleaner.  Probably.
         from theano import sparse
         tensor = sparse.csr_matrix(name='unnamed' if name is None else name, dtype=dtype, )
-        if add_test_value:
+        if add_test_value is True:
             tensor.tag.test_value = data.astype(theano.config.floatX)
+        elif add_test_value=='shape':
+            tensor.ishape=data.shape
         # Do what theano couldn't and add the dot method to sparse
         def flattenit(var, ndim):
             assert var.indim == ndim, "This is a horrendous hack.  We don't actually flatten, we just check to see if it's the right shape.  It's not.  Also it needs test values on to work."
@@ -926,13 +928,15 @@ def add_updates(updates):
         add_update(shared_var, new_val)
 
 
-# def get_latest_update(shared_var):
-#     """
-#     Get the latest update to a shared variable, or just return the original variable otherwise.
-#     :param shared_var: A theano shared variable
-#     :return: The updated value, or just the shared var.
-#     """
-#     _get_state_catcher()
+def get_latest_update(shared_var):
+    """
+    Get the latest update to a shared variable, or just return the original variable otherwise.
+    :param shared_var: A theano shared variable
+    :return: The updated value, or just the shared var.
+    """
+    state_catcher = _get_state_catcher()
+    assert state_catcher is not None, "This function must be called within a CaptureUpdates context"
+    return state_catcher[shared_var] if shared_var in state_catcher else shared_var
 
 
 class CaptureUpdates(object):
@@ -965,6 +969,9 @@ class CaptureUpdates(object):
 
     def __getitem__(self, shared_variable):
         return self._updates[shared_variable]
+
+    def __contains__(self, item):
+        return item in self._updates
 
     def add_update(self, shared_var, new_val):
         if shared_var in self._updates:

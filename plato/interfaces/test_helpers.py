@@ -1,6 +1,8 @@
+import theano
 from plato.core import symbolic, create_shared_variable, add_update
 from plato.interfaces.decorators import symbolic_simple
-from plato.interfaces.helpers import MRG_RandomStreams_ext, batchify_function
+from plato.interfaces.helpers import MRG_RandomStreams_ext, batchify_function, on_first_pass, \
+    shared_like, ReshapingSharedVariable
 import numpy as np
 import pytest
 
@@ -55,8 +57,41 @@ def test_compute_in_with_state():
     assert all(np.allclose(out[i*10:(i+1)*10], arr[i*10:(i+1)*10]+i) for i in xrange(6))
 
 
+def test_on_first_pass():
+
+    @symbolic
+    def demo_first_pass():
+        a = np.zeros(2)
+        return on_first_pass(first=a, after=a+1)
+    f = demo_first_pass.compile()
+    assert np.array_equal(f(), [0, 0])
+    assert np.array_equal(f(), [1, 1])
+    assert np.array_equal(f(), [1, 1])
+
+
+def test_reshaping_shared_variable():
+
+    @symbolic
+    def accumulate(x):
+        accumulator = shared_like(x)
+        new_val = accumulator+x
+        add_update(accumulator, new_val)
+        return new_val
+
+    f = accumulate.compile()
+
+    vals = np.random.randn(3, 2)
+
+    assert np.allclose(f(vals[0]), vals[0])
+    assert np.allclose(f(vals[1]), vals[:2].sum(axis=0))
+    assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
+
+
+
 if __name__ == '__main__':
 
-    test_mrg_choice()
-    test_compute_in_batches()
-    test_compute_in_with_state()
+    # test_mrg_choice()
+    # test_compute_in_batches()
+    # test_compute_in_with_state()
+    # test_on_first_pass()
+    test_reshaping_shared_variable()
