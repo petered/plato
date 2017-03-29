@@ -2,6 +2,7 @@ from abc import abstractmethod
 
 from artemis.general.hashing import compute_fixed_hash, fixed_hash_eq
 from plato.interfaces.helpers import create_shared_variable
+from plato.tools.common.config import float_precision
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmniscence, clear_tdb_traces, add_update, \
@@ -515,25 +516,55 @@ def test_named_outputs_with_trace():
 
 def test_arbitrary_structures():
 
+    with float_precision(64):
+        @symbolic
+        def my_func(inp):
+            """
+            :param a: A list of 2-tuples
+            :return: A dict of keys: lists
+            """
+            return {'a': [inp[0][0], inp[1][0]], 'b':[inp[0][1], inp[1][1]]}
+
+        f = my_func.compile()
+
+        rng = np.random.RandomState(1234)
+        inputs = [(rng.randn(2, 3), rng.randn(2, 3)), (rng.randn(2, 3), rng.randn(2, 3))]
+        out = f(inputs)
+
+        assert fixed_hash_eq(out, {'a': [inputs[0][0], inputs[1][0]], 'b': [inputs[0][1], inputs[1][1]]})
+
+
+def test_shared_input():
+    """
+    Needed because theano doesn't by default allow passing shared variables in to a function.  Internally we have a
+    work-around that we test here.
+    """
+
     @symbolic
-    def my_func(inp):
-        """
-        :param a: A list of 2-tuples
-        :return: A dict of keys: lists
-        """
-        return {'a': [inp[0][0], inp[1][0]], 'b':[inp[0][1], inp[1][1]]}
+    def increment(a_):
+        new_val = a_ + 1
+        add_update(a_, new_val)
+        return new_val
 
-    f = my_func.compile()
+    f_inc = increment.compile()
+    a = create_shared_variable(2)
+    f_inc(a)
+    assert a.get_value()==3
+    f_inc(a)
+    assert a.get_value()==4
+    b = create_shared_variable(6)
 
-    rng = np.random.RandomState(1234)
-    inputs = [(rng.randn(2, 3), rng.randn(2, 3)), (rng.randn(2, 3), rng.randn(2, 3))]
-    out = f(inputs)
+    with raises(AssertionError):
+        f_inc(b)
+    # assert b.get_value()==7  # This line would have failed had we not had the assertion error
 
-    assert fixed_hash_eq(out, {'a': [inputs[0][0], inputs[1][0]], 'b': [inputs[0][1], inputs[1][1]]})
+    assert b.get_value()==6
+    f_incb = increment.compile()
+    f_incb(b)
+    assert b.get_value()==7
 
 
 if __name__ == '__main__':
-
     test_ival_ishape()
     test_catch_sneaky_updates()
     test_catch_non_updates()
@@ -553,3 +584,4 @@ if __name__ == '__main__':
     test_named_outputs()
     test_named_outputs_with_trace()
     test_arbitrary_structures()
+    test_shared_input()

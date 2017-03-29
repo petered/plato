@@ -559,6 +559,9 @@ class AutoCompilingFunction(object):
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
         returns the result, in numpy arrays.
         """
+        # Remove shared variables.
+        # args = tuple(a for a in args if not isinstance(a, SharedVariable))
+        # kwargs = {k: v for k, v in kwargs.iteritems() if isinstance(v, SharedVariable)}
 
         input_data = (args, kwargs)
 
@@ -568,6 +571,10 @@ class AutoCompilingFunction(object):
             self._input_format = NestedType.from_data(input_data)
             flat_input_data = self._input_format.get_leaves(input_data)
             args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
+
+            # assert not any(isinstance(v, SharedVariable) for v in args_and_kwarg_tensors), "You can't pass SharedVariables into a compiled function, because this causes chaos when a different shard variabls is passed in."
+            self._shared_var_inputs = [v for v in args_and_kwarg_tensors if isinstance(v, SharedVariable)]
+
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
             # Call the function to get symbolic outputs and updates
@@ -604,14 +611,22 @@ class AutoCompilingFunction(object):
 
             # Compile the theano function
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
+            args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
         # Ok, so this code runs every time you call the "compiled" function.
         if not self._input_format.is_type_for(input_data):
-            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected format: {}, but got: {}".format(self._input_format), NestedType.from_data(input_data))
+            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected format: \n  {}, but got: \n  {}".format(self._input_format, NestedType.from_data(input_data)))
         arg_and_kwarg_values = self._input_format.get_leaves(input_data)
-        arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
+        # arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
+
+        shared_passed_in = [a for a in arg_and_kwarg_values if isinstance(a, SharedVariable)]
+        assert shared_passed_in == self._shared_var_inputs, \
+            "The shared variables you passed in, {}, Don't match the shared variables you passed in when you first called this compiled function: {}. " \
+            "This creates problems for us.  Instead, compile your function a second time for the new shared inputs."\
+            .format(['{}@{}'.format(repr(v), hex(id(v))) for v in shared_passed_in], ['{}@{}'.format(repr(v), hex(id(v))) for v in self._shared_var_inputs])
+        arg_and_kwarg_values = [a for a in arg_and_kwarg_values if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in numeric args
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:  # Need to take care of stripping off the debug variables
@@ -712,7 +727,8 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
 
     if isinstance(data, SharedVariable):
-        data = data.get_value()
+        # data = data.get_value()
+        return data
 
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim

@@ -1,18 +1,12 @@
 import numpy as np
 from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
 from plato.interfaces.interfaces import IParameterized
-from plato.tools.common.basic import softmax
 import theano
-from theano.compile.sharedvalue import SharedVariable
-from theano.gof.type import Type
 from theano.ifelse import ifelse
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
-from theano.tensor.elemwise import TensorType, TensorVariable
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
-import types
-
 from theano.tensor.sharedvar import TensorSharedVariable
 
 __author__ = 'peter'
@@ -100,8 +94,12 @@ _act_funcs = {
     'softmax': softmax,
     'sigm': tt.nnet.sigmoid,
     'sig': tt.nnet.sigmoid,
+    'd_sigm': lambda x: tt.nnet.sigmoid(x)-tt.nnet.sigmoid(-x),
     'tanh': tt.tanh,
+    'sech2': lambda x: (4*tt.cosh(x)**2)/(tt.cosh(2*x)+1)**2,
     'lin': lambda x: x,
+    'const': lambda x: tt.ones_like(x),
+    'step': lambda x: tt.switch(x<0, 0., 1.),
     'exp': lambda x: tt.exp(x),
     'relu': relu,
     'rect-lin': lambda x: tt.maximum(0, x),
@@ -116,9 +114,24 @@ _act_funcs = {
     'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
      }
 
+
 def get_named_activation_function(activation_name):
     fcn = _act_funcs[activation_name]
     return symbolic_simple(fcn)
+
+
+def get_named_activation_function_derivative(activation_name):
+    fcn = _act_funcs[{
+        'sigm': 'd_sigm',
+        'relu': 'step',
+        'linear': 'const',
+        'lin': 'const',
+        'softplus': 'sigm',
+        'tanh': 'sec2',
+        }[activation_name]]
+    return symbolic_simple(fcn)
+
+
 
 #
 # def get_named_activation_derivative(activation_name):
@@ -234,6 +247,22 @@ class ReshapingSharedVariable(TensorSharedVariable):
         return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
 
 
+def shared_of_type(ndim, value=0., dtype=theano.config.floatX, **kwargs):
+    """
+    Return a Shared Variable with dynamic shape. e.g.
+        accumulator = shared_like(x)
+        new_accum_val = accumulator+x
+    :param ndim: Number of dimensions
+    :param dtype: Data type
+    :param kwargs: Passed to theano.shared
+    :return: A ReshapingSharedVariable
+    """
+    out = theano.shared(np.zeros((0, )*ndim, dtype=dtype), **kwargs)
+    out.__class__ = ReshapingSharedVariable
+    out.initial_value = value
+    return out
+
+
 def shared_like(x, value=0., **kwargs):
     """
     Return a Shared Variable with dynamic shape. e.g.
@@ -244,7 +273,4 @@ def shared_like(x, value=0., **kwargs):
     :param kwargs: Other args to pass to theano.shared
     :return: A ReshapingSharedVariabe
     """
-    out = theano.shared(np.zeros((0, )*x.ndim, dtype=x.dtype), **kwargs)
-    out.__class__ = ReshapingSharedVariable
-    out.initial_value = value
-    return out
+    return shared_of_type(ndim=x.ndim, dtype=x.dtype, value=value, **kwargs)

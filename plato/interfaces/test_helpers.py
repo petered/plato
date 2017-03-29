@@ -87,7 +87,6 @@ def test_reshaping_shared_variable():
     assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
 
 
-
 if __name__ == '__main__':
 
     # test_mrg_choice()
