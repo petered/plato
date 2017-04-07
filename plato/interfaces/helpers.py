@@ -89,6 +89,9 @@ def softmax(x, axis=1):
 def relu(x):
     return tt.maximum(x, 0)
 
+def identity(x):
+    return x
+
 
 _act_funcs = {
     'softmax': softmax,
@@ -97,19 +100,19 @@ _act_funcs = {
     'd_sigm': lambda x: tt.nnet.sigmoid(x)-tt.nnet.sigmoid(-x),
     'tanh': tt.tanh,
     'sech2': lambda x: (4*tt.cosh(x)**2)/(tt.cosh(2*x)+1)**2,
-    'lin': lambda x: x,
-    'const': lambda x: tt.ones_like(x),
+    'lin': identity,
+    'const': tt.ones_like,
     'step': lambda x: tt.switch(x<0, 0., 1.),
-    'exp': lambda x: tt.exp(x),
+    'exp': tt.exp,
     'relu': relu,
-    'rect-lin': lambda x: tt.maximum(0, x),
+    'rect-lin': relu,
     'softmax-last': tt.nnet.softmax,
-    'softplus': lambda x: tt.nnet.softplus(x),
+    'softplus': tt.nnet.softplus,
     'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
     'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
     'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
     'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
-    'linear': lambda x: x,
+    'linear': identity,
     'leaky-relu-0.01': lambda x: tt.maximum(0.01*x, x),
     'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
      }
@@ -127,7 +130,7 @@ def get_named_activation_function_derivative(activation_name):
         'linear': 'const',
         'lin': 'const',
         'softplus': 'sigm',
-        'tanh': 'sec2',
+        'tanh': 'sech2',
         }[activation_name]]
     return symbolic_simple(fcn)
 

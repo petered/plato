@@ -11,6 +11,14 @@ class IParameterized(object):
     def parameters(self):
         """ Returns the parameters of the object """
 
+    def get_parameter_states(self):
+        return [p.get_value() for p in self.parameters]
+
+    def set_parameter_states(self, states):
+        assert len(self.parameters)==len(states)
+        for p, s in zip(self.parameters, states):
+            p.set_value(s)
+
 
 class IFreeEnergy(object):
 
