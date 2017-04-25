@@ -773,7 +773,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
 
     else:
         tensor = TensorType(dtype, (None, )*ndim)(name)
-        if add_test_value:
+        if add_test_value is True:
             tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
