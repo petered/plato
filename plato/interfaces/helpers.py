@@ -2,12 +2,14 @@ import numpy as np
 from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
 from plato.interfaces.interfaces import IParameterized
 import theano
+from theano.compile.sharedvalue import SharedVariable
 from theano.ifelse import ifelse
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
 from theano.tensor.sharedvar import TensorSharedVariable
+from theano.tensor.var import TensorVariable
 
 __author__ = 'peter'
 
@@ -240,14 +242,44 @@ def on_first_pass(first, after):
     return ifelse(first_switch, first, after)
 
 
+class ReshapingVariable(TensorVariable):
+
+    def __add__(self, other):
+        # if np.isscalar(other):
+
+        return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+
+    def __sub__(self, other):
+        return ifelse(self.size>0, tt.sub(self, other), other-self.initial_value)
+
+    def __mul__(self, other):
+        return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
+    # @classmethod
+    # def create_reshaping(cls):
+
+
+
 class ReshapingSharedVariable(TensorSharedVariable):
     """A shared variable with a dynamic shape."""
 
     def __add__(self, other):
+        # if np.isscalar(other):
+
         return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+
+    def __sub__(self, other):
+        return ifelse(self.size>0, tt.sub(self, other), other-self.initial_value)
 
     def __mul__(self, other):
         return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
+    # def __add__(self, other):
+    #     return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+    #
+    # def __mul__(self, other):
+    #     return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
 
 
 def shared_of_type(ndim, value=0., dtype=theano.config.floatX, **kwargs):

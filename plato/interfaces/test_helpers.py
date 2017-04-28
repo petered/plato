@@ -79,12 +79,23 @@ def test_reshaping_shared_variable():
         return new_val
 
     f = accumulate.compile()
-
     vals = np.random.randn(3, 2)
-
     assert np.allclose(f(vals[0]), vals[0])
     assert np.allclose(f(vals[1]), vals[:2].sum(axis=0))
     assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
+
+    # @symbolic
+    # def difference(x):
+    #     x_last = shared_like(x)
+    #     add_update(x_last, x)
+    #     return x - x_last
+    #
+    # f = difference.compile()
+    # vals = np.random.randn(3, 2)
+    # assert np.allclose(f(vals[0]), vals[0])
+    # assert np.allclose(f(vals[1]), vals[:2].sum(axis=0))
+    # assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
+
 
 
 if __name__ == '__main__':

@@ -564,6 +564,23 @@ def test_shared_input():
     assert b.get_value()==7
 
 
+def test_function_reset():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0)
+        new_s = s+x
+        add_update(s, new_s)
+        return new_s
+
+    f = running_sum.compile(resettable=True)
+
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [1, 3, 6])
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [7, 9, 12])
+    f.reset()
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [1, 3, 6])
+
+
 if __name__ == '__main__':
     test_ival_ishape()
     test_catch_sneaky_updates()
@@ -585,3 +602,4 @@ if __name__ == '__main__':
     test_named_outputs_with_trace()
     test_arbitrary_structures()
     test_shared_input()
+    test_function_reset()

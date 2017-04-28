@@ -5,6 +5,7 @@ import inspect
 import logging
 from artemis.general.local_capture import CaptureLocals
 from artemis.general.nested_structures import flatten_struct, expand_struct, NestedType
+from artemis.general.should_be_builtins import izip_equal
 from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
@@ -512,7 +513,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, **theano_function_kwargs):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, resettable=False, **theano_function_kwargs):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -546,9 +547,10 @@ class AutoCompilingFunction(object):
         self._add_test_values = add_test_values
         self._debug_print_shapes = debug_print_shapes
         self.theano_function_kwargs = theano_function_kwargs
-
+        self.resettable = resettable
         self._input_format = None
         self._output_format = None
+        self.updated_variables = None  # Used in reset()
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -612,6 +614,9 @@ class AutoCompilingFunction(object):
             # Compile the theano function
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
             args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
+            if self.resettable:
+                self.updated_variables = [shared_var for shared_var, update in updates]
+                self._original_variable_values = [var.get_value() for var in self.updated_variables]
             self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
@@ -659,6 +664,12 @@ class AutoCompilingFunction(object):
             c()
 
         return true_out
+
+    def reset(self):
+        assert self.resettable, "If you want to reset the state of your compiled function, you must compile with f.compile(resettable=True)"
+        if self.updated_variables is not None:  # If it is none, vars are already in their initial states.
+            for shared_var, value in izip_equal(self.updated_variables, self._original_variable_values):
+                shared_var.set_value(value)
 
     def __str__(self):
         return 'Compiled form of %s' % (self._original_fcn.fcn_str(), )
@@ -916,32 +927,34 @@ def _set_state_catcher(val):
     STATE_CATCHER = val
 
 
-def add_update(shared_var, new_val):
+def add_update(shared_var, new_val, accumulate = None):
     """
     Add a shared-variable update.  This will store an update, so that in your compiled function, your shared variable
     will be updated
 
     :param shared_var: A theano SharedVariable object
     :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
+    :param accumulate: If multiple updates are applied to the same variable, add them.
     """
     assert isinstance(shared_var, SharedVariable), 'shared_var must be a theano shared variable.'
     state_catcher = _get_state_catcher()
     assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
-    state_catcher.add_update(shared_var, new_val)
+    state_catcher.add_update(shared_var, new_val, accumulate=accumulate)
 
 
-def add_updates(updates):
+def add_updates(updates, accumulate = None):
     """
     Add multiple shared-variable updates.
 
     :param updates: Can be:
         A list of 2-tuples of (shared_var, new_value)
         A dict of shared_var -> new_value
+    :param accumulate: If multiple updates are applied to the same variable, add them.
     """
     if isinstance(updates, dict):
         updates = updates.items()
     for shared_var, new_val in updates:
-        add_update(shared_var, new_val)
+        add_update(shared_var, new_val, accumulate=accumulate)
 
 
 def get_latest_update(shared_var):
@@ -989,9 +1002,13 @@ class CaptureUpdates(object):
     def __contains__(self, item):
         return item in self._updates
 
-    def add_update(self, shared_var, new_val):
+    def add_update(self, shared_var, new_val, accumulate = None):
+
+        if accumulate is None:
+            accumulate = _ACCUMULATE_UPDATES
+
         if shared_var in self._updates:
-            if _ACCUMULATE_UPDATES:
+            if accumulate:
                 self._updates[shared_var] = self._updates[shared_var] + new_val - shared_var  # (w+dw1)+(w+dw2)-w = w+dw1+dw2
             else:
                 raise AssertionError("You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s.\nIf you want to accumulate both updates, call your update from inside a 'with AccumulateUpdates():'" % (shared_var, new_val, self._updates[shared_var]))

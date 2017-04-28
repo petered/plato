@@ -300,3 +300,9 @@ def get_named_optimizer(name, learning_rate, rng = None):
         'mulsgd': lambda: MultiplicativeGradientDescent(factor=learning_rate),
         'langevin': lambda: LangevinGradientDescent(eta = learning_rate, rng = rng),
     }[name]()
+
+
+
+# class ConjugateGradientDescent(object):
+#
+#     def __init__(self, function):
