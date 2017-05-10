@@ -203,10 +203,21 @@ class _SymbolicFunctionWrapper(object):
         :return:
         """
         outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
-        if isinstance(outputs, (list, tuple)):
+
+        if self._had_to_add_dummies:
             # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
             # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
             outputs = outputs[:-2]
+
+        if len(self._trace_info)>0:
+            trace_outputs = outputs[-len(self._trace_info):]
+            outputs = outputs[:-len(self._trace_info)]
+            for (trace_name, (_, batch_in_scan, callback)), trace_output in izip_equal(self._trace_info.iteritems(), trace_outputs):
+                CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=trace_output if batch_in_scan else trace_output[-1], name=trace_name, batch_in_scan=batch_in_scan, callback=callback)
+
+        if self._single_output and isinstance(outputs, (list, tuple)):
+            assert len(outputs)==1, 'This should always be true, and you should call Peter if it is not.  +3163004422 seven'
+            outputs, = outputs
         for (shared_var, new_val) in updates.items():
             add_update(shared_var, new_val)
         return outputs
@@ -230,12 +241,24 @@ class _SymbolicFunctionWrapper(object):
         return False
 
     def _call_with_updates_returned(self, *args, **kwargs):
-        with CaptureUpdates(swallow=True) as sc:
+        with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
             outputs = self(*args, **kwargs)
-        if isinstance(outputs, (list, tuple)):  # Necessary evil to force theano.scan to return collection even if length is 1.
-            outputs = outputs + type(outputs)([tt.zeros(()), tt.zeros(())])
+
+        self._single_output = isinstance(outputs, Variable)
+        self._trace_info = traces.get_trace_variable_info()
+
+        if self._single_output and len(traces)>0:
+            outputs = (outputs, )
         elif outputs is None:
-            outputs = tt.zeros(())
+            outputs = (tt.zeros(), )
+
+        if len(traces)>0:
+            outputs = outputs + tuple(traces.values())
+
+        self._had_to_add_dummies = isinstance(outputs, (list, tuple)) and len(outputs)==1 # Necessary evil to force theano.scan to return collection even if length is 1.
+        if self._had_to_add_dummies:
+            outputs = outputs + type(outputs)([tt.zeros(()), tt.zeros(())])
+
         return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
@@ -459,34 +482,38 @@ def _is_constant(arg):
     return isinstance(arg, (float, int, np.ndarray, np.number))
 
 
-def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
-    """
-    :param all_outputs: A list of symbolic variables returned, and update values.  This is
-    :return: trace_variables, trace_callbacks
-        Where:
-            trace_variables is a dict<str: Variable} containing {trace_var_name: trace_var}
-            trace_callbacks is a list<function> where function should do something with the named trace variable (see tdbprint for example)
-    """
-    if len(_TRACE_VARIABLES) == 0:
-        return {}, {}
-
-    all_leaves = set().union(*[find_leaf_ancestors(v) for v in all_outputs_and_updates])
-
-    # Now we need to make sure the trace variables actually belong to this function.
-    # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
-    # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
-    def computable_by_given_inputs(var, given_inputs):
-        """
-        Return True if the symbolic variable var depends only on the provided inputs, shared variables and constants
-        """
-        all_leaf_ancestors = find_leaf_ancestors(var)
-        ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
-        return all(ancestors_are_computable)
-
-    trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
-    # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
-    trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
-    return trace_variables, trace_callbacks
+# def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
+#     """
+#     :param all_outputs: A list of symbolic variables returned, and update values.  This is
+#     :return: trace_variables, trace_callbacks
+#         Where:
+#             trace_variables is a dict<str: Variable} containing {trace_var_name: trace_var}
+#             trace_callbacks is a list<function> where function should do something with the named trace variable (see tdbprint for example)
+#     """
+#     # TODO: Delete: This function has lost its purpose in life (CaptureTraceVariables superseded it).  But the code may be relevant still,
+#     # so for now it lives in the grey, to maybe be revived some day.
+#     if len(_TRACE_VARIABLES) == 0:
+#         return {}, {}
+#
+#
+#
+#     all_leaves = set().union(*[find_leaf_ancestors(v) for v in all_outputs_and_updates])
+#
+#     # Now we need to make sure the trace variables actually belong to this function.
+#     # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
+#     # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
+#     def computable_by_given_inputs(var, given_inputs):
+#         """
+#         Return True if the symbolic variable var depends only on the provided inputs, shared variables and constants
+#         """
+#         all_leaf_ancestors = find_leaf_ancestors(var)
+#         ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
+#         return all(ancestors_are_computable)
+#
+#     trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
+#     # TODO: Fix.  We still have problems with accepting leaf variables that don't belong.
+#     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
+#     return trace_variables, trace_callbacks
 
 
 def flatten_tensor_struct(tensor_struct):
@@ -575,13 +602,13 @@ class AutoCompilingFunction(object):
             args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
 
             # assert not any(isinstance(v, SharedVariable) for v in args_and_kwarg_tensors), "You can't pass SharedVariables into a compiled function, because this causes chaos when a different shard variabls is passed in."
-            self._shared_var_inputs = [v for v in args_and_kwarg_tensors if isinstance(v, SharedVariable)]
+            self._shared_var_inputs = [trace_value for trace_value in args_and_kwarg_tensors if isinstance(trace_value, SharedVariable)]
 
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
             # Call the function to get symbolic outputs and updates
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
-            with CaptureUpdates(swallow=True) as sc:
+            with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
             if outputs is None:
                 outputs = ()
@@ -599,17 +626,22 @@ class AutoCompilingFunction(object):
 
             # Find and add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the list of outputs
             all_outputs_and_updates = self._output_format.get_leaves(outputs) + [new for old, new in updates]
-            trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
-            self._callbacks += trace_callbacks
+            # trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
+            # self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
+
+            self._there_are_debug_variables = (len(traces) > 0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
+
+            self._callbacks += traces.get_callbacks()
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
                 # outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
-                self._trace_variable_keys = trace_variables.keys()
+
+                self._trace_variable_keys = traces.keys()
+                # self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(flat_output_tensors)
-                self._n_trace_vars = len(trace_variables)
-                flat_output_tensors = flat_output_tensors+trace_variables.values()+self._original_fcn.locals().values()
+                self._n_trace_vars = len(traces)
+                flat_output_tensors = flat_output_tensors+traces.values()+self._original_fcn.locals().values()
 
             # Compile the theano function
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
@@ -630,7 +662,7 @@ class AutoCompilingFunction(object):
         assert shared_passed_in == self._shared_var_inputs, \
             "The shared variables you passed in, {}, Don't match the shared variables you passed in when you first called this compiled function: {}. " \
             "This creates problems for us.  Instead, compile your function a second time for the new shared inputs."\
-            .format(['{}@{}'.format(repr(v), hex(id(v))) for v in shared_passed_in], ['{}@{}'.format(repr(v), hex(id(v))) for v in self._shared_var_inputs])
+            .format(['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in shared_passed_in], ['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in self._shared_var_inputs])
         arg_and_kwarg_values = [a for a in arg_and_kwarg_values if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in numeric args
 
         # Now, run the actual numeric function!
@@ -639,8 +671,10 @@ class AutoCompilingFunction(object):
             flat_output_data = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]
+            for trace_name, trace_value in izip_equal(self._trace_variable_keys, trace_out):
+                CaptureTraceVariables.set_trace_value(trace_name, trace_value)
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
-            _TRACE_VALUES.update(trace_values)
+            # _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
         else:  # Normal case
             flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)
@@ -862,40 +896,6 @@ def find_leaf_ancestors(variable):
     return leaf_ancestors
 
 
-_TRACE_VARIABLES = OrderedDict()  # A dict of trace-variable-name: Trace Variable
-_TRACE_VALUES = OrderedDict()  # A dict of trace variable name: Most recently computed value
-_TRACE_CALLBACKS = OrderedDict()  # A dict of trace-variable-name: Callback to call after trace ver is used.
-
-
-def get_tdb_traces():
-    return _TRACE_VALUES
-
-
-def tdb_trace(var, name = None, callback = None):
-    """
-    Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
-    through the function get_tdb_traces()
-
-    :param var: A symbolic variable
-    :param name: The name that you like to use to refer to the variable.
-    :param callback: Optionally, a callback to add at the end.
-    :return:
-    """
-    if name is None:
-        # TODO: Get default by sneakily grabbing name from calling scope.
-        name = '%s@%s' % (str(var), hex(id(var)))
-
-    _TRACE_VARIABLES[name] = var
-    if callback is not None:
-        _TRACE_CALLBACKS[name] = callback
-    return name
-
-
-def clear_tdb_traces():
-    _TRACE_CALLBACKS.clear()
-    _TRACE_VARIABLES.clear()
-
-
 def printit(var_name, var_val):
     print '%s: %s' % (var_name, var_val)
 
@@ -911,8 +911,94 @@ def tdbprint(var, name = None):
         name_counts[name] = 0 if name not in name_counts else name_counts[name] + 1
         num = 0 if name not in name_counts else name_counts[name]
         name = name.replace('%c', str(num))
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = CaptureTraceVariables.TRACE_VALUES[name]))
 
-    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
+
+class CaptureTraceVariables(object):
+    """
+    Used to catch updates.  Usage:
+
+    with StateCatcher() as sc:
+        # Code here
+    updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
+    """
+
+    CURRENT_CATCHER = None
+    TRACE_VALUES = OrderedDict()
+
+    def __init__(self, swallow):
+        """
+        :param swallow: A boolean.
+            True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
+              unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
+            False if you'd like to pass updates on to be applied when the function compiles.
+        :return:
+        """
+        self.swallow = swallow
+        self._trace_vars = OrderedDict()  # Dict <var:name, (variable, batch_in_scan)>
+
+    def __len__(self):
+        return len(self._trace_vars)
+
+    def __enter__(self):
+        self._outer_catcher = CaptureTraceVariables.CURRENT_CATCHER
+        CaptureTraceVariables.CURRENT_CATCHER = self
+        return self
+
+    def __exit__(self, *args):
+        CaptureTraceVariables.CURRENT_CATCHER = self._outer_catcher
+
+    def get_callbacks(self):
+        return [callback for var, batch_in_scan, callback in self._trace_vars.values() if callback is not None]
+
+    def keys(self):
+        return self._trace_vars.keys()
+
+    def values(self):
+        return [var for var, batch_in_scan, callback in self._trace_vars.values()]
+
+    def add_trace(self, variable, name, batch_in_scan = False, callback = None):
+        self._trace_vars[name] = (variable, batch_in_scan, callback)
+        if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+            self._outer_catcher.add_trace(variable=variable, name=name, batch_in_scan=batch_in_scan, callback=callback)
+
+    def get_trace_variable_info(self):
+        return self._trace_vars.copy()
+
+    @classmethod
+    def set_trace_value(cls, name, value):
+        cls.TRACE_VALUES[name] = value
+
+def get_tdb_traces():
+    return CaptureTraceVariables.TRACE_VALUES
+
+
+def get_trace_value(name):
+    return CaptureTraceVariables.TRACE_VALUES[name]
+
+
+def tdb_trace(var, name = None, callback = None, batch_in_scan = False):
+    """
+    Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
+    through the function get_tdb_traces()
+
+    :param var: A symbolic variable
+    :param name: The name that you like to use to refer to the variable.
+    :param callback: Optionally, a callback to add at the end.
+    :param batch_in_scan: If the trace is set in a scan loop, this variable decides whether to capture the full scan
+        over values of the variable (which may be useful but also memory-consuming) or just the last one.
+        False means just take the last value in the scan loop
+        True means keep the whole batch of values that this variable takes on within the loop.
+    """
+    if name is None:
+        # TODO: Get default by sneakily grabbing name from calling scope.
+        name = '%s@%s' % (str(var), hex(id(var)))
+    assert CaptureTraceVariables.CURRENT_CATCHER is not None, "You must be called from a symbolic function to add trace variables.  Make sure your function, or one calling it, is decorated with @symbolic"
+    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback)
+
+
+def clear_tdb_traces():
+    CaptureTraceVariables.TRACE_VALUES.clear()
 
 
 STATE_CATCHER = None

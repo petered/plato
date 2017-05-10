@@ -581,6 +581,32 @@ def test_function_reset():
     assert np.array_equal([f(x) for x in [1, 2, 3]], [1, 3, 6])
 
 
+def test_trace_var_in_scan():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0)
+        new_s = s+x
+        add_update(s, new_s)
+        tdb_trace(x**2, 'x_in_loop')
+        tdb_trace(x**3, 'x_in_loop_catch_all', batch_in_scan=True)
+        return new_s
+
+    @symbolic
+    def my_cumsum(x):
+
+        tdb_trace(x**2, name='x_out_of_loop')
+        return running_sum.scan(
+            sequences = [x]
+            )
+
+    f = my_cumsum.compile()
+    assert np.array_equal(f(np.arange(4)), [0, 1, 3, 6])
+    assert np.array_equal(get_tdb_traces()['x_out_of_loop'], np.arange(4)**2)
+    assert np.array_equal(get_tdb_traces()['x_in_loop'], 3**2)
+    assert np.array_equal(get_tdb_traces()['x_in_loop_catch_all'], np.arange(4)**3)
+
+
 if __name__ == '__main__':
     test_ival_ishape()
     test_catch_sneaky_updates()
@@ -603,3 +629,4 @@ if __name__ == '__main__':
     test_arbitrary_structures()
     test_shared_input()
     test_function_reset()
+    test_trace_var_in_scan()
