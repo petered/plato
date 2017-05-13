@@ -1,14 +1,14 @@
 from collections import OrderedDict
 import numpy as np
-from plato.tools.common.config import float_precision
 import theano
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
-from plato.core import symbolic, create_shared_variable, tdbprint
+from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
-from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec
+from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec, \
+    FullyConnectedSpec
 from theano.tensor.signal.pool import pool_2d
 __author__ = 'peter'
 import logging
@@ -127,6 +127,29 @@ class DropoutLayer(FeedForwardModule):
 
 
 @symbolic
+class FullyConnectedLayer(FeedForwardModule):
+
+    def __init__(self, w, b):
+        self.w = create_shared_variable(w)
+        self.b = create_shared_variable(b)
+
+    def __call__(self, x):
+        """
+        param x: A (n_samples, n_input_maps, size_y, size_x) image/feature tensor
+        return: A (n_samples, n_output_maps, size_y-w_size_y+1, size_x-w_size_x+1) tensor
+        """
+        result = x.flatten(2).dot(self.w) + self.b
+        return result
+
+    @property
+    def parameters(self):
+        return [self.w, self.b] if self.b is not False else [self.w]
+
+    def to_spec(self):
+        return FullyConnectedSpec(w=self.w.get_value, b=self.b.get_value() if self.b is not False else False)
+
+
+@symbolic
 class ConvNet(IParameterized):
 
     def __init__(self, layers):
@@ -226,7 +249,8 @@ def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
             ),
         NonlinearitySpec: lambda: Nonlinearity(spec.func),
         PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode),
-        DropoutSpec: lambda: DropoutLayer(spec.dropout_rate, rng=rng)
+        DropoutSpec: lambda: DropoutLayer(spec.dropout_rate, rng=rng),
+        FullyConnectedSpec: lambda: FullyConnectedLayer(w=spec.w, b=spec.b)
         }[spec.__class__]()
 
 

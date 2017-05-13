@@ -1,7 +1,9 @@
 from contextlib import contextmanager
 from functools import partial
+
+from plato.core import CallbackCatcher
 from plato.interfaces.decorators import tdb_trace, get_tdb_traces
-from artemis.plotting.db_plotting import dbplot
+from artemis.plotting.db_plotting import dbplot, hold_dbplots
 
 __author__ = 'peter'
 
@@ -19,7 +21,7 @@ _tdb_plot_every = None
 name_counts = {}
 
 
-def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
+def tdbplot(var, name = None, plot_type = None, draw_every=None, overwright_names=False, **kwargs):
     """
     Debug plot which can handle theano variables.
 
@@ -49,7 +51,11 @@ def tdbplot(var, name = None, plot_type = None, draw_every=None, **kwargs):
         # it by the "flattened" key.
         # get_dbplot_stream().add_plot_type("['%s']" % name, plot_type=plot_type)
 
-    tdb_trace(var, name, callback=partial(set_plot_data_and_update, name=name, draw_every=draw_every))
+    # tdb_trace(var, name, callback=partial(set_plot_data_and_update, name=name, draw_every=draw_every), overwright_names=overwright_names)
+    tdb_trace(var, name, overwright_names=overwright_names)
+
+    CallbackCatcher.get_current().add_callback(plot_all_trace_variables)
+
 
 
 @contextmanager
@@ -64,6 +70,15 @@ def use_tdbplot_period(draw_every):
 def set_plot_data_and_update(name, draw_every=None):
     data = get_tdb_traces()[name]
     dbplot(data, name, plot_type=_CONSTRUCTORS[name] if name in _CONSTRUCTORS else None, draw_every=draw_every)
+
+
+def plot_all_trace_variables(draw_every = None):
+
+    with hold_dbplots(draw_every=draw_every):
+        trace_vars = get_tdb_traces()
+        for name, var in trace_vars.iteritems():
+            dbplot(var, name)
+
 
 
     # PLOT_DATA.update(get_tdb_traces())

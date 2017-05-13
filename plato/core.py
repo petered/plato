@@ -3,13 +3,16 @@ from contextlib import contextmanager
 from functools import partial
 import inspect
 import logging
+from itertools import count
+
 from artemis.general.local_capture import CaptureLocals
 from artemis.general.nested_structures import flatten_struct, expand_struct, NestedType
-from artemis.general.should_be_builtins import izip_equal
+from artemis.general.should_be_builtins import izip_equal, bad_value
 from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
+from theano.tensor.elemwise import TensorVariable
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
@@ -608,12 +611,17 @@ class AutoCompilingFunction(object):
 
             # Call the function to get symbolic outputs and updates
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
-            with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
+            with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces, CallbackCatcher() as cc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
+
+            for cb in cc.get_callbacks():
+                self._callbacks.append(cb)
+
             if outputs is None:
                 outputs = ()
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
+
 
             # Detect output format, collect list of outputs
             self._output_format = NestedType.from_data(outputs)
@@ -957,7 +965,15 @@ class CaptureTraceVariables(object):
     def values(self):
         return [var for var, batch_in_scan, callback in self._trace_vars.values()]
 
-    def add_trace(self, variable, name, batch_in_scan = False, callback = None):
+    def add_trace(self, variable, name, batch_in_scan = False, callback = None, overwright_names = False):
+
+        if name in self._trace_vars and not overwright_names:
+            for i in count(2):
+                new_name = name+'(2)'.format(i)
+                if new_name not in self._trace_vars:
+                    name = new_name
+                    break
+
         self._trace_vars[name] = (variable, batch_in_scan, callback)
         if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_trace(variable=variable, name=name, batch_in_scan=batch_in_scan, callback=callback)
@@ -969,6 +985,36 @@ class CaptureTraceVariables(object):
     def set_trace_value(cls, name, value):
         cls.TRACE_VALUES[name] = value
 
+
+class CallbackCatcher(object):
+
+    CURRENT_CATCHER = None
+
+    def __init__(self, ):
+        self.callback_list = []
+
+    def __enter__(self):
+        self.old_list = self.CURRENT_CATCHER
+        self.__class__.CURRENT_CATCHER = self
+        return self
+
+    def __exit__(self, *args):
+        self.__class__.CURRENT_CATCHER = self.old_list
+
+    def add_callback(self, cb, skip_duplicates = False):
+        assert callable(cb), 'Must be a callable object.'
+        if not (skip_duplicates and cb in self.callback_list):
+            self.callback_list.append(cb)
+
+    def get_callbacks(self):
+        return self.callback_list
+
+    @classmethod
+    def get_current(cls):
+        assert cls.CURRENT_CATCHER is not None, 'You need to be within a CallbackCatcher block to get this'
+        return cls.CURRENT_CATCHER
+
+
 def get_tdb_traces():
     return CaptureTraceVariables.TRACE_VALUES
 
@@ -977,7 +1023,7 @@ def get_trace_value(name):
     return CaptureTraceVariables.TRACE_VALUES[name]
 
 
-def tdb_trace(var, name = None, callback = None, batch_in_scan = False):
+def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwright_names=True):
     """
     Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
     through the function get_tdb_traces()
@@ -994,7 +1040,7 @@ def tdb_trace(var, name = None, callback = None, batch_in_scan = False):
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
     assert CaptureTraceVariables.CURRENT_CATCHER is not None, "You must be called from a symbolic function to add trace variables.  Make sure your function, or one calling it, is decorated with @symbolic"
-    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback)
+    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback, overwright_names=overwright_names)
 
 
 def clear_tdb_traces():
@@ -1267,3 +1313,29 @@ def initialize_constant(shape, fill_value, name=None, cast_floats_to_floatX=True
         return tt.zeros(shape, dtype=theano.config.floatX)+fill_value
     else:
         return tt.zeros(shape, dtype = type(fill_value))+fill_value
+
+
+def as_theano_variable(value, dtype = None, name=None, cast_floats_to_floatX=True):
+    """
+    Case value as a theano variable.
+    :param value: A scalar, numpy array, or theano variable.
+    :param dtype: The desired dtype.
+    :param name: Optionally, the name of the variable.
+    :param cast_floats_to_floatX: If you present a float, cast it to the current theano.config.floatX (specified in ~/.theanorc)
+    :return: A TensorVariable
+    """
+    if dtype == 'floatX':
+        dtype = theano.config.floatX
+
+    dtype = dtype if dtype is not None else \
+        theano.config.floatX if cast_floats_to_floatX and (isinstance(value, float) or isinstance(value, np.ndarray) and value.dtype in (np.float32, np.float64)) else \
+        value.dtype if isinstance(value, (np.ndarray, TensorVariable)) else \
+        type(value) if isinstance(value, (int, float)) else \
+        bad_value(value)
+
+    if isinstance(value, (np.ndarray, float, int)):
+        return tt.constant(value, name=name, dtype=dtype)
+    elif isinstance(value, TensorType):  # (which should include TensorSharedVariables)
+        if dtype is not None:
+            assert value.dtype==dtype, 'You passed a shared variable, but its type ({}) did not agree with dtype: {}'.format(value.dtype, dtype)
+        return value
