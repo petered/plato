@@ -1327,15 +1327,19 @@ def as_theano_variable(value, dtype = None, name=None, cast_floats_to_floatX=Tru
     if dtype == 'floatX':
         dtype = theano.config.floatX
 
+    theano_types = SharedVariable, TensorConstant
+
     dtype = dtype if dtype is not None else \
         theano.config.floatX if cast_floats_to_floatX and (isinstance(value, float) or isinstance(value, np.ndarray) and value.dtype in (np.float32, np.float64)) else \
-        value.dtype if isinstance(value, (np.ndarray, TensorVariable)) else \
+        value.dtype if isinstance(value, (np.ndarray, theano_types)) else \
         type(value) if isinstance(value, (int, float)) else \
-        bad_value(value)
+        bad_value('Cannot turn {} into a theano variable'.format(value))
 
     if isinstance(value, (np.ndarray, float, int)):
         return tt.constant(value, name=name, dtype=dtype)
-    elif isinstance(value, TensorType):  # (which should include TensorSharedVariables)
+    elif isinstance(value, theano_types):  # (which should include TensorSharedVariables)
         if dtype is not None:
             assert value.dtype==dtype, 'You passed a shared variable, but its type ({}) did not agree with dtype: {}'.format(value.dtype, dtype)
         return value
+    else:
+        raise Exception("Don't know how to handle type {}".format(type(value)))

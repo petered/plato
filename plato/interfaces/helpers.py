@@ -282,7 +282,7 @@ class ReshapingSharedVariable(TensorSharedVariable):
 
 
 
-def shared_of_type(ndim, value=0., dtype=theano.config.floatX, **kwargs):
+def shared_of_type(ndim, value=0., dtype='floatX', **kwargs):
     """
     Return a Shared Variable with dynamic shape. e.g.
         accumulator = shared_like(x)
@@ -292,13 +292,15 @@ def shared_of_type(ndim, value=0., dtype=theano.config.floatX, **kwargs):
     :param kwargs: Passed to theano.shared
     :return: A ReshapingSharedVariable
     """
+    if dtype=='floatX':
+        dtype = theano.config.floatX
     out = theano.shared(np.zeros((0, )*ndim, dtype=dtype), **kwargs)
     out.__class__ = ReshapingSharedVariable
     out.initial_value = value
     return out
 
 
-def shared_like(x, value=0., **kwargs):
+def shared_like(x, dtype = None, value=0., **kwargs):
     """
     Return a Shared Variable with dynamic shape. e.g.
         accumulator = shared_like(x)
@@ -308,4 +310,4 @@ def shared_like(x, value=0., **kwargs):
     :param kwargs: Other args to pass to theano.shared
     :return: A ReshapingSharedVariabe
     """
-    return shared_of_type(ndim=x.ndim, dtype=x.dtype, value=value, **kwargs)
+    return shared_of_type(ndim=x.ndim, dtype=x.dtype if dtype is None else dtype, value=value, **kwargs)
