@@ -26,6 +26,12 @@ def test_running_stats():
     variances = [f(d, decay=0.01) for d in data]
     assert 2.21 < np.mean(variances[-len(variances)/2:]) < 2.22
 
+    # With initial value
+    f = running_variance.partial(initial_value=1, shape=()).compile()
+    variances = [f(d, decay=0.01) for d in data]
+    assert 2.21 < np.mean(variances[-len(variances)/2:]) < 2.22
+    assert 0.99 < variances[0] < 1.
+
 
 def test_running_stats_aggregated():
 
@@ -59,7 +65,12 @@ def test_running_stats_aggregated():
     # TODO: Verify that variance estimate is correct when elementwise=False
     # For example what if the channels have different means... still correct?
 
+    # Decaying Running Aggregate Variacne with initialization
+    f = running_variance.partial(shape=shape, elementwise=False, initial_value=1.).compile()  #
+    variances = [f(d, decay=0.01) for d in data]
+    assert 2.29 < np.mean(variances[-len(variances)/2:]) < 2.3
+    assert 1.03 < variances[0] < 1.04
 
 if __name__ == '__main__':
-    test_running_stats()
+    # test_running_stats()
     test_running_stats_aggregated()

@@ -40,14 +40,14 @@ def running_average(data, decay=None, shape=None, initial_value = 0., return_n =
         return (new_avg, n_points) if return_n else new_avg
     else:
         assert return_n is False
-        old_avg = shared_like(data) if shape is None else create_shared_variable(np.zeros(shape)+initial_value)
+        old_avg = shared_like(data, value=initial_value) if shape is None else create_shared_variable(np.zeros(shape)+initial_value, name='running_average{}'.format(shape))
         new_avg = (1-decay)*old_avg + decay*data
         add_update(old_avg, new_avg)
         return new_avg
 
 
 @symbolic
-def running_mean_and_variance(data, decay = None, shape = None, elementwise=True):
+def running_mean_and_variance(data, decay = None, shape = None, elementwise=True, initial_mean=0., initial_var=0.):
     """
     Compute the running mean and variance of the data.
     Formula from this useful document: http://people.ds.cam.ac.uk/fanf2/hermes/doc/antiforgery/stats.pdf
@@ -62,17 +62,19 @@ def running_mean_and_variance(data, decay = None, shape = None, elementwise=True
     # TODO: Verify that variance estimate is correct when elementwise=False
     if not elementwise:
         shape=()
+    if elementwise and (initial_mean!=0 or initial_var!=0):
+        assert shape is not None, "Due to construction delays, we are not able to offer shape-free initializations on our elementise line of products yet.  We apologize for the inconvenience."
 
-    s_last = shared_like(data, dtype='floatX') if shape is None else create_shared_variable(np.zeros(shape))
-    mean_last = shared_like(data, dtype='floatX') if shape is None else create_shared_variable(np.zeros(shape))
+    s_last = shared_like(data, dtype='floatX', value=initial_var) if shape is None else create_shared_variable(np.zeros(shape)+initial_var)
+    mean_last = shared_like(data, dtype='floatX', value=initial_mean) if shape is None else create_shared_variable(np.zeros(shape)+initial_mean)
     if decay is None:
-        mean_new, n = running_average(data, shape=shape, return_n=True, elementwise=elementwise)
+        mean_new, n = running_average(data, shape=shape, return_n=True, elementwise=elementwise, initial_value=initial_mean)
         s_new = s_last + (data-mean_last)*(data-mean_new)
         if not elementwise:
             s_new = s_new.mean()
         var_new = s_new/n
     else:
-        mean_new = running_average(data, shape=shape, decay=decay, elementwise=elementwise)
+        mean_new = running_average(data, shape=shape, decay=decay, elementwise=elementwise, initial_value=initial_mean)
         s_new = (1-decay)*(s_last + decay*(data-mean_last)**2)
         if not elementwise:
             s_new = s_new.mean()
@@ -83,7 +85,7 @@ def running_mean_and_variance(data, decay = None, shape = None, elementwise=True
 
 
 @symbolic
-def running_variance(data, decay=None, shape = None, elementwise=True):
+def running_variance(data, decay=None, shape = None, elementwise=True, initial_value = 0.):
     """
     Compute the running mean and variance of the data.
     :param data: A D
@@ -91,4 +93,4 @@ def running_variance(data, decay=None, shape = None, elementwise=True):
     :param shape:
     :return:
     """
-    return running_mean_and_variance(data=data, decay=decay, shape=shape, elementwise=elementwise)
+    return running_mean_and_variance(data=data, decay=decay, shape=shape, elementwise=elementwise, initial_var = initial_value)

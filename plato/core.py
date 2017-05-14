@@ -18,6 +18,8 @@ import theano
 import numpy as np
 from theano.tensor.var import TensorConstant
 
+
+
 """
 This module contains the plato decorators (@symbolic, etc) and their implementations.
 
@@ -48,6 +50,10 @@ __author__ = 'peter'
 logging.basicConfig()
 PLATO_LOGGER = logging.getLogger('plato')
 PLATO_LOGGER.setLevel(logging.INFO)
+
+
+if theano.config.optimizer == 'None':
+    PLATO_LOGGER.warn('{0} YOUR ATTENTION PLEASE {0}\n  The theano optimizer is disabled.  This may break some things.  You can re-enable it in ~/.theanorc \n{1}'.format('='*32, '='*101))
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
@@ -911,7 +917,7 @@ def printit(var_name, var_val):
 name_counts = {}
 
 
-def tdbprint(var, name = None):
+def tdbprint(var, name = None, overwrite_names = False):
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
@@ -919,7 +925,10 @@ def tdbprint(var, name = None):
         name_counts[name] = 0 if name not in name_counts else name_counts[name] + 1
         num = 0 if name not in name_counts else name_counts[name]
         name = name.replace('%c', str(num))
-    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = CaptureTraceVariables.TRACE_VALUES[name]))
+
+    name = CaptureTraceVariables.CURRENT_CATCHER.get_unique_trace_name(name)
+
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = CaptureTraceVariables.TRACE_VALUES[name]), overwrite_names=overwrite_names)
 
 
 class CaptureTraceVariables(object):
@@ -965,14 +974,10 @@ class CaptureTraceVariables(object):
     def values(self):
         return [var for var, batch_in_scan, callback in self._trace_vars.values()]
 
-    def add_trace(self, variable, name, batch_in_scan = False, callback = None, overwright_names = False):
+    def add_trace(self, variable, name, batch_in_scan = False, callback = None, overwrite_names = False):
 
-        if name in self._trace_vars and not overwright_names:
-            for i in count(2):
-                new_name = name+'(2)'.format(i)
-                if new_name not in self._trace_vars:
-                    name = new_name
-                    break
+        if name in self._trace_vars and not overwrite_names:
+            name = self.get_unique_trace_name()
 
         self._trace_vars[name] = (variable, batch_in_scan, callback)
         if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
@@ -984,6 +989,15 @@ class CaptureTraceVariables(object):
     @classmethod
     def set_trace_value(cls, name, value):
         cls.TRACE_VALUES[name] = value
+
+    def get_unique_trace_name(self, name):
+        if name in self._trace_vars:
+            for i in count(2):
+                new_name = name+'({})'.format(i)
+                if new_name not in self._trace_vars:
+                    name = new_name
+                    break
+        return name
 
 
 class CallbackCatcher(object):
@@ -1023,7 +1037,7 @@ def get_trace_value(name):
     return CaptureTraceVariables.TRACE_VALUES[name]
 
 
-def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwright_names=True):
+def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwrite_names=False):
     """
     Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
     through the function get_tdb_traces()
@@ -1040,7 +1054,7 @@ def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwrig
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
     assert CaptureTraceVariables.CURRENT_CATCHER is not None, "You must be called from a symbolic function to add trace variables.  Make sure your function, or one calling it, is decorated with @symbolic"
-    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback, overwright_names=overwright_names)
+    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback, overwrite_names=overwrite_names)
 
 
 def clear_tdb_traces():
@@ -1313,6 +1327,20 @@ def initialize_constant(shape, fill_value, name=None, cast_floats_to_floatX=True
         return tt.zeros(shape, dtype=theano.config.floatX)+fill_value
     else:
         return tt.zeros(shape, dtype = type(fill_value))+fill_value
+
+
+def as_floatx(value):
+    """
+    A function which will cast the input into a float, no matter what type it is,
+    :param value:
+    :return:
+    """
+    if isinstance(value, int):
+        return float(value)
+    elif isinstance(value, float):  # Theano will cast it appropriately
+        return value
+    else:
+        return value.astype(theano.config.floatX)
 
 
 def as_theano_variable(value, dtype = None, name=None, cast_floats_to_floatX=True):

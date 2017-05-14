@@ -52,7 +52,7 @@ def tdbplot(var, name = None, plot_type = None, draw_every=None, overwright_name
         # get_dbplot_stream().add_plot_type("['%s']" % name, plot_type=plot_type)
 
     # tdb_trace(var, name, callback=partial(set_plot_data_and_update, name=name, draw_every=draw_every), overwright_names=overwright_names)
-    tdb_trace(var, name, overwright_names=overwright_names)
+    tdb_trace(var, name, overwrite_names=overwright_names)
 
     CallbackCatcher.get_current().add_callback(plot_all_trace_variables)
 
