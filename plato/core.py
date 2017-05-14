@@ -1327,7 +1327,9 @@ def as_theano_variable(value, dtype = None, name=None, cast_floats_to_floatX=Tru
     if dtype == 'floatX':
         dtype = theano.config.floatX
 
-    theano_types = SharedVariable, TensorConstant
+    from theano.tensor.var import TensorVariable
+
+    theano_types = SharedVariable, TensorConstant, TensorVariable
 
     dtype = dtype if dtype is not None else \
         theano.config.floatX if cast_floats_to_floatX and (isinstance(value, float) or isinstance(value, np.ndarray) and value.dtype in (np.float32, np.float64)) else \

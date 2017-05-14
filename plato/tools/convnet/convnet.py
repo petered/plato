@@ -129,7 +129,9 @@ class DropoutLayer(FeedForwardModule):
 @symbolic
 class FullyConnectedLayer(FeedForwardModule):
 
-    def __init__(self, w, b):
+    def __init__(self, w, b=None):
+        if b is None:
+            b = np.zeros(w.shape[1])
         self.w = create_shared_variable(w)
         self.b = create_shared_variable(b)
 
