@@ -37,8 +37,8 @@ class ConvolverSpec(PrimativeSpecifier):
 
     def __init__(self, w, b, mode):
         """
-        :param w: A shape (n_output_maps, n_input_maps, n_rows, n_cols) convolutional kernel.  It should be assumed that
-            weights will be flipped before sliding across the image.
+        :param w: A shape (n_output_maps, n_input_maps, n_rows, n_cols) convolutional kernel.  The kernels can be directly
+            used for cross-correlation... that is, it is assumed that they are NOT flipped before sliding over the image.
         :param b: A bias of shape (n_output_maps, )
         :param mode: The mode: 'same', 'valid', or 'full', or an integer, in which case it is interpreted as the padding
             for a 'valid' convolution.
