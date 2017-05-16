@@ -56,6 +56,8 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
             Where cost is a scalar, output is an (n_samples, ...) array representing the output of the function, and
             target is an (n_samples, ...) array representing the labels.
         :param optimizer: Is an IGradientOptimizer object (it takes a list of parameters and gradients and returns updates)
+            OR, you can also have a dict<IGradientOptimizer: list<SharedVariable>>, which allows you to specify different
+            optimizers for different parameters in the model.
         :param regularization_cost: Optionally, a function of the form:
             cost = regularization_cost(params)
             Where cost is a scalar and params is the list of shared variables returned by function.parameters
