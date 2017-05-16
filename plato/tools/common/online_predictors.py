@@ -133,7 +133,12 @@ class FeedForwardModule(IParameterized):
         cost = cost_fcn(self.train_call(x), y)
         if regularization_cost is not None:
             cost = cost + regularization_cost(self.parameters)
-        optimizer.update_parameters(cost=cost, parameters=self.parameters)
+        if isinstance(optimizer, dict):
+            # In this secret option, you can specify an dict with optimizers as keys and lists of parameters as values.
+            for suboptimizer, param_list in optimizer.iteritems():
+                suboptimizer.update_parameters(cost=cost, parameters=param_list)
+        else:
+            optimizer.update_parameters(cost=cost, parameters=self.parameters)
 
     @property
     def parameters(self):
