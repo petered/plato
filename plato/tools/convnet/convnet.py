@@ -148,7 +148,7 @@ class FullyConnectedLayer(FeedForwardModule):
         return [self.w, self.b] if self.b is not False else [self.w]
 
     def to_spec(self):
-        return FullyConnectedSpec(w=self.w.get_value, b=self.b.get_value() if self.b is not False else False)
+        return FullyConnectedSpec(w=self.w.get_value(), b=self.b.get_value() if self.b is not False else False)
 
 
 @symbolic
@@ -192,6 +192,9 @@ class ConvNet(IParameterized):
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
             # tdbprint(abs(x).mean(), 'Mean Magnitude of layer {}'.format(name))
+            if isinstance(layer, ConvLayer):
+                tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
+                tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
         return named_activations
 
     @staticmethod

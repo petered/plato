@@ -918,6 +918,8 @@ name_counts = {}
 
 
 def tdbprint(var, name = None, overwrite_names = False):
+
+
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
@@ -977,7 +979,7 @@ class CaptureTraceVariables(object):
     def add_trace(self, variable, name, batch_in_scan = False, callback = None, overwrite_names = False):
 
         if name in self._trace_vars and not overwrite_names:
-            name = self.get_unique_trace_name()
+            name = self.get_unique_trace_name(name)
 
         self._trace_vars[name] = (variable, batch_in_scan, callback)
         if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
@@ -1050,6 +1052,7 @@ def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwrit
         False means just take the last value in the scan loop
         True means keep the whole batch of values that this variable takes on within the loop.
     """
+    assert not isinstance(var, (int, float, np.ndarray)), 'tdb_trace should be called with symbolic variables.  You passed a {}'.format(type(var))
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))

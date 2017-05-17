@@ -111,3 +111,6 @@ class FullyConnectedSpec(PrimativeSpecifier):
         elif len(input_shape)==2:
             n_samples, input_dims = input_shape
             return n_samples, self.w.shape[1]
+
+
+# class ConvNetSpec
