@@ -284,7 +284,6 @@ class _SymbolicFunctionWrapper(object):
         """
         Partially define the input arguments and return a new symbolic function.
         """
-        # fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
         return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
             output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
@@ -389,10 +388,6 @@ class AnyReturnFormat(IFormat):
     @staticmethod
     def check(data, f):
         pass
-        # try:
-        #     _detect_format(data)  # This will check if the data is in any familiar format.
-        # except SymbolicFormatError:
-        #     raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
 
 
 class SingleOutputFormat(IFormat):

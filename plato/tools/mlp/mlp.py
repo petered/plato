@@ -55,6 +55,7 @@ class MultiLayerPerceptron(IParameterized):
         assert len(layer_sizes)>1, "A Multi-layer perceptron with only 1 layer don't make no sense.  Remember, input/output layers must be specified."
         if hasattr(w_init, '__call__'):
             assert rng is None, "If w_init is callable, the random number generator (rng) doesn't do anything, and shouldn't be specified."
+            weights = [w_init(n_in, n_out) for n_in, n_out in izip_equal(layer_sizes[:-1], layer_sizes[1:])]
         else:
             rng = get_rng(rng)
             weights = initialize_network_params(layer_sizes=layer_sizes, mag=w_init, base_dist=w_init_dist, include_biases=False, rng=rng)
@@ -93,7 +94,7 @@ class MultiLayerPerceptron(IParameterized):
             for w, b, nonlinearity, layer_no in
                 izip_equal(weights, [False]*len(weights) if biases is False else [0.]*len(weights) if biases in (True, None) else biases, [hidden_activations] * (n_layers - 1) + [output_activation], xrange(n_layers))
                 ]
-        return MultiLayerPerceptron(layers)
+        return cls(layers)
 
 
 @symbolic_simple

@@ -209,6 +209,7 @@ def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
         feature_map_im = feature_map_im[None, ...]
     return feature_map_im.astype(theano.config.floatX)
 
+
 def get_vgg_mean_color(mode = 'rgb'):
     return {
         'bgr': np.array([103.939, 116.779, 123.68]),

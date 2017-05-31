@@ -54,7 +54,7 @@ def negative_log_likelihood_dangerous(actual, target):
     normalized_negative_log_likelihood instead, and if you have a softmax on the input, theano should
     (hopefully) optimize away the normalization step.
     """
-    assert actual.ndim==2
+    actual = actual.flatten(2)
     assert target.ndim==1
     return -tt.log(actual[tt.arange(actual.shape[0]), target]).mean()
 

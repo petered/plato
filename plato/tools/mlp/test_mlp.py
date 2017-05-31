@@ -25,7 +25,7 @@ def test_bare_bones_mlp(seed = 1234):
 
     mlp = MultiLayerPerceptron.from_init(
         layer_sizes = [dataset.input_size, 20, dataset.n_categories],
-        hidden_activation = 'relu',
+        hidden_activations = 'relu',
         output_activation = 'softmax',
         w_init = 0.01,
         rng = seed

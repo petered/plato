@@ -1,8 +1,7 @@
-import theano
 from plato.core import symbolic, create_shared_variable, add_update
 from plato.interfaces.decorators import symbolic_simple
 from plato.interfaces.helpers import MRG_RandomStreams_ext, batchify_function, on_first_pass, \
-    shared_like, ReshapingSharedVariable
+    shared_like
 import numpy as np
 import pytest
 
@@ -84,6 +83,8 @@ def test_reshaping_shared_variable():
     assert np.allclose(f(vals[1]), vals[:2].sum(axis=0))
     assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
 
+    # It would be nice if the following worked, but its hard to see how to make this work when our reshaping shared variable
+    # is the second argument to the "-".
     # @symbolic
     # def difference(x):
     #     x_last = shared_like(x)
@@ -97,11 +98,10 @@ def test_reshaping_shared_variable():
     # assert np.allclose(f(vals[2]), vals[:3].sum(axis=0))
 
 
-
 if __name__ == '__main__':
 
-    # test_mrg_choice()
-    # test_compute_in_batches()
-    # test_compute_in_with_state()
-    # test_on_first_pass()
+    test_mrg_choice()
+    test_compute_in_batches()
+    test_compute_in_with_state()
+    test_on_first_pass()
     test_reshaping_shared_variable()

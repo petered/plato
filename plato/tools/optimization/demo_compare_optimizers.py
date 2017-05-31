@@ -33,7 +33,7 @@ def mnist_adamax_showdown(hidden_size = 300, n_epochs = 10, n_tests = 20):
     make_mlp = lambda optimizer: GradientBasedPredictor(
             function = MultiLayerPerceptron.from_init(
                 layer_sizes=[dataset.input_size, hidden_size, dataset.n_categories],
-                hidden_activation='sig',
+                hidden_activations='sig',
                 output_activation='lin',
                 w_init = 0.01,
                 rng = 5
@@ -78,7 +78,7 @@ def mlp_normalization(hidden_size = 300, n_epochs = 30, n_tests = 50, minibatch_
     make_mlp = lambda normalize, scale: GradientBasedPredictor(
             function = MultiLayerPerceptron.from_init(
                 layer_sizes=[dataset.input_size, hidden_size, dataset.n_categories],
-                hidden_activation='sig',
+                hidden_activations='sig',
                 output_activation='lin',
                 normalize_minibatch=normalize,
                 scale_param=scale,
@@ -125,7 +125,7 @@ def backprop_vs_difference_target_prop(
             'backprop-mlp': GradientBasedPredictor(
                 function = MultiLayerPerceptron.from_init(
                 layer_sizes=[dataset.input_size]+hidden_sizes+[dataset.n_categories],
-                    hidden_activation='tanh',
+                    hidden_activations='tanh',
                     output_activation='sig',
                     w_init = 0.01,
                     rng = 5

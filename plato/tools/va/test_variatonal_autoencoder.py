@@ -1,6 +1,7 @@
 import theano.tensor as tt
 import numpy as np
 import pytest
+from artemis.general.test_mode import set_test_mode, UseTestContext
 
 from plato.core import symbolic
 from plato.tools.optimization.optimizers import AdaMax
@@ -48,8 +49,8 @@ def test_variational_autoencoder():
         optimizer=AdaMax(alpha = 0.1),
         rng = rng
         )
-    train_fcn = model.train.compile()
-    gen_fcn = model.sample.compile()
+    train_fcn = model.train.compile(add_test_values=True)
+    gen_fcn = model.sample.compile(add_test_values=True)
     initial_mcm = mean_closest_match(gen_fcn(100), dataset.test_set.input, 'L1')
     for minibatch in minibatch_iterate(dataset.training_set.input, minibatch_size = 10, n_epochs=1):
         train_fcn(minibatch)
@@ -78,12 +79,14 @@ def test_gaussian_prob(n_samples = 10, n_dims = 784):
 
 
 def test_demo_simple_vae_on_mnist():
-    demo_simple_vae_on_mnist(binary_x=True)
-    demo_simple_vae_on_mnist(binary_x=False)
+    with UseTestContext():
+        demo_simple_vae_on_mnist(binary_x=True)
+        demo_simple_vae_on_mnist(binary_x=False)
 
 
 def test_demo_variational_autoencoder():
-    demo_variational_autoencoder()
+    with UseTestContext():
+        demo_variational_autoencoder()
 
 
 if __name__ == '__main__':
