@@ -1,17 +1,18 @@
 import numpy as np
-
-from artemis.fileman.experiment_record import register_experiment, run_experiment
+from artemis.experiments.experiment_record import experiment_function
+from artemis.experiments.ui import browse_experiments
 from artemis.general.test_mode import is_test_mode
+from artemis.ml.datasets.mnist import get_mnist_dataset
+from artemis.ml.tools.iteration import minibatch_iterate
+from artemis.plotting.db_plotting import dbplot
 from plato.tools.optimization.optimizers import AdaMax
 from plato.tools.va.gaussian_variational_autoencoder import GaussianVariationalAutoencoder
-from artemis.plotting.db_plotting import dbplot
-from artemis.ml.tools.iteration import minibatch_iterate
-from artemis.ml.datasets.mnist import get_mnist_dataset
 
 
 __author__ = 'peter'
 
 
+@experiment_function
 def demo_simple_vae_on_mnist(
         minibatch_size = 100,
         n_epochs = 2000,
@@ -83,31 +84,18 @@ def demo_simple_vae_on_mnist(
                 (i*minibatch_size/float(len(training_data)), training_lower_bound, test_lower_bound)
 
 
-register_experiment(
-    name = 'mnist-vae-20d-binary_in',
-    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = True),
-    description="Try encoding MNIST with a variational autoencoder.",
-    conclusion="Looks good.  Within about 20 epochs we're getting reasonablish samples, lower bound of -107."
-    )
+# Try encoding MNIST with a variational autoencoder.
+demo_simple_vae_on_mnist.add_variant('mnist-vae-20d-binary_in', z_dim = 20, hidden_sizes = [200], binary_x = True)
+# Looks good.  Within about 20 epochs we're getting reasonablish samples, lower bound of -107.
 
 
-register_experiment(
-    name = 'mnist-vae-20d-continuous_in',
-    function = lambda: demo_simple_vae_on_mnist(z_dim = 20, hidden_sizes = [200], binary_x = False, gaussian_min_var = 0.01),
-    description="Try encoding MNIST with a variational autoencoder, this time treating the input as a continuous variable",
-    conclusion="Need to set minimum variance.  Recognieseable digits come out, but then instabilities."
-    )
+# Try encoding MNIST with a variational autoencoder, this time treating the input as a continuous variable
+demo_simple_vae_on_mnist.add_variant('mnist-vae-20d-continuous_in', z_dim = 20, hidden_sizes = [200], binary_x = False, gaussian_min_var = 0.01)
+# Need to set minimum variance.  Recognieseable digits come out, but then instabilities.
 
 
-register_experiment(
-    name = 'mnist-vae-2latent',
-    function = lambda: demo_simple_vae_on_mnist(z_dim = 2, hidden_sizes = [400, 200], binary_x = True),
-    description='Try a deeper network with just a 2-dimensional latent space.'
-
-
-)
+demo_simple_vae_on_mnist.add_variant('mnist-vae-2latent', z_dim = 2, hidden_sizes = [400, 200], binary_x = True)
 
 
 if __name__ == '__main__':
-
-    run_experiment('mnist-vae-2latent')
+    browse_experiments()

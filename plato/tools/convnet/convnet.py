@@ -1,6 +1,5 @@
 from collections import OrderedDict
 import numpy as np
-from plato.tools.common.config import float_precision
 import theano
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
@@ -8,7 +7,8 @@ from plato.core import symbolic, create_shared_variable, tdbprint
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
-from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec
+from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec, \
+    FullyConnectedSpec
 from theano.tensor.signal.pool import pool_2d
 __author__ = 'peter'
 import logging
@@ -127,6 +127,31 @@ class DropoutLayer(FeedForwardModule):
 
 
 @symbolic
+class FullyConnectedLayer(FeedForwardModule):
+
+    def __init__(self, w, b=None):
+        if b is None:
+            b = np.zeros(w.shape[1])
+        self.w = create_shared_variable(w)
+        self.b = create_shared_variable(b)
+
+    def __call__(self, x):
+        """
+        param x: A (n_samples, n_input_maps, size_y, size_x) image/feature tensor
+        return: A (n_samples, n_output_maps, size_y-w_size_y+1, size_x-w_size_x+1) tensor
+        """
+        result = x.flatten(2).dot(self.w) + self.b
+        return result
+
+    @property
+    def parameters(self):
+        return [self.w, self.b] if self.b is not False else [self.w]
+
+    def to_spec(self):
+        return FullyConnectedSpec(w=self.w.get_value(), b=self.b.get_value() if self.b is not False else False)
+
+
+@symbolic
 class ConvNet(IParameterized):
 
     def __init__(self, layers):
@@ -154,7 +179,7 @@ class ConvNet(IParameterized):
         return self.get_named_layer_activations(inp, test_call=True).values()[-1]
 
     @symbolic
-    def get_named_layer_activations(self, x, test_call=False):
+    def get_named_layer_activations(self, x, include_input = False, test_call=False):
         """
         :param x: A (n_samples, n_colours, size_y, size_x) input image
         :param test_call: True if you want to call it on a test set... this may affect things like dropout.
@@ -162,11 +187,13 @@ class ConvNet(IParameterized):
             If you instantiated the convnet with an OrderedDict, the keys will correspond to the keys for the layers.
             Otherwise, they will correspond to the index which identifies the order of the layer.
         """
-        named_activations = OrderedDict()
+        named_activations = OrderedDict([('input', x)]) if include_input else OrderedDict()
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
-        # tdbprint(abs(named_activations['relu4_2']).mean(), 'mean_abs_relu4_2')
+            if isinstance(layer, ConvLayer):
+                tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
+                tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
         return named_activations
 
     @staticmethod
@@ -226,7 +253,8 @@ def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
             ),
         NonlinearitySpec: lambda: Nonlinearity(spec.func),
         PoolerSpec: lambda: Pooler(region=spec.region, stride=spec.stride, mode=spec.mode),
-        DropoutSpec: lambda: DropoutLayer(spec.dropout_rate, rng=rng)
+        DropoutSpec: lambda: DropoutLayer(spec.dropout_rate, rng=rng),
+        FullyConnectedSpec: lambda: FullyConnectedLayer(w=spec.w, b=spec.b)
         }[spec.__class__]()
 
 

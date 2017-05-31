@@ -52,7 +52,7 @@ def compare_example_predictors(
             'MLP': GradientBasedPredictor(
                 function = MultiLayerPerceptron.from_init(
                     layer_sizes=[dataset.input_size, 500, dataset.n_categories],
-                    hidden_activation='sig',  # Sigmoidal hidden units
+                    hidden_activations='sig',  # Sigmoidal hidden units
                     output_activation='softmax',  # Softmax output unit, since we're doing multinomial classification
                     w_init = 0.01,
                     rng = 5

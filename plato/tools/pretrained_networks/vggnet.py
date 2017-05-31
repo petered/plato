@@ -189,11 +189,11 @@ def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
     if im.ndim==2:
         im = np.repeat(im[:, :, None], repeats=3, axis=2)
 
-    if any(m.shape[-2:-1] != (224, 224) for m in im):
+    if True: #im.shape[-3:-1] != (224, 224):
         if shaping_mode == 'squeeze':
             from scipy.misc.pilutil import imresize
             # TODO: Test!
-            im = imresize(im, size=(224, 224))
+            im = imresize(im.astype(np.uint8), size=(224, 224))
         elif shaping_mode == 'crop':
             current_shape = im.shape[-3:-1]
             assert current_shape[0]>=224 and current_shape[1]>=224, "Don't currently have padding implemented"
@@ -210,12 +210,19 @@ def im2vgginput(im, shaping_mode = 'squeeze', already_bgr = False):
     return feature_map_im.astype(theano.config.floatX)
 
 
+def get_vgg_mean_color(mode = 'rgb'):
+    return {
+        'bgr': np.array([103.939, 116.779, 123.68]),
+        'rgb': np.array([ 123.68, 116.779, 103.939])
+        }[mode]
+
+
 def vgginput2im(feat):
     """
     :param feat: A (1, 3, size_y, size_x) array representing the BGR image that's ready to feed into VGGNet
     :returns: A (size_y, size_x, 3) array representing a RGB image.
     """
-    bgr_im = (feat.dimshuffle(0, 2, 3, 1) if isinstance(feat, Variable) else np.rollaxis(feat, 0, 2))[0, :, :, :]
+    bgr_im = (feat.dimshuffle(0, 2, 3, 1) if isinstance(feat, Variable) else np.rollaxis(feat, 1, 4))[0, :, :, :]
     decentered_rgb_im = (bgr_im + np.array([103.939, 116.779, 123.68]))[:, :, ::-1]
     return decentered_rgb_im
 

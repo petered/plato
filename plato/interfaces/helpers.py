@@ -1,12 +1,15 @@
 import numpy as np
-from plato.core import symbolic_simple, add_update, create_shared_variable
+from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
 from plato.interfaces.interfaces import IParameterized
-from plato.tools.common.basic import softmax
 import theano
+from theano.compile.sharedvalue import SharedVariable
+from theano.ifelse import ifelse
 from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
+from theano.tensor.sharedvar import TensorSharedVariable
+from theano.tensor.var import TensorVariable
 
 __author__ = 'peter'
 
@@ -85,27 +88,57 @@ def softmax(x, axis=1):
     return e_x / e_x.sum(axis=axis, keepdims=True)
 
 
+def relu(x):
+    return tt.maximum(x, 0)
+
+def identity(x):
+    return x
+
+
+_act_funcs = {
+    'softmax': softmax,
+    'sigm': tt.nnet.sigmoid,
+    'sig': tt.nnet.sigmoid,
+    'd_sigm': lambda x: tt.nnet.sigmoid(x)-tt.nnet.sigmoid(-x),
+    'tanh': tt.tanh,
+    'sech2': lambda x: (4*tt.cosh(x)**2)/(tt.cosh(2*x)+1)**2,
+    'lin': identity,
+    'const': tt.ones_like,
+    'step': lambda x: tt.switch(x<0, 0., 1.),
+    'exp': tt.exp,
+    'relu': relu,
+    'rect-lin': relu,
+    'softmax-last': tt.nnet.softmax,
+    'softplus': tt.nnet.softplus,
+    'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
+    'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
+    'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
+    'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
+    'linear': identity,
+    'leaky-relu-0.01': lambda x: tt.maximum(0.01*x, x),
+    'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
+     }
+
+
 def get_named_activation_function(activation_name):
-    fcn = {
-        'softmax': softmax,
-        'sigm': tt.nnet.sigmoid,
-        'sig': tt.nnet.sigmoid,
-        'tanh': tt.tanh,
-        'lin': lambda x: x,
-        'exp': lambda x: tt.exp(x),
-        'relu': lambda x: tt.maximum(x, 0),
-        'rect-lin': lambda x: tt.maximum(0, x),
-        'softmax-last': tt.nnet.softmax,
-        'softplus': lambda x: tt.nnet.softplus(x),
-        'norm-relu': lambda x: normalize(tt.maximum(x, 0), axis = -1),
-        'safenorm-relu': lambda x: normalize_safely(tt.maximum(x, 0), axis = -1),
-        'balanced-relu': lambda x: tt.maximum(x, 0)*(2*(tt.arange(x.shape[-1]) % 2)-1),  # Glorot et al.  Deep Sparse Rectifier Networks
-        'prenorm-relu': lambda x: tt.maximum(normalize_safely(x, axis = -1, degree = 2), 0),
-        'linear': lambda x: x,
-        'leaky-relu-0.01': lambda x: tt.maximum(0.01*x, x),
-        'maxout': lambda x: tt.max(x, axis=1),  # We expect (n_samples, n_maps, n_dims) data and flatten to (n_samples, n_dims)
-         }[activation_name]
+    fcn = _act_funcs[activation_name]
     return symbolic_simple(fcn)
+
+
+def get_named_activation_function_derivative(activation_name):
+    fcn = _act_funcs[{
+        'sigm': 'd_sigm',
+        'relu': 'step',
+        'linear': 'const',
+        'lin': 'const',
+        'softplus': 'sigm',
+        'tanh': 'sech2',
+        }[activation_name]]
+    return symbolic_simple(fcn)
+
+
+def compute_activation(x, activation_name):
+    return get_named_activation_function(activation_name)(x)
 
 
 def get_parameters_or_not(module):
@@ -160,3 +193,104 @@ class SlowBatchCenter(object):
         new_running_mean = running_mean * self.decay_constant + x[0] * (1-self.decay_constant).astype(theano.config.floatX)
         add_update(running_mean, new_running_mean)
         return x - running_mean
+
+
+def batchify_function(fcn, batch_size):
+    """
+    Given a symbolic function, transform it so that computes its input in a sequence of minibatches, instead of in
+    one go.  This can be useful when:
+        - You want to perform an operation on a large array but don't have enough memory to do it all in one go
+        - Your function has state, and you want to update it with each step.
+
+    *NOTE: Currently this only works when the length of your arguments evently divides into the batch size
+
+    :param fcn: A symbolic function of the form out = f(*args)
+    :param args: A list of arguments.  All arguments must have the same arg.shape[0]
+    :param batch_size: An integer indicating the size of the batches in which you'd like to process your data.
+    :return:
+    """
+
+    @symbolic
+    def batch_function(*args):
+        start_ixs = tt.arange(0, args[0].shape[0], batch_size)
+        @symbolic
+        def process_batch(start_ix, end_ix):
+            return fcn(*[arg[start_ix:end_ix] for arg in args])
+        out = process_batch.scan(sequences = [start_ixs, start_ixs+batch_size])
+        return out.reshape((-1, )+tuple(out.shape[i] for i in xrange(2, out.ndim)), ndim=out.ndim-1)
+    return batch_function
+
+
+@symbolic
+def on_first_pass(first, after):
+    """
+    Return some value on the first past, and another after that.  This may be useful, for example, when a variable's
+    value depends on shared variables whose shapes have not yet been initialized.
+
+    :param first: Value to return on first pass
+    :param after: Value to return after that.
+    :return: first, if called on the first pass, otherwise after.
+    """
+    first_switch = theano.shared(1, 'initializing_switch')
+    add_update(first_switch, 0)
+    return ifelse(first_switch, first, after)
+
+
+class ReshapingVariable(TensorVariable):
+
+    def __add__(self, other):
+        # if np.isscalar(other):
+
+        return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+
+    def __sub__(self, other):
+        return ifelse(self.size>0, tt.sub(self, other), other-self.initial_value)
+
+    def __mul__(self, other):
+        return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
+
+class ReshapingSharedVariable(TensorSharedVariable):
+    """A shared variable with a dynamic shape."""
+
+    def __add__(self, other):
+        # if np.isscalar(other):
+
+        return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
+
+    def __sub__(self, other):
+        return ifelse(self.size>0, tt.sub(self, other), other-self.initial_value)
+
+    def __mul__(self, other):
+        return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
+
+
+def shared_of_type(ndim, value=0., dtype='floatX', **kwargs):
+    """
+    Return a Shared Variable with dynamic shape. e.g.
+        accumulator = shared_like(x)
+        new_accum_val = accumulator+x
+    :param ndim: Number of dimensions
+    :param dtype: Data type
+    :param kwargs: Passed to theano.shared
+    :return: A ReshapingSharedVariable
+    """
+    if dtype=='floatX':
+        dtype = theano.config.floatX
+    out = theano.shared(np.zeros((0, )*ndim, dtype=dtype), **kwargs)
+    out.__class__ = ReshapingSharedVariable
+    out.initial_value = value
+    return out
+
+
+def shared_like(x, dtype = None, value=0., **kwargs):
+    """
+    Return a Shared Variable with dynamic shape. e.g.
+        accumulator = shared_like(x)
+        new_accum_val = accumulator+x
+    :param x: A symbolic variable
+    :param value: The initial value for this variable
+    :param kwargs: Other args to pass to theano.shared
+    :return: A ReshapingSharedVariabe
+    """
+    return shared_of_type(ndim=x.ndim, dtype=x.dtype if dtype is None else dtype, value=value, **kwargs)

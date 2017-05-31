@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from plato.core import add_update, create_shared_variable, StateCatcher, tdbprint
+from plato.core import add_update, create_shared_variable, StateCatcher, tdbprint, CaptureUpdates
 from plato.interfaces.decorators import symbolic_updater
 import theano.tensor as tt
 import theano
@@ -18,6 +18,19 @@ class IGradientOptimizer(object):
         :return: Updates: A list of updates to whatever parameters
         """
 
+    @abstractmethod
+    def get_updates(self, cost, parameters, constants = []):
+        pass
+
+    @abstractmethod
+    def update_parameters(self, cost, parameters, constants=[]):
+        pass
+
+    @abstractmethod
+    def update_from_gradients(self, parameters, gradients, clip=None):
+        pass
+
+
 @symbolic_updater
 class UniformParameterOptimizer(IGradientOptimizer):
     """
@@ -31,14 +44,14 @@ class UniformParameterOptimizer(IGradientOptimizer):
         """
         self.update_parameters(cost=cost, parameters=parameters, constants=constants)
 
-    def get_updates(self, cost, parameters, constants = []):
+    def get_updates(self, cost, parameters, constants = [], as_dict = False):
         """
         Get the gradient-based parameter updates, but do not apply them.
         return: A list of (shared_var, new_val) pairs representing the updates.
         """
-        with StateCatcher(swallow_updates=True) as sc:
+        with CaptureUpdates(swallow=True) as sc:
             self(cost=cost, parameters=parameters, constants=constants)
-        return sc.get_updates()
+        return sc.get_updates(as_dict=as_dict)
 
     def update_parameters(self, cost, parameters, constants = []):
         """
@@ -48,14 +61,24 @@ class UniformParameterOptimizer(IGradientOptimizer):
         self.update_from_gradients(parameters, gradients)
 
     @symbolic_updater
-    def update_from_gradients(self, parameters, gradients):
+    def update_from_gradients(self, parameters, gradients, clip = None):
         """
         A secondary entry point (if for whatever reason you want to get the gradients yourself (e.g. if it's some kind
         of pseudo-gradient)) use this.
+        :param parameters: A list of shared variables
+        :param gradients: A list of corresponding gradients
+        :param clip: Optionally, a 2-tuple indicating the range in which to clip parameters, (or
         """
+        if clip is not None and not isinstance(clip, (list, tuple)):
+            clip = (-clip, clip)
         assert len(parameters)==len(gradients), 'Lenght of parameter vector must match length of gradients.'
         for p, g in zip(parameters, gradients):
-            self._update_param(p, g)
+            if clip is None:
+                self._update_param(p, g)
+            else:
+                with CaptureUpdates(swallow=True) as sc:
+                    self._update_param(p, g)
+                sc.get_updates()
 
     @abstractmethod
     def _update_param(self, param, gradient):
@@ -232,6 +255,33 @@ class MultiplicativeGradientDescent(UniformParameterOptimizer):
     def _update_param(self, param, gradient):
         multiplier = tt.exp(-tt.tanh(gradient)*self.factor)
         add_update(param, param*multiplier)
+
+
+class PIDOptimizer(UniformParameterOptimizer):
+    """ Gradient descent, with all bells and whistles"""
+
+    def __init__(self, kp=0.1, ki=0, kd=0):
+        """
+        :param eta: The learning rate
+        """
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+    def _update_param(self, param, gradient):
+        new_param = param
+        if self.kp != 0:
+            new_param -= self.kp * gradient
+        if self.ki != 0:
+            grad_integral = create_shared_variable(np.zeros_like(param.get_value()))
+            new_gradient_integral = grad_integral + grad_integral
+            add_update(grad_integral, new_gradient_integral)
+            new_param -= self.ki * new_gradient_integral
+        if self.kd != 0:
+            grad_last = create_shared_variable(np.zeros_like(param.get_value()))
+            add_update(grad_last, gradient)
+            new_param -= self.kd * (gradient - grad_last)
+        add_update(param, new_param)
 
 
 def get_named_optimizer(name, learning_rate, rng = None):

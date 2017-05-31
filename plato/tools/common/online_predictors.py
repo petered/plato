@@ -46,7 +46,7 @@ class ISymbolicPredictor(object):
 
 class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
-    def __init__(self, function, cost_function, optimizer, regularization_cost = None):
+    def __init__(self, function, cost_function, optimizer, assert_all_params_optimized = True, regularization_cost = None):
         """
         :param function: Can be:
             A symbolic_simple function and an IParameterized object
@@ -56,6 +56,10 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
             Where cost is a scalar, output is an (n_samples, ...) array representing the output of the function, and
             target is an (n_samples, ...) array representing the labels.
         :param optimizer: Is an IGradientOptimizer object (it takes a list of parameters and gradients and returns updates)
+            OR, you can also have a dict<IGradientOptimizer: list<SharedVariable>>, which allows you to specify different
+            optimizers for different parameters in the model.
+        :param: assert_all_params_optimized: Only IF you specify optimizer as a dict, assert that all parameters are
+            being optimzized.
         :param regularization_cost: Optionally, a function of the form:
             cost = regularization_cost(params)
             Where cost is a scalar and params is the list of shared variables returned by function.parameters
@@ -66,6 +70,7 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
         self._cost_function = cost_function
         self._regularization_cost = regularization_cost
         self._optimizer = optimizer
+        self.assert_all_params_optimized = assert_all_params_optimized
 
     @symbolic_simple
     def predict(self, inputs):
@@ -73,11 +78,8 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
     @symbolic_updater
     def train(self, inputs, labels):
-        outputs = self._function.train_call(inputs) if isinstance(self._function, FeedForwardModule) else self._function(inputs)
-        cost = self._cost_function(outputs, labels)
-        if self._regularization_cost is not None:
-            cost = cost + self._regularization_cost(self._function.parameters)
-        self._optimizer(cost = cost, parameters = self._function.parameters)
+        feedforward_module = self._function if isinstance(self._function, FeedForwardModule) else ParametrizedFeedForwardModule(self._function)
+        feedforward_module.train(x=inputs, y=labels, optimizer=self._optimizer, assert_all_params_optimized = self.assert_all_params_optimized, cost_fcn=self._cost_function, regularization_cost=self._regularization_cost)
 
     @property
     def parameters(self):
@@ -115,17 +117,54 @@ class FeedForwardModule(IParameterized):
     def test_call(self, x):
         return self.__call__(x)
 
-    @abstractmethod
     def __call__(self, x):
         """
         :param x: Input tensor
         :returns: Another tensor
         """
+        raise NotImplementedError()
+
+    def train(self, x, y, cost_fcn, optimizer, assert_all_params_optimized=False, regularization_cost = None):
+        cost = cost_fcn(self.train_call(x), y)
+        if regularization_cost is not None:
+            cost = cost + regularization_cost(self.parameters)
+        if isinstance(optimizer, dict):
+            # In this secret option, you can specify an dict with optimizers as keys and lists of parameters as values.
+            catch_all_optimizer = None
+            for suboptimizer, param_list in optimizer.iteritems():
+                if param_list=='remaining':
+                    assert catch_all_optimizer is None, "You cannot have more than one optimizer set to optimize the 'remaining' parameters"
+                    catch_all_optimizer = suboptimizer
+                else:
+                    suboptimizer.update_parameters(cost=cost, parameters=param_list)
+            optimized_params = [p for plist in optimizer.values() for p in plist]
+            non_optimized_params = [p for p in self.parameters if p not in optimized_params]
+            if catch_all_optimizer is not None:
+                catch_all_optimizer.update_parameters(cost=cost, parameters=non_optimized_params)
+            elif assert_all_params_optimized:
+                optimized_params = [p for plist in optimizer.values() for p in plist]
+                non_optimized_params = [p for p in self.parameters if p not in optimized_params]
+                assert len(non_optimized_params)==0, "You specified assert_all_params_optimized=True, but did not include the following parameters of your model: {}".format(non_optimized_params)
+        else:
+            optimizer.update_parameters(cost=cost, parameters=self.parameters)
 
     @property
     def parameters(self):
         return []
 
-    @abstractmethod
     def to_spec(self):
         raise NotImplementedError("Need to specify")
+
+
+class ParametrizedFeedForwardModule(FeedForwardModule):
+
+    def __init__(self, parametrized_function):
+        assert callable(parametrized_function) and hasattr(parametrized_function, 'parameters')
+        self.parametrized_function = parametrized_function
+
+    def __call__(self, x):
+        return self.parametrized_function(x)
+
+    @property
+    def parameters(self):
+        return self.parametrized_function.parameters

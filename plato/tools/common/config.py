@@ -3,6 +3,7 @@ import theano
 
 __author__ = 'peter'
 
+
 @contextmanager
 def float_precision(value):
     """
@@ -17,6 +18,8 @@ def float_precision(value):
 
     :param value: Currently either 'float32' or 'float64'
     """
+    if isinstance(value, int):
+        value = {32: 'float32', 64: 'float64'}[value]
     assert value in ('float32', 'float64'), "Precision must be 'float32' or 'float64', not '%s'" % (value, )
     old_precision = theano.config.floatX
     theano.config.floatX = value

@@ -1,17 +1,24 @@
 from collections import OrderedDict
+from contextlib import contextmanager
 from functools import partial
 import inspect
 import logging
+from itertools import count
+
 from artemis.general.local_capture import CaptureLocals
-from artemis.general.nested_structures import flatten_struct, expand_struct
+from artemis.general.nested_structures import flatten_struct, expand_struct, NestedType
+from artemis.general.should_be_builtins import izip_equal, bad_value
 from scipy.sparse.csr import csr_matrix
 from theano.compile.sharedvalue import SharedVariable
 from theano.gof.graph import Variable
 import theano.tensor as tt
+from theano.tensor.elemwise import TensorVariable
 from theano.tensor.type import TensorType
 import theano
 import numpy as np
 from theano.tensor.var import TensorConstant
+
+
 
 """
 This module contains the plato decorators (@symbolic, etc) and their implementations.
@@ -43,6 +50,10 @@ __author__ = 'peter'
 logging.basicConfig()
 PLATO_LOGGER = logging.getLogger('plato')
 PLATO_LOGGER.setLevel(logging.INFO)
+
+
+if theano.config.optimizer == 'None':
+    PLATO_LOGGER.warn('{0} YOUR ATTENTION PLEASE {0}\n  The theano optimizer is disabled.  This may break some things.  You can re-enable it in ~/.theanorc \n{1}'.format('='*32, '='*101))
 
 # Add properties to the "Variable" class (the base class of all symbolic variables), so that you easily inspect
 # the initial values that are attached to them.
@@ -92,7 +103,6 @@ def symbolic_named_output(fcn):
     Use this to decorate a symbolic function that returns a list of updates and no outputs.
     """
     return SymbolicFunction(input_format=PassAnythingFormat, output_format=NamedCollectionFormat, update_format=PassAnythingFormat)(fcn)
-
 
 
 class SymbolicFunction(object):
@@ -173,7 +183,7 @@ class _SymbolicFunctionWrapper(object):
     def __call__(self, *args, **kwargs):
         self.input_format.check((args, kwargs), self.fcn)
 
-        with StateCatcher(swallow_updates=False) as sc:
+        with CaptureUpdates(swallow=False) as sc:
             if ENABLE_OMNISCENCE:
                 with CaptureLocals() as c:
                     if self.attached_instance is None:
@@ -196,18 +206,69 @@ class _SymbolicFunctionWrapper(object):
     def scan(self, **scan_kwargs):
         """
         Apply a scan to this function.  For arguments, see thr
-        :param scan_kwargs: See theano.scan doc
+        :param scan_kwargs: See theano.scan doc: http://deeplearning.net/software/theano/library/scan.html#theano.scan
+            Summary, inputs are taken in the order:
+            [sequences[0], ... sequences[-1], outputs_info[0], ... outputs_info[-1], non_sequences[0], ... non_sequences[-1]]
         :return:
         """
         outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
+
+        if self._had_to_add_dummies:
+            # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
+            # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
+            outputs = outputs[:-2]
+
+        if len(self._trace_info)>0:
+            trace_outputs = outputs[-len(self._trace_info):]
+            outputs = outputs[:-len(self._trace_info)]
+            for (trace_name, (_, batch_in_scan, callback)), trace_output in izip_equal(self._trace_info.iteritems(), trace_outputs):
+                CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=trace_output if batch_in_scan else trace_output[-1], name=trace_name, batch_in_scan=batch_in_scan, callback=callback)
+
+        if self._single_output and isinstance(outputs, (list, tuple)):
+            assert len(outputs)==1, 'This should always be true, and you should call Peter if it is not.  +3163004422 seven'
+            outputs, = outputs
         for (shared_var, new_val) in updates.items():
             add_update(shared_var, new_val)
         return outputs
 
+    def eval(self, *args, **kwargs):
+        """
+        Compile and evaluate the function for the given inputs.
+        :param args: Arguments to the function
+        :param kwargs: Keyword
+        :return:
+        """
+        f = self.compile()
+        return f(*args, **kwargs)
+
+    def __eq__(self, other):
+        # Note: This is a bit of a lazy implementation - just tests if the wrapped functions are the same.  Not sure what
+        # contexts this will be used in so it may be necessary to wrap other attributes.
+        if isinstance(other, self.__class__):
+            if self.fcn==other.fcn:
+                return True
+        return False
+
     def _call_with_updates_returned(self, *args, **kwargs):
-        with StateCatcher(swallow_updates=True) as sc:
+        with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
             outputs = self(*args, **kwargs)
-        return outputs, sc.get_updates()
+
+        self._single_output = isinstance(outputs, Variable)
+        self._trace_info = traces.get_trace_variable_info()
+
+        if self._single_output and len(traces)>0:
+            outputs = (outputs, )
+        elif outputs is None:
+            outputs = (tt.zeros(), )
+
+        if len(traces)>0:
+            outputs = outputs + tuple(traces.values())
+
+        self._had_to_add_dummies = isinstance(outputs, (list, tuple)) and len(outputs)==1 # Necessary evil to force theano.scan to return collection even if length is 1.
+        if self._had_to_add_dummies:
+            outputs = outputs + type(outputs)([tt.zeros(()), tt.zeros(())])
+
+        return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
 
@@ -326,10 +387,7 @@ class AnyReturnFormat(IFormat):
 
     @staticmethod
     def check(data, f):
-        try:
-            _detect_format(data)  # This will check if the data is in any familiar format.
-        except SymbolicFormatError:
-            raise SymbolicFormatError("The return of function %s was not in any familiar format.: %s" % (f, data))
+        pass
 
 
 class SingleOutputFormat(IFormat):
@@ -401,6 +459,7 @@ class SymbolicFormatError(Exception):
     pass
 
 
+
 def _is_tensor(arg):
     return isinstance(arg, (Variable, np.ndarray))
 
@@ -427,36 +486,6 @@ def _is_constant(arg):
     return isinstance(arg, (float, int, np.ndarray, np.number))
 
 
-def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
-    """
-    :param all_outputs: A list of symbolic variables returned, and update values.  This is
-    :return: trace_variables, trace_callbacks
-        Where:
-            trace_variables is a dict<str: Variable} containing {trace_var_name: trace_var}
-            trace_callbacks is a list<function> where function should do something with the named trace variable (see tdbprint for example)
-    """
-    if len(_TRACE_VARIABLES) == 0:
-        return {}, {}
-
-    all_leaves = set().union(*[find_leaf_ancestors(v) for v in all_outputs_and_updates])
-
-    # Now we need to make sure the trace variables actually belong to this function.
-    # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
-    # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
-    def computable_by_given_inputs(var, given_inputs):
-        """
-        Return True if the symbolic variable var depends only on the provided inputs, shared variables and constants
-        """
-        all_leaf_ancestors = find_leaf_ancestors(var)
-        ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
-        return all(ancestors_are_computable)
-
-    trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
-    # TODO: Fix.  We still have problems with accepting teave variables that don't belong.
-    trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
-    return trace_variables, trace_callbacks
-
-
 def flatten_tensor_struct(tensor_struct):
     flat_struct = []
     for t in tensor_struct:
@@ -481,7 +510,7 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, **theano_function_kwargs):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, resettable=False, **theano_function_kwargs):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -515,6 +544,10 @@ class AutoCompilingFunction(object):
         self._add_test_values = add_test_values
         self._debug_print_shapes = debug_print_shapes
         self.theano_function_kwargs = theano_function_kwargs
+        self.resettable = resettable
+        self._input_format = None
+        self._output_format = None
+        self.updated_variables = None  # Used in reset()
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -522,70 +555,107 @@ class AutoCompilingFunction(object):
 
     def __call__(self, *args, **kwargs):
         """
+        This is the function that is called when you call a compiled function.
+
+        On the first pass, it
+        - looks at the numeric input variables, maps them to theano tensors
+        - feeds these tensors to the symbolic function to get the returned tensors
+        - captures any updates and trace variables that are created in the symbolic function.
+        - compiles a theano function given the input tensors, output tensors, updates, and trace variables.
+
+        On every pass it:
+        - Feeds the numeric inputs into the compiled function to get the numeric outputs
+        - Separates the returned trace values, if any, from the actual output.
+        - Calls any callbacks (print, plot, etc) associates with the trace variables.
+        - returns the numeric output
+
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
-        returns the result, in numpy arrays.
+        :return: the result, in numpy arrays.
         """
+        # Remove shared variables.
+        # args = tuple(a for a in args if not isinstance(a, SharedVariable))
+        # kwargs = {k: v for k, v in kwargs.iteritems() if isinstance(v, SharedVariable)}
+        input_data = (args, kwargs)
 
-        if self._compiled_fcn is None:  # Need to do first pass and compile.
+        if self._compiled_fcn is None:  # Runs on the first pass
 
-            d2t = partial(_data_to_tensor, cast_to_floatx = self._cast_to_floatx, add_test_value = self._add_test_values)
-            tensor_args = [d2t(arg) for arg in args]
-            tensor_kwargs = OrderedDict((k, d2t(a)) for k, a in kwargs.iteritems())
-            self._kwarg_order = tensor_kwargs.keys()
-            args_and_kwarg_tensors = flatten_tensor_struct(tensor_args + tensor_kwargs.values())
+            # Find tensor versions of inputs based on data in first-call, collect list of inputs
+            self._input_format = NestedType.from_data(input_data)
+            flat_input_data = self._input_format.get_leaves(input_data)
+            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
+            self._shared_var_inputs = [trace_value for trace_value in args_and_kwarg_tensors if isinstance(trace_value, SharedVariable)]
+            tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
+            # Call the function to get symbolic outputs and updates
             PLATO_LOGGER.info('Running first pass of function {f} with test values {test_state}...'.format(f=self._original_fcn.fcn_str(), test_state = 'on' if self._add_test_values else 'off'))
-            with StateCatcher(swallow_updates=True) as sc:
+            with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces, CallbackCatcher() as cc:
                 outputs = self._fcn(*tensor_args, **tensor_kwargs)
+
+            for cb in cc.get_callbacks():
+                self._callbacks.append(cb)
+
+            if outputs is None:
+                outputs = ()
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
-            self._original_output_format = _detect_format(outputs)
-            if self._original_output_format is NamedCollectionFormat:
-                self._signal_names = outputs.keys()
 
+            # Detect output format, collect list of outputs
+            self._output_format = NestedType.from_data(outputs)
+            flat_output_tensors = self._output_format.get_leaves(outputs) if outputs is not None else []
+
+            # If necessary, save update info for debug print
             if self._debug_print_shapes:
                 self._original_updates = updates
                 self._old_update_shapes = [old.get_value().shape for old, new in updates]
 
-            all_outputs_and_updates = convert_formats(outputs, AnyReturnFormat, MultiOutputFormat) + tuple(new for old, new in updates)
-            trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
-            self._callbacks += trace_callbacks
+            # Find and add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the list of outputs
+            all_outputs_and_updates = self._output_format.get_leaves(outputs) + [new for old, new in updates]
 
+            self._there_are_debug_variables = (len(traces) > 0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
+
+            self._callbacks += traces.get_callbacks()
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
-                self._trace_variable_keys = trace_variables.keys()
+                self._trace_variable_keys = traces.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
-                self._n_outputs = len(outputs)
-                self._n_trace_vars = len(trace_variables)
-                outputs = outputs+tuple(trace_variables.values())+tuple(self._original_fcn.locals().values())
+                self._n_outputs = len(flat_output_tensors)
+                self._n_trace_vars = len(traces)
+                flat_output_tensors = flat_output_tensors+traces.values()+self._original_fcn.locals().values()
 
+            # Compile the theano function
             PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = outputs, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
+            args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
+            if self.resettable:
+                self.updated_variables = [shared_var for shared_var, update in updates]
+                self._original_variable_values = [var.get_value() for var in self.updated_variables]
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
-        arg_and_kwarg_values = flatten_tensor_struct(args + tuple(kwargs[k] for k in self._kwarg_order))  # List of numpy arrays
-        arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
+        # Ok, so this code runs every time you call the "compiled" function.
+        if not self._input_format.is_type_for(input_data):
+            raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected format: \n  {}, but got: \n  {}".format(self._input_format, NestedType.from_data(input_data)))
+        arg_and_kwarg_values = self._input_format.get_leaves(input_data)
+
+        shared_passed_in = [a for a in arg_and_kwarg_values if isinstance(a, SharedVariable)]
+        assert shared_passed_in == self._shared_var_inputs, \
+            "The shared variables you passed in, {}, Don't match the shared variables you passed in when you first called this compiled function: {}. " \
+            "This creates problems for us.  Instead, compile your function a second time for the new shared inputs."\
+            .format(['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in shared_passed_in], ['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in self._shared_var_inputs])
+        arg_and_kwarg_values = [a for a in arg_and_kwarg_values if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in numeric args
 
         # Now, run the actual numeric function!
-        if self._there_are_debug_variables:
-            # Separate out the debug variables from the output.
+        if self._there_are_debug_variables:  # Need to take care of stripping off the debug variables
             all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            true_out = all_out[:self._n_outputs]
+            flat_output_data = all_out[:self._n_outputs]
             trace_out = all_out[self._n_outputs:self._n_outputs+self._n_trace_vars]
             local_out = all_out[self._n_outputs+self._n_trace_vars:]
+            for trace_name, trace_value in izip_equal(self._trace_variable_keys, trace_out):
+                CaptureTraceVariables.set_trace_value(trace_name, trace_value)
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
-            _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
-            if self._original_output_format is NamedCollectionFormat:
-                true_out = OrderedDict((k, v) for k, v in zip(self._signal_names, true_out))
-            else:
-                true_out = convert_formats(true_out, MultiOutputFormat, self._original_output_format)
-        else:
-            true_out = all_out = self._compiled_fcn(*arg_and_kwarg_values)
-            if self._original_output_format is NamedCollectionFormat:
-                true_out = OrderedDict((k, true_out[k]) for k in self._signal_names)
+        else:  # Normal case
+            flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)
+        true_out = self._output_format.expand_from_leaves(flat_output_data, check_types=False) if len(flat_output_data)>0 else ()
 
         if self._debug_print_shapes:
             if self._debug_print_shapes=='first':
@@ -595,7 +665,7 @@ class AutoCompilingFunction(object):
                 f = self._original_fcn.fcn_str(),
                 n_in = len(arg_and_kwarg_values),
                 inp = str(', '.join([str(a.shape).replace(' ', '') if isinstance(a, np.ndarray) else () for a in arg_and_kwarg_values])),
-                n_out = len(true_out),
+                n_out = len(flat_output_data),
                 out = str(true_out.shape).replace(' ', '') if isinstance(true_out, np.ndarray) else str(', '.join([str(a.shape).replace(' ', '') for a in all_out])),
                 n_up = len(new_update_shapes),
                 updates = str(', '.join([('%s->%s' % (os, ns)).replace(' ', '') for os, ns in zip(self._old_update_shapes, new_update_shapes)]))
@@ -605,6 +675,12 @@ class AutoCompilingFunction(object):
             c()
 
         return true_out
+
+    def reset(self):
+        assert self.resettable, "If you want to reset the state of your compiled function, you must compile with f.compile(resettable=True)"
+        if self.updated_variables is not None:  # If it is none, vars are already in their initial states.
+            for shared_var, value in izip_equal(self.updated_variables, self._original_variable_values):
+                shared_var.set_value(value)
 
     def __str__(self):
         return 'Compiled form of %s' % (self._original_fcn.fcn_str(), )
@@ -673,7 +749,8 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         return tuple(_data_to_tensor(d, name=None, cast_to_floatx=cast_to_floatx, add_test_value=add_test_value) for d in data)
 
     if isinstance(data, SharedVariable):
-        data = data.get_value()
+        # data = data.get_value()
+        return data
 
     assert cast_to_floatx in ('float', 'all', None), 'Bad argument for cast_to_floatx: %s' % (cast_to_floatx, )
     ndim = 0 if np.isscalar(data) else data.ndim
@@ -688,14 +765,13 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
                 "don't that's cool, ignore this.  Otherwise, to fix this problem, you either cast your inputs to floats beforehand, "
                 "or compile your symbolic functions with: fcn.compile(cast_to_floatx='all')")
 
-    is_dtype = lambda x, dtype: isinstance(x, dtype) or isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype
-
+    is_dtype = lambda x, dtype: (isinstance(x, (np.ndarray, csr_matrix)) and x.dtype == dtype) or (isinstance(dtype, type) and isinstance(x, dtype))
+    is_float = lambda x: is_dtype(x, float) or is_dtype(x, 'float32') or is_dtype(x, 'float64')
     # Need to also downcast ints to int32 if floatX is float32, otherwise things like int_array.mean() return float64
     # objects, which (a) slows things down and (b) causes an error when you try to update 32-bit shared variabkles
     # with 64 bit values.
-
     dtype = \
-        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_dtype(data, float))) else \
+        theano.config.floatX if (cast_to_floatx == 'all' or (cast_to_floatx=='float' and is_float(data))) else \
         'int32' if (cast_to_floatx=='float' and theano.config.floatX == 'float32' and is_dtype(data, int)) else \
         'int64' if isinstance(data, (bool, int)) else \
         'float64' if isinstance(data, float) else \
@@ -706,8 +782,10 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
         # code when handling them.   This was assembled in haste before a deadline.  Possibly it could be cleaner.  Probably.
         from theano import sparse
         tensor = sparse.csr_matrix(name='unnamed' if name is None else name, dtype=dtype, )
-        if add_test_value:
+        if add_test_value is True:
             tensor.tag.test_value = data.astype(theano.config.floatX)
+        elif add_test_value=='shape':
+            tensor.ishape=data.shape
         # Do what theano couldn't and add the dot method to sparse
         def flattenit(var, ndim):
             assert var.indim == ndim, "This is a horrendous hack.  We don't actually flatten, we just check to see if it's the right shape.  It's not.  Also it needs test values on to work."
@@ -717,7 +795,7 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
 
     else:
         tensor = TensorType(dtype, (None, )*ndim)(name)
-        if add_test_value:
+        if add_test_value is True:
             tensor.tag.test_value = data.astype(dtype) if isinstance(data, np.ndarray) else np.array(data).astype(dtype)
     return tensor
 
@@ -735,7 +813,6 @@ def get_local_info(locals_of_calling_frame=None):
         locals_of_calling_frame = inspect.currentframe().f_back.f_locals
     info = {k: var_info(v) for k, v in locals_of_calling_frame.iteritems()}
     return info
-
 
 def var_info(var):
 
@@ -796,16 +873,136 @@ def find_leaf_ancestors(variable):
     return leaf_ancestors
 
 
-_TRACE_VARIABLES = OrderedDict()  # A dict of trace-variable-name: Trace Variable
-_TRACE_VALUES = OrderedDict()  # A dict of trace variable name: Most recently computed value
-_TRACE_CALLBACKS = OrderedDict()  # A dict of trace-variable-name: Callback to call after trace ver is used.
+def printit(var_name, var_val):
+    print '%s: %s' % (var_name, var_val)
+
+
+name_counts = {}
+
+
+def tdbprint(var, name = None, overwrite_names = False):
+
+
+    if name is None:
+        # TODO: Get default by sneakily grabbing name from calling scope.
+        name = '%s@%s' % (str(var), hex(id(var)))
+    elif '%c' in name:
+        name_counts[name] = 0 if name not in name_counts else name_counts[name] + 1
+        num = 0 if name not in name_counts else name_counts[name]
+        name = name.replace('%c', str(num))
+
+    name = CaptureTraceVariables.CURRENT_CATCHER.get_unique_trace_name(name)
+
+    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = CaptureTraceVariables.TRACE_VALUES[name]), overwrite_names=overwrite_names)
+
+
+class CaptureTraceVariables(object):
+    """
+    Used to catch updates.  Usage:
+
+    with StateCatcher() as sc:
+        # Code here
+    updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
+    """
+
+    CURRENT_CATCHER = None
+    TRACE_VALUES = OrderedDict()
+
+    def __init__(self, swallow):
+        """
+        :param swallow: A boolean.
+            True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
+              unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
+            False if you'd like to pass updates on to be applied when the function compiles.
+        :return:
+        """
+        self.swallow = swallow
+        self._trace_vars = OrderedDict()  # Dict <var:name, (variable, batch_in_scan)>
+
+    def __len__(self):
+        return len(self._trace_vars)
+
+    def __enter__(self):
+        self._outer_catcher = CaptureTraceVariables.CURRENT_CATCHER
+        CaptureTraceVariables.CURRENT_CATCHER = self
+        return self
+
+    def __exit__(self, *args):
+        CaptureTraceVariables.CURRENT_CATCHER = self._outer_catcher
+
+    def get_callbacks(self):
+        return [callback for var, batch_in_scan, callback in self._trace_vars.values() if callback is not None]
+
+    def keys(self):
+        return self._trace_vars.keys()
+
+    def values(self):
+        return [var for var, batch_in_scan, callback in self._trace_vars.values()]
+
+    def add_trace(self, variable, name, batch_in_scan = False, callback = None, overwrite_names = False):
+
+        if name in self._trace_vars and not overwrite_names:
+            name = self.get_unique_trace_name(name)
+
+        self._trace_vars[name] = (variable, batch_in_scan, callback)
+        if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+            self._outer_catcher.add_trace(variable=variable, name=name, batch_in_scan=batch_in_scan, callback=callback)
+
+    def get_trace_variable_info(self):
+        return self._trace_vars.copy()
+
+    @classmethod
+    def set_trace_value(cls, name, value):
+        cls.TRACE_VALUES[name] = value
+
+    def get_unique_trace_name(self, name):
+        if name in self._trace_vars:
+            for i in count(2):
+                new_name = name+'({})'.format(i)
+                if new_name not in self._trace_vars:
+                    name = new_name
+                    break
+        return name
+
+
+class CallbackCatcher(object):
+
+    CURRENT_CATCHER = None
+
+    def __init__(self, ):
+        self.callback_list = []
+
+    def __enter__(self):
+        self.old_list = self.CURRENT_CATCHER
+        self.__class__.CURRENT_CATCHER = self
+        return self
+
+    def __exit__(self, *args):
+        self.__class__.CURRENT_CATCHER = self.old_list
+
+    def add_callback(self, cb, skip_duplicates = False):
+        assert callable(cb), 'Must be a callable object.'
+        if not (skip_duplicates and cb in self.callback_list):
+            self.callback_list.append(cb)
+
+    def get_callbacks(self):
+        return self.callback_list
+
+    @classmethod
+    def get_current(cls):
+        assert cls.CURRENT_CATCHER is not None, 'You need to be within a CallbackCatcher block to get this'
+        return cls.CURRENT_CATCHER
 
 
 def get_tdb_traces():
-    return _TRACE_VALUES
+    return CaptureTraceVariables.TRACE_VALUES
 
 
-def tdb_trace(var, name = None, callback = None):
+def get_trace_value(name):
+    return CaptureTraceVariables.TRACE_VALUES[name]
+
+
+def tdb_trace(var, name = None, callback = None, batch_in_scan = False, overwrite_names=False):
     """
     Add a trace of a variable.  This will allow the variable to be accessable globally after the function has been called
     through the function get_tdb_traces()
@@ -813,30 +1010,21 @@ def tdb_trace(var, name = None, callback = None):
     :param var: A symbolic variable
     :param name: The name that you like to use to refer to the variable.
     :param callback: Optionally, a callback to add at the end.
-    :return:
+    :param batch_in_scan: If the trace is set in a scan loop, this variable decides whether to capture the full scan
+        over values of the variable (which may be useful but also memory-consuming) or just the last one.
+        False means just take the last value in the scan loop
+        True means keep the whole batch of values that this variable takes on within the loop.
     """
+    assert not isinstance(var, (int, float, np.ndarray)), 'tdb_trace should be called with symbolic variables.  You passed a {}'.format(type(var))
     if name is None:
         # TODO: Get default by sneakily grabbing name from calling scope.
         name = '%s@%s' % (str(var), hex(id(var)))
-    _TRACE_VARIABLES[name] = var
-    if callback is not None:
-        _TRACE_CALLBACKS[name] = callback
+    assert CaptureTraceVariables.CURRENT_CATCHER is not None, "You must be called from a symbolic function to add trace variables.  Make sure your function, or one calling it, is decorated with @symbolic"
+    CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=var, name=name, batch_in_scan=batch_in_scan, callback=callback, overwrite_names=overwrite_names)
 
 
 def clear_tdb_traces():
-    _TRACE_CALLBACKS.clear()
-    _TRACE_VARIABLES.clear()
-
-
-def printit(var_name, var_val):
-    print '%s: %s' % (var_name, var_val)
-
-
-def tdbprint(var, name = None):
-    if name is None:
-        # TODO: Get default by sneakily grabbing name from calling scope.
-        name = '%s@%s' % (str(var), hex(id(var)))
-    tdb_trace(var, name, callback = lambda: printit(var_name = name, var_val = _TRACE_VALUES[name]))
+    CaptureTraceVariables.TRACE_VALUES.clear()
 
 
 STATE_CATCHER = None
@@ -851,35 +1039,48 @@ def _set_state_catcher(val):
     STATE_CATCHER = val
 
 
-def add_update(shared_var, new_val):
+def add_update(shared_var, new_val, accumulate = None):
     """
     Add a shared-variable update.  This will store an update, so that in your compiled function, your shared variable
     will be updated
 
     :param shared_var: A theano SharedVariable object
     :param new_val: The new value for this sharedvariable to take on (usually a TensorVariable)
+    :param accumulate: If multiple updates are applied to the same variable, add them.
     """
     assert isinstance(shared_var, SharedVariable), 'shared_var must be a theano shared variable.'
     state_catcher = _get_state_catcher()
     assert state_catcher is not None, "You tried to add an update from a function that is not symbolic, and is not being called by a symbolic function."
-    state_catcher.add_update(shared_var, new_val)
+    state_catcher.add_update(shared_var, new_val, accumulate=accumulate)
 
 
-def add_updates(updates):
+def add_updates(updates, accumulate = None):
     """
     Add multiple shared-variable updates.
 
     :param updates: Can be:
         A list of 2-tuples of (shared_var, new_value)
         A dict of shared_var -> new_value
+    :param accumulate: If multiple updates are applied to the same variable, add them.
     """
     if isinstance(updates, dict):
         updates = updates.items()
     for shared_var, new_val in updates:
-        add_update(shared_var, new_val)
+        add_update(shared_var, new_val, accumulate=accumulate)
 
 
-class StateCatcher(object):
+def get_latest_update(shared_var):
+    """
+    Get the latest update to a shared variable, or just return the original variable otherwise.
+    :param shared_var: A theano shared variable
+    :return: The updated value, or just the shared var.
+    """
+    state_catcher = _get_state_catcher()
+    assert state_catcher is not None, "This function must be called within a CaptureUpdates context"
+    return state_catcher[shared_var] if shared_var in state_catcher else shared_var
+
+
+class CaptureUpdates(object):
     """
     Used to catch updates.  Usage:
 
@@ -888,15 +1089,15 @@ class StateCatcher(object):
     updates = sc.get_updates()  # A List<Tuple<SharedVariable, Variable>> contaning all updates in which add_update was called.
     """
 
-    def __init__(self, swallow_updates = False):
+    def __init__(self, swallow = False):
         """
-        :param swallow_updates: A boolean.
+        :param swallow: A boolean.
             True if you'd like to "swallow" all updates produced, which will prevent your updates from being applied,
               unless you get them (using StateCatcher.get_updates) and re-add them (using add_updates).
-            False if you'd like to pass updates to the outer StateCatcher.
+            False if you'd like to pass updates on to be applied when the function compiles.
         :return:
         """
-        self.swallow_updates = swallow_updates
+        self.swallow = swallow
 
     def __enter__(self):
         self._outer_catcher = _get_state_catcher()
@@ -907,19 +1108,32 @@ class StateCatcher(object):
     def __exit__(self, *args):
         _set_state_catcher(self._outer_catcher)
 
-    def add_update(self, shared_var, new_val):
+    def __getitem__(self, shared_variable):
+        return self._updates[shared_variable]
+
+    def __contains__(self, item):
+        return item in self._updates
+
+    def add_update(self, shared_var, new_val, accumulate = None):
+
+        if accumulate is None:
+            accumulate = _ACCUMULATE_UPDATES
+
         if shared_var in self._updates:
-            if _ACCUMULATE_UPDATES:
+            if accumulate:
                 self._updates[shared_var] = self._updates[shared_var] + new_val - shared_var  # (w+dw1)+(w+dw2)-w = w+dw1+dw2
             else:
                 raise AssertionError("You tried to update shared-variable %s with tensor %s, but you've already updated it with tensor %s.\nIf you want to accumulate both updates, call your update from inside a 'with AccumulateUpdates():'" % (shared_var, new_val, self._updates[shared_var]))
         else:
             self._updates[shared_var] = new_val
-        if self._outer_catcher is not None and not self.swallow_updates:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
+        if self._outer_catcher is not None and not self.swallow:  # Allows for nested StateCatchers (outer ones do not have to worry about inner ones stealing their updates)
             self._outer_catcher.add_update(shared_var, new_val)
 
-    def get_updates(self):
-        return self._updates.items()
+    def get_updates(self, as_dict = False):
+        return OrderedDict(self._updates.items()) if as_dict else self._updates.items()
+
+
+StateCatcher = CaptureUpdates  # Backwards compatibility
 
 
 _ACCUMULATE_UPDATES = False
@@ -941,6 +1155,16 @@ class AccumulateUpdates():
     def __exit__(self, *args):
         global _ACCUMULATE_UPDATES
         _ACCUMULATE_UPDATES = self._oldstate
+
+
+@contextmanager
+def accumulate_updates():
+    global _ACCUMULATE_UPDATES
+    _oldstate = _ACCUMULATE_UPDATES
+    _ACCUMULATE_UPDATES = True
+    yield
+    _ACCUMULATE_UPDATES = _oldstate
+
 
 
 def assert_compatible_shape(actual_shape, desired_shape, name = None):
@@ -1019,7 +1243,7 @@ def initialize_param(initial_value, shape = None, name = None, cast_floats_to_fl
         params = []
         variable_shape = None
     else:
-        raise Exception("Don't know how to instantiate variable from %s" % (initial_value, ))
+        raise Exception("Don't know how to instantiate variable from data of format {}.  \nData: {}".format(NestedType.from_data(initial_value), initial_value, ))
     return variable, params, variable_shape
 
 
@@ -1036,4 +1260,82 @@ def create_shared_variable(initializer_fcn, shape = None, name = None, cast_floa
     return shared_var
 
 
+def create_shared_variable_from_zeros(shape, name = None, **shared_kwargs):
+    """
+    Create a share variable from an array of zeros.
+    :param shape: The shape of the variable.
+    :param name: (Optionally, the name)
+    :param shared_kwargs: Other keyword args for shared variable construction
+    :return: A theano shared variable.
+    """
+    assert name is None or isinstance(name, basestring)  # Mostly checks that you didn't accidentally call like create_shared_variable_from_zeros(3, 4)
+    return create_shared_variable(initializer_fcn=np.zeros(shape), name=name, **shared_kwargs)
 
+
+def create_constant(value, name=None, cast_floats_to_floatX=True):
+
+    if isinstance(value, float) or value.dtype == 'float' and cast_floats_to_floatX:
+        return tt.constant(value, name=name, dtype=theano.config.floatX)
+    else:
+        return tt.constant(value, name=name)
+
+
+def initialize_constant(shape, fill_value, name=None, cast_floats_to_floatX=True):
+    """
+    Initialize a theano constant.  Cast floats to the dtype in theano.config.floatX
+    :param fill_value: A scalar - the value to fill in
+    :param shape: The shape (a tuple of real or symbolic integers)
+    :param name:
+    :return: A theano constant
+    """
+
+    if isinstance(fill_value, float) and cast_floats_to_floatX:
+        return tt.zeros(shape, dtype=theano.config.floatX)+fill_value
+    else:
+        return tt.zeros(shape, dtype = type(fill_value))+fill_value
+
+
+def as_floatx(value):
+    """
+    A function which will cast the input into a float, no matter what type it is,
+    :param value:
+    :return:
+    """
+    if isinstance(value, int):
+        return float(value)
+    elif isinstance(value, float):  # Theano will cast it appropriately
+        return value
+    else:
+        return value.astype(theano.config.floatX)
+
+
+def as_theano_variable(value, dtype = None, name=None, cast_floats_to_floatX=True):
+    """
+    Case value as a theano variable.
+    :param value: A scalar, numpy array, or theano variable.
+    :param dtype: The desired dtype.
+    :param name: Optionally, the name of the variable.
+    :param cast_floats_to_floatX: If you present a float, cast it to the current theano.config.floatX (specified in ~/.theanorc)
+    :return: A TensorVariable
+    """
+    if dtype == 'floatX':
+        dtype = theano.config.floatX
+
+    from theano.tensor.var import TensorVariable
+
+    theano_types = SharedVariable, TensorConstant, TensorVariable
+
+    dtype = dtype if dtype is not None else \
+        theano.config.floatX if cast_floats_to_floatX and (isinstance(value, float) or isinstance(value, np.ndarray) and value.dtype in (np.float32, np.float64)) else \
+        value.dtype if isinstance(value, (np.ndarray, theano_types)) else \
+        type(value) if isinstance(value, (int, float)) else \
+        bad_value('Cannot turn {} into a theano variable'.format(value))
+
+    if isinstance(value, (np.ndarray, float, int)):
+        return tt.constant(value, name=name, dtype=dtype)
+    elif isinstance(value, theano_types):  # (which should include TensorSharedVariables)
+        if dtype is not None:
+            assert value.dtype==dtype, 'You passed a shared variable, but its type ({}) did not agree with dtype: {}'.format(value.dtype, dtype)
+        return value
+    else:
+        raise Exception("Don't know how to handle type {}".format(type(value)))

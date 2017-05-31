@@ -9,7 +9,8 @@ from plato.tools.mlp.mlp import MultiLayerPerceptron
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.optimization.optimizers import SimpleGradientDescent
-from artemis.ml.predictors.train_and_test import train_online_predictor, evaluate_predictor, percent_argmax_correct
+from artemis.ml.predictors.train_and_test import train_and_test_online_predictor, evaluate_predictor, percent_argmax_correct, \
+    train_online_predictor
 from artemis.ml.datasets.synthetic_clusters import get_synthetic_clusters_dataset
 
 

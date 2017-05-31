@@ -1,5 +1,8 @@
 from abc import abstractmethod
+
+from artemis.general.hashing import compute_fixed_hash, fixed_hash_eq
 from plato.interfaces.helpers import create_shared_variable
+from plato.tools.common.config import float_precision
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmniscence, clear_tdb_traces, add_update, \
@@ -21,7 +24,7 @@ def test_stateless_symbolic_function():
 
     f1 = multiply_by_two
     assert f1.compile()(2) == 4
-    assert f1.to_format(symbolic_multi).compile()(2) == [4]
+    assert f1.to_format(symbolic_multi).compile()(2) == (4, )
 
     # Case 2: Method
     class GenericClass(object):
@@ -36,7 +39,7 @@ def test_stateless_symbolic_function():
     obj = GenericClass()
     f2 = obj.multiply_by_two
     assert f2.compile()(2) == 4
-    assert f2.to_format(symbolic_multi).compile()(2) == [4]
+    assert f2.to_format(symbolic_multi).compile()(2) == (4, )
 
     # Case 3: Callable class
     @symbolic
@@ -50,7 +53,7 @@ def test_stateless_symbolic_function():
 
     f3 = MultiplyByTwo()
     assert f3.compile()(2) == 4
-    assert f3.to_format(symbolic_multi).compile()(2) == [4]
+    assert f3.to_format(symbolic_multi).compile()(2) == (4, )
 
 
 def test_stateful_symbolic_function():
@@ -302,7 +305,6 @@ def test_debug_trace():
     clear_tdb_traces()  # Needed due to unresolved thing where the drace callback happens on every symbolic function call in the future somehow.
 
 
-
 def test_named_arguments():
     """
     We allow named arguments in Plato.  Note that you have to
@@ -321,7 +323,7 @@ def test_named_arguments():
         assert f(x=2, y=4, z=3.)
     f = add_and_div.compile()
     assert f(x=2, y=4, z=3.) == 2
-    with raises(KeyError):
+    with raises(TypeError):
         # You were inconsistent - used args the first time, kwargs the second.
         assert f(2, 4, 3.)
     assert f(y=4, x=2, z=3.) == 2
@@ -512,8 +514,100 @@ def test_named_outputs_with_trace():
     assert np.allclose(get_tdb_traces()['tan(x)'], np.tan(x))
 
 
-if __name__ == '__main__':
+def test_arbitrary_structures():
 
+    with float_precision(64):
+        @symbolic
+        def my_func(inp):
+            """
+            :param a: A list of 2-tuples
+            :return: A dict of keys: lists
+            """
+            return {'a': [inp[0][0], inp[1][0]], 'b':[inp[0][1], inp[1][1]]}
+
+        f = my_func.compile()
+
+        rng = np.random.RandomState(1234)
+        inputs = [(rng.randn(2, 3), rng.randn(2, 3)), (rng.randn(2, 3), rng.randn(2, 3))]
+        out = f(inputs)
+
+        assert fixed_hash_eq(out, {'a': [inputs[0][0], inputs[1][0]], 'b': [inputs[0][1], inputs[1][1]]})
+
+
+def test_shared_input():
+    """
+    Needed because theano doesn't by default allow passing shared variables in to a function.  Internally we have a
+    work-around that we test here.
+    """
+
+    @symbolic
+    def increment(a_):
+        new_val = a_ + 1
+        add_update(a_, new_val)
+        return new_val
+
+    f_inc = increment.compile()
+    a = create_shared_variable(2)
+    f_inc(a)
+    assert a.get_value()==3
+    f_inc(a)
+    assert a.get_value()==4
+    b = create_shared_variable(6)
+
+    with raises(AssertionError):
+        f_inc(b)
+    # assert b.get_value()==7  # This line would have failed had we not had the assertion error
+
+    assert b.get_value()==6
+    f_incb = increment.compile()
+    f_incb(b)
+    assert b.get_value()==7
+
+
+def test_function_reset():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0)
+        new_s = s+x
+        add_update(s, new_s)
+        return new_s
+
+    f = running_sum.compile(resettable=True)
+
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [1, 3, 6])
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [7, 9, 12])
+    f.reset()
+    assert np.array_equal([f(x) for x in [1, 2, 3]], [1, 3, 6])
+
+
+def test_trace_var_in_scan():
+
+    @symbolic
+    def running_sum(x):
+        s = create_shared_variable(0)
+        new_s = s+x
+        add_update(s, new_s)
+        tdb_trace(x**2, 'x_in_loop')
+        tdb_trace(x**3, 'x_in_loop_catch_all', batch_in_scan=True)
+        return new_s
+
+    @symbolic
+    def my_cumsum(x):
+
+        tdb_trace(x**2, name='x_out_of_loop')
+        return running_sum.scan(
+            sequences = [x]
+            )
+
+    f = my_cumsum.compile()
+    assert np.array_equal(f(np.arange(4)), [0, 1, 3, 6])
+    assert np.array_equal(get_tdb_traces()['x_out_of_loop'], np.arange(4)**2)
+    assert np.array_equal(get_tdb_traces()['x_in_loop'], 3**2)
+    assert np.array_equal(get_tdb_traces()['x_in_loop_catch_all'], np.arange(4)**3)
+
+
+if __name__ == '__main__':
     test_ival_ishape()
     test_catch_sneaky_updates()
     test_catch_non_updates()
@@ -532,3 +626,7 @@ if __name__ == '__main__':
     test_dual_decoration()
     test_named_outputs()
     test_named_outputs_with_trace()
+    test_arbitrary_structures()
+    test_shared_input()
+    test_function_reset()
+    test_trace_var_in_scan()
