@@ -3,7 +3,7 @@ import numpy as np
 import theano
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
-from plato.core import symbolic, create_shared_variable, tdbprint
+from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
@@ -191,9 +191,6 @@ class ConvNet(IParameterized):
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
-            if isinstance(layer, ConvLayer):
-                tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
-                tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
         return named_activations
 
     @staticmethod
