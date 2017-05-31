@@ -78,18 +78,8 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
 
     @symbolic_updater
     def train(self, inputs, labels):
-        # cost_fcn = (lambda y, t: self._cost_function(y, t) + self._regularization_cost(self._function.parameters)) \
-        #     if self._regularization_cost is not None else self._cost_function
-
         feedforward_module = self._function if isinstance(self._function, FeedForwardModule) else ParametrizedFeedForwardModule(self._function)
         feedforward_module.train(x=inputs, y=labels, optimizer=self._optimizer, assert_all_params_optimized = self.assert_all_params_optimized, cost_fcn=self._cost_function, regularization_cost=self._regularization_cost)
-        # if isinstance(self._function, FeedForwardModule):  # A bit ugly but oh well
-        # else:
-        #     outputs = self._function.train_call(inputs) if isinstance(self._function, FeedForwardModule) else self._function(inputs)
-        #     cost = self._cost_function(outputs, labels)
-        #     if self._regularization_cost is not None:
-        #         cost += self._regularization_cost(self._function.parameters)
-        #     self._optimizer.update_parameters(cost = cost, parameters = self._function.parameters)
 
     @property
     def parameters(self):

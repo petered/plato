@@ -486,40 +486,6 @@ def _is_constant(arg):
     return isinstance(arg, (float, int, np.ndarray, np.number))
 
 
-# def _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates):
-#     """
-#     :param all_outputs: A list of symbolic variables returned, and update values.  This is
-#     :return: trace_variables, trace_callbacks
-#         Where:
-#             trace_variables is a dict<str: Variable} containing {trace_var_name: trace_var}
-#             trace_callbacks is a list<function> where function should do something with the named trace variable (see tdbprint for example)
-#     """
-#     # TODO: Delete: This function has lost its purpose in life (CaptureTraceVariables superseded it).  But the code may be relevant still,
-#     # so for now it lives in the grey, to maybe be revived some day.
-#     if len(_TRACE_VARIABLES) == 0:
-#         return {}, {}
-#
-#
-#
-#     all_leaves = set().union(*[find_leaf_ancestors(v) for v in all_outputs_and_updates])
-#
-#     # Now we need to make sure the trace variables actually belong to this function.
-#     # The set of leaf ancestors to the trace variables should be a subset of the leaf-ancestors to the outputs/updates.
-#     # trace_variables = {name: var for name, var in _TRACE_VARIABLES.iteritems() if find_leaf_ancestors(var).issubset(all_leaves)}
-#     def computable_by_given_inputs(var, given_inputs):
-#         """
-#         Return True if the symbolic variable var depends only on the provided inputs, shared variables and constants
-#         """
-#         all_leaf_ancestors = find_leaf_ancestors(var)
-#         ancestors_are_computable = [(a in given_inputs) or isinstance(a, SharedVariable) or isinstance(a, tt.Constant) for a in all_leaf_ancestors]
-#         return all(ancestors_are_computable)
-#
-#     trace_variables = OrderedDict((name, var) for name, var in _TRACE_VARIABLES.iteritems() if computable_by_given_inputs(var, given_inputs = all_leaves))
-#     # TODO: Fix.  We still have problems with accepting leaf variables that don't belong.
-#     trace_callbacks = [_TRACE_CALLBACKS[name] for name in trace_variables if name in _TRACE_CALLBACKS]
-#     return trace_variables, trace_callbacks
-
-
 def flatten_tensor_struct(tensor_struct):
     flat_struct = []
     for t in tensor_struct:
@@ -589,13 +555,26 @@ class AutoCompilingFunction(object):
 
     def __call__(self, *args, **kwargs):
         """
+        This is the function that is called when you call a compiled function.
+
+        On the first pass, it
+        - looks at the numeric input variables, maps them to theano tensors
+        - feeds these tensors to the symbolic function to get the returned tensors
+        - captures any updates and trace variables that are created in the symbolic function.
+        - compiles a theano function given the input tensors, output tensors, updates, and trace variables.
+
+        On every pass it:
+        - Feeds the numeric inputs into the compiled function to get the numeric outputs
+        - Separates the returned trace values, if any, from the actual output.
+        - Calls any callbacks (print, plot, etc) associates with the trace variables.
+        - returns the numeric output
+
         :param args, kwargs are the arguments that would go into fcn, but as real numpy arrays instead of symbols
-        returns the result, in numpy arrays.
+        :return: the result, in numpy arrays.
         """
         # Remove shared variables.
         # args = tuple(a for a in args if not isinstance(a, SharedVariable))
         # kwargs = {k: v for k, v in kwargs.iteritems() if isinstance(v, SharedVariable)}
-
         input_data = (args, kwargs)
 
         if self._compiled_fcn is None:  # Runs on the first pass
@@ -604,10 +583,7 @@ class AutoCompilingFunction(object):
             self._input_format = NestedType.from_data(input_data)
             flat_input_data = self._input_format.get_leaves(input_data)
             args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
-
-            # assert not any(isinstance(v, SharedVariable) for v in args_and_kwarg_tensors), "You can't pass SharedVariables into a compiled function, because this causes chaos when a different shard variabls is passed in."
             self._shared_var_inputs = [trace_value for trace_value in args_and_kwarg_tensors if isinstance(trace_value, SharedVariable)]
-
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
             # Call the function to get symbolic outputs and updates
@@ -623,7 +599,6 @@ class AutoCompilingFunction(object):
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
 
-
             # Detect output format, collect list of outputs
             self._output_format = NestedType.from_data(outputs)
             flat_output_tensors = self._output_format.get_leaves(outputs) if outputs is not None else []
@@ -635,18 +610,13 @@ class AutoCompilingFunction(object):
 
             # Find and add any trace variables that may have been added (with tdb_trace, tdbplot, etc) to the list of outputs
             all_outputs_and_updates = self._output_format.get_leaves(outputs) + [new for old, new in updates]
-            # trace_variables, trace_callbacks = _get_relevant_trace_variables_and_callbacks(all_outputs_and_updates)
-            # self._there_are_debug_variables = (len(trace_variables)>0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
 
             self._there_are_debug_variables = (len(traces) > 0 and ENABLE_TRACES) or (ENABLE_OMNISCENCE and (self._original_fcn.locals() is not None))
 
             self._callbacks += traces.get_callbacks()
             if self._there_are_debug_variables:
                 # Append trace variables onto output (to be stripped off later)
-                # outputs = convert_formats(outputs, src_format=self._original_output_format, dest_format=MultiOutputFormat)
-
                 self._trace_variable_keys = traces.keys()
-                # self._trace_variable_keys = trace_variables.keys()
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(flat_output_tensors)
                 self._n_trace_vars = len(traces)
@@ -665,7 +635,6 @@ class AutoCompilingFunction(object):
         if not self._input_format.is_type_for(input_data):
             raise TypeError("It looks like you have not been calling your function in a consistent manner.  Expected format: \n  {}, but got: \n  {}".format(self._input_format, NestedType.from_data(input_data)))
         arg_and_kwarg_values = self._input_format.get_leaves(input_data)
-        # arg_and_kwarg_values = [a.get_value() if isinstance(a, SharedVariable) else a for a in arg_and_kwarg_values]  # Allows passing in Shared Variables
 
         shared_passed_in = [a for a in arg_and_kwarg_values if isinstance(a, SharedVariable)]
         assert shared_passed_in == self._shared_var_inputs, \
@@ -683,7 +652,6 @@ class AutoCompilingFunction(object):
             for trace_name, trace_value in izip_equal(self._trace_variable_keys, trace_out):
                 CaptureTraceVariables.set_trace_value(trace_name, trace_value)
             trace_values = {k: v for k, v in zip(self._trace_variable_keys, trace_out)}
-            # _TRACE_VALUES.update(trace_values)
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
         else:  # Normal case
             flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)

@@ -137,12 +137,6 @@ def get_named_activation_function_derivative(activation_name):
     return symbolic_simple(fcn)
 
 
-
-#
-# def get_named_activation_derivative(activation_name):
-#     fcn = {}
-#
-
 def compute_activation(x, activation_name):
     return get_named_activation_function(activation_name)(x)
 
@@ -255,10 +249,6 @@ class ReshapingVariable(TensorVariable):
     def __mul__(self, other):
         return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
 
-    # @classmethod
-    # def create_reshaping(cls):
-
-
 
 class ReshapingSharedVariable(TensorSharedVariable):
     """A shared variable with a dynamic shape."""
@@ -273,13 +263,6 @@ class ReshapingSharedVariable(TensorSharedVariable):
 
     def __mul__(self, other):
         return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
-
-    # def __add__(self, other):
-    #     return ifelse(self.size>0, tt.add(self, other), other+self.initial_value)
-    #
-    # def __mul__(self, other):
-    #     return ifelse(self.size>0, tt.mul(self, other), other*self.initial_value)
-
 
 
 def shared_of_type(ndim, value=0., dtype='floatX', **kwargs):

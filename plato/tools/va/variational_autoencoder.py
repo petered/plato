@@ -101,7 +101,7 @@ class IVariationalPair(object):
 
 class EncoderDecoderNetworks(IVariationalPair):
     """
-    An encoder/decoder pair that uses neural convnets to pd_encode the distributions p(Z|X) and p(X|Z).
+    An encoder/decoder pair that uses neural convnets to encode the distributions p(Z|X) and p(X|Z).
     """
 
     def __init__(self, x_dim, z_dim, encoder_hidden_sizes = [100], decoder_hidden_sizes = [100],

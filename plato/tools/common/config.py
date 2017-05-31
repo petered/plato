@@ -3,6 +3,7 @@ import theano
 
 __author__ = 'peter'
 
+
 @contextmanager
 def float_precision(value):
     """

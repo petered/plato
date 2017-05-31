@@ -47,7 +47,6 @@ def demo_mnist_online_regression(
         )
 
     # Train and periodically report the test score.
-
     results = train_and_test_online_predictor(
         dataset=dataset,
         train_fcn=predictor.train.compile(),
@@ -55,59 +54,19 @@ def demo_mnist_online_regression(
         minibatch_size=minibatch_size,
         n_epochs=n_epochs,
         test_epochs=np.linspace(0, n_epochs, n_test_points),
-        # training_callback = training_callback,
         )
     return results
 
-    # results = assess_online_predictor(
-    #     dataset=dataset,
-    #     predictor=predictor,
-    #     evaluation_function='percent_argmax_correct',
-    #     test_epochs=sqrtspace(0, n_epochs, n_test_points),
-    #     minibatch_size=minibatch_size
-    # )
 
-    # plot_learning_curves(results)
-
-
-demo_mnist_online_regression.add_variant(regressor_type='multinomial')
+demo_mnist_online_regression.add_variant(regressor_type='multinomial')  # Gets to about 92.5
 demo_mnist_online_regression.add_variant(regressor_type='multinomial', learning_rate = 0.01)
 demo_mnist_online_regression.add_variant(regressor_type='multinomial', learning_rate = 0.01, minibatch_size=1)
 demo_mnist_online_regression.add_variant(regressor_type='multinomial', learning_rate = 0.001, n_epochs=50)
-demo_mnist_online_regression.add_variant(regressor_type='multinomial', include_biases=False)
-demo_mnist_online_regression.add_variant(regressor_type='linear', learning_rate=0.01)
-demo_mnist_online_regression.add_variant(regressor_type='logistic', learning_rate=0.01)
+demo_mnist_online_regression.add_variant(regressor_type='multinomial', include_biases=False)  # Also gets to about 92.5.  So at least for MNIST you don't really need a bias term.
+demo_mnist_online_regression.add_variant(regressor_type='linear', learning_rate=0.01)  # Requires a lower learning rate for stability, and then only makes it to around 86%
+demo_mnist_online_regression.add_variant(regressor_type='logistic', learning_rate=0.01)  # Gets just over 92%
 
-# register_experiment(
-#     name = 'mnist-multinomial-regression',
-#     function = lambda: demo_mnist_online_regression(regressor_type='multinomial'),
-#     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
-#     conclusion = 'Gets to about 92.5'
-#     )
-#
-# register_experiment(
-#     name = 'mnist-multinomial-regression-nobias',
-#     function = lambda: demo_mnist_online_regression(regressor_type='multinomial', include_biases=False),
-#     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
-#     conclusion = "Also gets to about 92.5.  So at least for MNIST you don't really need a bias term."
-#     )
-#
-# register_experiment(
-#     name = 'mnist-linear-regression',
-#     function = lambda: demo_mnist_online_regression(regressor_type='linear', learning_rate=0.01),
-#     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
-#     conclusion = 'Requires a lower learning rate for stability, and then only makes it to around 86%'
-#     )
-#
-# register_experiment(
-#     name = 'mnist-logistic-regression',
-#     function = lambda: demo_mnist_online_regression(regressor_type='logistic'),
-#     description = 'Simple multinomial regression (a.k.a. One-layer neural network) on MNIST',
-#     conclusion = 'Gets just over 92%'
-#     )
 
 if __name__ == '__main__':
 
     browse_experiments()
-
-    # run_experiment('mnist-linear-regression')

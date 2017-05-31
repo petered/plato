@@ -191,7 +191,6 @@ class ConvNet(IParameterized):
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
-            # tdbprint(abs(x).mean(), 'Mean Magnitude of layer {}'.format(name))
             if isinstance(layer, ConvLayer):
                 tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
                 tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
