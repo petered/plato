@@ -8,7 +8,7 @@ from plato.interfaces.helpers import get_named_activation_function, get_theano_r
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
 from plato.tools.convnet.conv_specifiers import ConvInitSpec, ConvolverSpec, PoolerSpec, NonlinearitySpec, DropoutSpec, \
-    FullyConnectedSpec
+    FullyConnectedSpec, ConvNetSpec
 from theano.tensor.signal.pool import pool_2d
 __author__ = 'peter'
 import logging
@@ -125,6 +125,9 @@ class DropoutLayer(FeedForwardModule):
     def to_spec(self):
         return DropoutSpec(self.dropout_rate)
 
+    @classmethod
+    def from_spec(cls, spec):
+        return cls(spec.dropout_rate, rng=rng)
 
 @symbolic
 class FullyConnectedLayer(FeedForwardModule):
@@ -149,6 +152,10 @@ class FullyConnectedLayer(FeedForwardModule):
 
     def to_spec(self):
         return FullyConnectedSpec(w=self.w.get_value(), b=self.b.get_value() if self.b is not False else False)
+
+    @classmethod
+    def from_spec(cls, spec):
+        return FullyConnectedLayer(w=spec.w, b=spec.b)
 
 
 @symbolic
@@ -191,9 +198,9 @@ class ConvNet(IParameterized):
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
-            if isinstance(layer, ConvLayer):
-                tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
-                tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
+            # if isinstance(layer, ConvLayer):
+            #     tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
+            #     tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
         return named_activations
 
     @staticmethod
@@ -239,10 +246,15 @@ class ConvNet(IParameterized):
         return sum([l.parameters if isinstance(l, IParameterized) else [] for l in self.layers.values()], [])
 
     def to_spec(self):
-        return OrderedDict((layer_name, lay.to_spec()) for layer_name, lay in self.layers.iteritems())
+        return ConvNetSpec(OrderedDict((layer_name, lay.to_spec()) for layer_name, lay in self.layers.iteritems()))
+
+    @classmethod
+    def from_spec(cls, spec):
+        return ConvNet.from_init(spec)
 
 
 def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
+    # TODO: Remove, replace with from_spec
     return {
         ConvolverSpec: lambda: ConvLayer(
             w=spec.w,

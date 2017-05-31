@@ -113,4 +113,15 @@ class FullyConnectedSpec(PrimativeSpecifier):
             return n_samples, self.w.shape[1]
 
 
+class ConvNetSpec(PrimativeSpecifier):
+
+    def __init__(self, layer_ordered_dict):
+        self.layer_ordered_dict = layer_ordered_dict
+
+    def shape_transfer(self):
+        raise NotImplementedError()
+
+
+
+
 # class ConvNetSpec
