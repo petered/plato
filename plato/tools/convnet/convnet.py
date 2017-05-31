@@ -48,6 +48,15 @@ class ConvLayer(FeedForwardModule):
     def to_spec(self):
         return ConvolverSpec(self.w.get_value(), self.b.get_value() if self.b is not False else False, self.border_mode)
 
+    @classmethod
+    def from_spec(cls, spec):
+        return ConvLayer(
+            w=spec.w,
+            b=spec.b,
+            border_mode= {'full': 0, 'same': 1, 'valid': 0}[spec.mode] if spec.mode in ('full', 'same', 'valid') else spec.mode,
+            filter_flip=False
+            )
+
 
 @symbolic
 class Nonlinearity(FeedForwardModule):
@@ -65,6 +74,10 @@ class Nonlinearity(FeedForwardModule):
     def to_spec(self):
         assert isinstance(self._activation_name, basestring), "Can't identify activation fcn"
         return NonlinearitySpec(self._activation_name)
+
+    @classmethod
+    def from_spec(cls, spec):
+        return Nonlinearity(spec.func)
 
 
 @symbolic
@@ -97,6 +110,9 @@ class Pooler(FeedForwardModule):
     def to_spec(self):
         return PoolerSpec(region = self.region, stride=self.stride, mode=self.mode)
 
+    @classmethod
+    def from_spec(cls, spec):
+        return Pooler(region=spec.region, stride=spec.stride, mode=spec.mode)
 
 @symbolic
 class DropoutLayer(FeedForwardModule):
@@ -204,7 +220,7 @@ class ConvNet(IParameterized):
         return named_activations
 
     @staticmethod
-    def from_init(specifiers, input_shape, w_init=0.01, force_shared_parameters = True, rng=None):
+    def from_init(specifiers, input_shape=None, w_init=0.01, force_shared_parameters = True, rng=None):
         """
         Convenient initialization function.
         :param specifiers: List/OrderedDict of layer speciefier objects (see conv_specifiers.py)
@@ -215,12 +231,13 @@ class ConvNet(IParameterized):
         :return: A ConvNet
         """
         rng = get_rng(rng)
-        n_maps, n_rows, n_cols = input_shape
+        n_maps, n_rows, n_cols = input_shape if input_shape is not None else (None, None, None)
         layers = OrderedDict()
         if isinstance(specifiers, (list, tuple)):
             specifiers = OrderedDict((str(i), val) for i, val in enumerate(specifiers))
         for spec_name, spec in specifiers.iteritems():
             if isinstance(spec, ConvInitSpec):
+                assert n_maps is not None
                 spec = ConvolverSpec(
                     w=w_init*rng.randn(spec.n_maps, n_maps, spec.filter_size[0], spec.filter_size[1]),
                     b=np.zeros(spec.n_maps) if spec.use_bias else False,
@@ -228,15 +245,15 @@ class ConvNet(IParameterized):
                     )
             if isinstance(spec, ConvolverSpec):
                 n_maps = spec.w.shape[0]
-                if spec.mode == 'valid':
-                    n_rows += -spec.w.shape[2] + 1
-                    n_cols += -spec.w.shape[3] + 1
-                elif isinstance(spec.mode, int):
-                    n_rows += -spec.w.shape[2] + 1 + spec.mode*2
-                    n_cols += -spec.w.shape[3] + 1 + spec.mode*2
-            elif isinstance(spec, PoolerSpec):
-                n_rows /= spec.region[0]
-                n_cols /= spec.region[1]
+            #     if spec.mode == 'valid':
+            #         n_rows += -spec.w.shape[2] + 1
+            #         n_cols += -spec.w.shape[3] + 1
+            #     elif isinstance(spec.mode, int):
+            #         n_rows += -spec.w.shape[2] + 1 + spec.mode*2
+            #         n_cols += -spec.w.shape[3] + 1 + spec.mode*2
+            # elif isinstance(spec, PoolerSpec):
+            #     n_rows /= spec.region[0]
+            #     n_cols /= spec.region[1]
             layers[spec_name] = specifier_to_layer(spec, force_shared_parameters=force_shared_parameters, rng=rng)
             # LOGGER.info('Layer "%s" (%s) output shape: %s' % (spec_name, spec.__class__.__name__, (n_maps, n_rows, n_cols)))
         return ConvNet(layers)
@@ -250,7 +267,7 @@ class ConvNet(IParameterized):
 
     @classmethod
     def from_spec(cls, spec):
-        return ConvNet.from_init(spec)
+        return ConvNet.from_init(spec.layer_ordered_dict)
 
 
 def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
@@ -287,3 +304,16 @@ def normalize_convnet(convnet, inputs):
             cum_scale = this_std / cum_scale
             convnet.layers[name].w.set_value(convnet.layers[name].w.get_value()/cum_scale)
             convnet.layers[name].b.set_value(convnet.layers[name].b.get_value()/this_std)
+
+
+def spec_to_object(spec):  # Temporary measure... will do this more clanly later.
+    cls = {
+        ConvNetSpec: ConvNet,
+        NonlinearitySpec: Nonlinearity,
+        PoolerSpec: Pooler,
+        FullyConnectedSpec: FullyConnectedLayer,
+        ConvolverSpec: ConvLayer,
+        DropoutLayer: DropoutLayer
+        }[spec.__class__]\
+
+    return cls.from_spec(spec)
