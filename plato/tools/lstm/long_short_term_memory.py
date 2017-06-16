@@ -1,6 +1,8 @@
-from plato.core import add_update, symbolic_multi, symbolic_simple, create_shared_variable
+from artemis.general.numpy_helpers import get_rng
+from artemis.ml.tools.neuralnets import initialize_weight_matrix
+from plato.core import add_update, symbolic_multi, symbolic_simple
 from plato.interfaces.decorators import symbolic_updater
-from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function, softmax
+from plato.interfaces.helpers import create_shared_variable, get_theano_rng, get_named_activation_function
 from plato.tools.optimization.cost import mean_xe
 from plato.tools.optimization.optimizers import AdaMax
 import theano
@@ -98,7 +100,7 @@ class LSTMLayer(object):
             self.w_ho, self.w_co, self.b_i, self.b_f, self.b_c, self.b_o]
     
     @classmethod
-    def from_initializer(cls, n_input, n_hidden, initializer_fcn, hidden_layer_type='tanh'):
+    def from_initializer(cls, n_input, n_hidden, initializer_fcn = 'xavier', hidden_layer_type='tanh', rng=None):
         """
         :param n_input: Number of inputs
         :param n_hidden: Number of hiddens
@@ -106,6 +108,11 @@ class LSTMLayer(object):
         :param initializer_fcn: Function taking a shape and returning parameters.
         :return: An LSTMLayer
         """
+        if isinstance(initializer_fcn, basestring):
+            rng = get_rng(rng)
+            initializer = initializer_fcn
+            initializer_fcn = lambda (n_in, n_out): initialize_weight_matrix(n_in=n_in, n_out=n_out, mag=initializer, rng=rng)
+
         return LSTMLayer(
             w_xi = create_shared_variable(initializer_fcn, shape = (n_input, n_hidden)),
             w_xf = create_shared_variable(initializer_fcn, shape = (n_input, n_hidden)),
@@ -128,10 +135,15 @@ class AutoencodingLSTM(object):
     """
     An LSTM that learns to predict the next element in a sequence.
     """
-    def __init__(self, n_input, n_hidden, initializer_fcn, input_layer_type = 'softmax', hidden_layer_type = 'tanh'):
+    def __init__(self, n_input, n_hidden, initializer_fcn='xavier', input_layer_type = 'softmax', hidden_layer_type = 'tanh', rng=None):
+
+        if isinstance(initializer_fcn, basestring):
+            rng = get_rng(rng)
+            initializer = initializer_fcn
+            initializer_fcn = lambda (n_in, n_out): initialize_weight_matrix(n_in=n_in, n_out=n_out, mag=initializer, rng=rng)
 
         self.lstm = LSTMLayer.from_initializer(n_input=n_input, n_hidden=n_hidden, initializer_fcn=initializer_fcn,
-            hidden_layer_type = hidden_layer_type)
+            hidden_layer_type = hidden_layer_type, rng=rng)
         self.w_hz = create_shared_variable(initializer_fcn, (n_hidden, n_input))
         self.b_z = create_shared_variable(0, n_input)
 
@@ -159,7 +171,7 @@ class AutoencodingLSTM(object):
         """
         Return a symbolic function that generates a sequence (and updates its internal state).
         :param stochastic: True to sample a onehot-vector from the output.  False to simply reinsert the
-            distribution vector.
+            distribution vector (only makes sense on categorical variables, not regression).
         :param rng: A seed, numpy or theano random number generator
         :return: A symbolic function of the form:
             (outputs, updates) = generate(primer, n_steps)
@@ -190,7 +202,11 @@ class AutoencodingLSTM(object):
                 c_: A memory cell vector
                 """
                 y_prob, h, c = self.step(x_, h_, c_)
-                y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX), y_prob)
+                if stochastic:
+                    y_candidate = rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX)
+                else:
+                    y_candidate = y_prob
+                # y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob[None, :])[0].astype(theano.config.floatX), y_prob)
                 # y_candidate = ifelse(int(stochastic), rng.multinomial(n=1, pvals=y_prob.dimshuffle('x', 1))[0].astype(theano.config.floatX), y_prob)
                 y = ifelse(i < n_primer_steps, primer[i], y_candidate)  # Note: If you get error here, you just need to prime with something on first call.
                 return y, h, c
@@ -235,8 +251,8 @@ class AutoencodingLSTM(object):
 def mysoftmax(x):
     # A little kludge we have to do because the build-in softmax is awkwardly restricted to being along the first
     # axis.
-    if x.indim==1:
+    if x.ndim==1:
         newx = x.dimshuffle('x', 0)
         return tt.nnet.softmax(newx)[0]
-    elif x.indim==2:
+    elif x.ndim==2:
         return tt.nnet.softmax(x)
