@@ -3,7 +3,7 @@ import numpy as np
 import theano
 import theano.tensor as tt
 from artemis.general.numpy_helpers import get_rng
-from plato.core import symbolic, create_shared_variable, tdbprint
+from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import FeedForwardModule
@@ -214,9 +214,6 @@ class ConvNet(IParameterized):
         for name, layer in self.layers.iteritems():
             x = layer.test_call(x) if test_call else layer.train_call(x)
             named_activations[name] = x
-            # if isinstance(layer, ConvLayer):
-            #     tdbprint(abs(layer.w).mean(), 'Mean Magnitude of w of layer {}'.format(name))
-            #     tdbprint(abs(layer.b).mean(), 'Mean Magnitude of b of layer {}'.format(name))
         return named_activations
 
     @staticmethod
@@ -245,17 +242,7 @@ class ConvNet(IParameterized):
                     )
             if isinstance(spec, ConvolverSpec):
                 n_maps = spec.w.shape[0]
-            #     if spec.mode == 'valid':
-            #         n_rows += -spec.w.shape[2] + 1
-            #         n_cols += -spec.w.shape[3] + 1
-            #     elif isinstance(spec.mode, int):
-            #         n_rows += -spec.w.shape[2] + 1 + spec.mode*2
-            #         n_cols += -spec.w.shape[3] + 1 + spec.mode*2
-            # elif isinstance(spec, PoolerSpec):
-            #     n_rows /= spec.region[0]
-            #     n_cols /= spec.region[1]
             layers[spec_name] = specifier_to_layer(spec, force_shared_parameters=force_shared_parameters, rng=rng)
-            # LOGGER.info('Layer "%s" (%s) output shape: %s' % (spec_name, spec.__class__.__name__, (n_maps, n_rows, n_cols)))
         return ConvNet(layers)
 
     @property
