@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 from artemis.general.hashing import compute_fixed_hash, fixed_hash_eq
 from plato.interfaces.helpers import create_shared_variable
-from plato.tools.common.config import float_precision
+from plato.tools.common.config import hold_float_precision
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
     tdb_trace, get_tdb_traces, symbolic, set_enable_omniscence, EnableOmniscence, clear_tdb_traces, add_update, \
@@ -516,7 +516,7 @@ def test_named_outputs_with_trace():
 
 def test_arbitrary_structures():
 
-    with float_precision(64):
+    with hold_float_precision(64):
         @symbolic
         def my_func(inp):
             """

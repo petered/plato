@@ -254,7 +254,10 @@ class ConvNet(IParameterized):
 
     @classmethod
     def from_spec(cls, spec):
-        return ConvNet.from_init(spec.layer_ordered_dict)
+        if isinstance(spec, OrderedDict): # "old" format
+            return ConvNet.from_init(spec)
+        else:
+            return ConvNet.from_init(spec.layer_ordered_dict)
 
 
 def specifier_to_layer(spec, force_shared_parameters=True, rng = None):

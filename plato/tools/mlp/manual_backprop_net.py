@@ -95,10 +95,6 @@ class IManualBackpropLayer(IParameterized):
         """
 
 
-    # def backward_pass_from_loss(self, state, loss):
-    #     grad = tt.grad(loss, wrt=state[-1])
-    #     return self.backward_pass_from_grad(state, grad)
-
     @abstractmethod
     def backward_pass(self, state, grad, cost):
         """

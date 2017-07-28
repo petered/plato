@@ -83,15 +83,22 @@ def demo_mnist_mlp(
     return info_score_pair_sequence
 
 
-X=demo_mnist_mlp.add_variant('mini-mnist', max_training_samples=1000, max_test_samples=1000, hidden_sizes=[100], n_epochs=100, visualize_params=True)
+demo_mnist_mlp.add_variant('full-batch', minibatch_size = 'full', n_epochs = 1000)
+demo_mnist_mlp.add_variant('deep', hidden_sizes=[500, 500, 500, 500])
 
-X.add_variant('full-batch', minibatch_size = 'full', n_epochs = 1000)
-
-X.add_variant('L2-loss', cost='mse', onehot=True, learning_rate=0.01)
-
-demo_mnist_mlp.add_variant(hidden_sizes=[])
+# demo_mnist_mlp.get_variant('deep').run()
+print demo_mnist_mlp.get_variant('deep').get_latest_record().get_log()
 
 
-if __name__ == '__main__':
+# X=demo_mnist_mlp.add_variant('mini-mnist', max_training_samples=1000, max_test_samples=1000, hidden_sizes=[100], n_epochs=100, visualize_params=True)
+#
+# X.add_variant('full-batch', minibatch_size = 'full', n_epochs = 1000)
+#
+# X.add_variant('L2-loss', cost='mse', onehot=True, learning_rate=0.01)
+#
+# demo_mnist_mlp.add_variant(hidden_sizes=[])
 
-    browse_experiments()
+
+# if __name__ == '__main__':
+
+    # browse_experiments()

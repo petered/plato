@@ -5,7 +5,7 @@ __author__ = 'peter'
 
 
 @contextmanager
-def float_precision(value):
+def hold_float_precision(value):
     """
     Change the theano float precesion variable (theano.config.floatX) for all code in a context.  Temporarily overrides
     the value defined in .theanorc.
@@ -25,3 +25,16 @@ def float_precision(value):
     theano.config.floatX = value
     yield
     theano.config.floatX = old_precision
+
+
+float_precision = hold_float_precision # Back-compatibility
+
+
+@contextmanager
+def hold_theano_optimizer(value):
+    if value is None:
+        value = 'None'
+    old_val = theano.config.optimizer
+    theano.config.optimizer = value
+    yield
+    theano.config.optimizer = old_val
