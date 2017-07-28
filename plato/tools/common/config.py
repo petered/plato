@@ -38,3 +38,4 @@ def hold_theano_optimizer(value):
     theano.config.optimizer = value
     yield
     theano.config.optimizer = old_val
+
