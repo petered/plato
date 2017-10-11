@@ -1,4 +1,6 @@
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
+
 from plato.interfaces.decorators import symbolic_simple, symbolic_updater
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.optimization.cost import get_named_cost_function
@@ -87,6 +89,25 @@ class GradientBasedPredictor(ISymbolicPredictor, IParameterized):
         return self._function.parameters + opt_params
 
 
+_LOCAL_LOSSES = None
+
+
+def declare_local_loss(loss):
+    if _LOCAL_LOSSES is not None:
+        _LOCAL_LOSSES.append(loss)
+
+
+@contextmanager
+def capture_local_losses():
+    global  _LOCAL_LOSSES
+    assert _LOCAL_LOSSES is None, "Local loss book already open"
+    _LOCAL_LOSSES = []
+    try:
+        yield _LOCAL_LOSSES
+    finally:
+        _LOCAL_LOSSES = None
+
+
 class CompiledSymbolicPredictor(IPredictor, IParameterized):
     """
     A Predictor containing the compiled methods for a SymbolicPredictor.
@@ -125,7 +146,12 @@ class FeedForwardModule(IParameterized):
         raise NotImplementedError()
 
     def train(self, x, y, cost_fcn, optimizer, assert_all_params_optimized=False, regularization_cost = None):
-        cost = cost_fcn(self.train_call(x), y)
+        with capture_local_losses() as local_losses:
+            cost = cost_fcn(self.train_call(x), y)
+
+        if len(local_losses)>0:
+            cost = cost + sum(local_losses)
+
         if regularization_cost is not None:
             cost = cost + regularization_cost(self.parameters)
         if isinstance(optimizer, dict):

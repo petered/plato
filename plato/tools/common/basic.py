@@ -81,7 +81,7 @@ def running_mean_and_variance(data, decay = None, shape = None, elementwise=True
         var_new = s_new
     add_update(mean_last, mean_new)
     add_update(s_last, s_new)
-    return var_new
+    return mean_new, var_new
 
 
 @symbolic
@@ -93,4 +93,4 @@ def running_variance(data, decay=None, shape = None, elementwise=True, initial_v
     :param shape:
     :return:
     """
-    return running_mean_and_variance(data=data, decay=decay, shape=shape, elementwise=elementwise, initial_var = initial_value)
+    return running_mean_and_variance(data=data, decay=decay, shape=shape, elementwise=elementwise, initial_var = initial_value)[1]

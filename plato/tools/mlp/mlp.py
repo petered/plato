@@ -28,8 +28,8 @@ class MultiLayerPerceptron(IParameterized):
         return x
 
     @symbolic
-    def get_layer_activations(self, x):
-        activations = []
+    def get_layer_activations(self, x, include_input = False):
+        activations = [x] if include_input else []
         for lay in self.layers:
             x = lay(x)
             activations.append(x)
