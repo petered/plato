@@ -63,6 +63,103 @@ Variable.indim = property(lambda self: self.ival.ndim)
 Variable.idtype = property(lambda self: (self.ival.dtype if isinstance(self.ival, np.ndarray) else type(self.ival)))
 
 
+
+class IFormat(object):
+
+    @staticmethod
+    def check(data, f):
+        """
+        Assert that data is in correct format.  Otherwise, throw SymbolicFormatError.  f is the reference to the function
+        whose inputs/outputs/updates are being inspected.  f is passed in so that it can be used in the error message,
+        if any.
+        """
+
+class PassAnythingFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        pass
+
+
+class AnyReturnFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        pass
+
+
+class SingleOutputFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_tensor(data):
+            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (f, data))
+
+
+class MultiOutputFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_tuple_of_tensors(data):
+            raise SymbolicFormatError('Function %s was should have returned a tuple-of-tensors output, but instead returned: %s' % (f, data))
+
+
+class NoOutputFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        assert data is None, "Function %s should have returned no output, but it returned %s.  If your intention was to return updates, use add_update instead." % (f, data)
+
+
+class NoUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data)!=0:
+            raise SymbolicFormatError("Function %s should have created no state updates, but it created updates: %s" % (f, data))
+
+
+class SomeUpdatesFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if isinstance(data, list): "Updates should be in the form of a list.  Something is strange if this is not the case"
+        if len(data) == 0:
+            raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
+
+
+class NamedCollectionFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_named_collection(data):
+            raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
+
+
+class CollectionOfCollectionsOfTensorsFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not _is_tuple_of_tuples_of_tensors(data):
+            raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
+
+
+class ConstantFormat(IFormat):
+
+    @staticmethod
+    def check(data, f):
+        if not isinstance(data, (float, int, np.ndarray)):
+            raise SymbolicFormatError("Data should be a constant, numeric data (numpy or python float, etc).  Right now it looks like this: %s" % (data, ))
+
+
+class SymbolicFormatError(Exception):
+    pass
+
+
+
+
+
 def symbolic(fcn):
     """
     Use this to decorate a symbolic function with any return format (it will be detected automatically).
@@ -203,7 +300,7 @@ class _SymbolicFunctionWrapper(object):
         self.output_format.check(symbolic_return, self.fcn)
         return symbolic_return
 
-    def scan(self, **scan_kwargs):
+    def scan(self, *sequence_args, **scan_kwargs):
         """
         Apply a scan to this function.  For arguments, see thr
         :param scan_kwargs: See theano.scan doc: http://deeplearning.net/software/theano/library/scan.html#theano.scan
@@ -211,25 +308,68 @@ class _SymbolicFunctionWrapper(object):
             [sequences[0], ... sequences[-1], outputs_info[0], ... outputs_info[-1], non_sequences[0], ... non_sequences[-1]]
         :return:
         """
-        outputs, updates = theano.scan(self._call_with_updates_returned, **scan_kwargs)
 
-        if self._had_to_add_dummies:
-            # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
-            # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
-            outputs = outputs[:-2]
+        if len(sequence_args)>0:
+            assert 'sequences' not in scan_kwargs, 'You can either specify sequences as unnamed args or not'
+            scan_kwargs = scan_kwargs.copy()
+            scan_kwargs['sequences'] = sequence_args
 
-        if len(self._trace_info)>0:
+        outputs, updates = theano.scan(self._call_with_updates_returned, return_list = True, **scan_kwargs)
+
+
+        #
+        # if self._had_to_add_dummies:
+        #     # See why this is necessary: https://groups.google.com/forum/#!topic/theano-users/F0-EeC0Lsl8
+        #     # Basically, we need to undo some evil that is done in theano's scan function.  See _call_with_updates_returned
+        #     outputs = outputs[:-2]
+
+        if len(self._trace_info)>0:  # Peel off trace variables if any
             trace_outputs = outputs[-len(self._trace_info):]
             outputs = outputs[:-len(self._trace_info)]
             for (trace_name, (_, batch_in_scan, callback)), trace_output in izip_equal(self._trace_info.iteritems(), trace_outputs):
                 CaptureTraceVariables.CURRENT_CATCHER.add_trace(variable=trace_output if batch_in_scan else trace_output[-1], name=trace_name, batch_in_scan=batch_in_scan, callback=callback)
 
-        if self._single_output and isinstance(outputs, (list, tuple)):
+        if self._output_format is None:
+            outputs = None
+        elif self._output_format == 'single':
             assert len(outputs)==1, 'This should always be true, and you should call Peter if it is not.  +3163004422 seven'
             outputs, = outputs
+        else:
+            assert self._output_format == 'tuple'
+            outputs = outputs
+
+        # outputs = \
+        #     None if self._output_format is None else \
+
+
+        # if self._single_output and isinstance(outputs, (list, tuple)):
+        #     assert len(outputs)==1, 'This should always be true, and you should call Peter if it is not.  +3163004422 seven'
+        #     outputs, = outputs
         for (shared_var, new_val) in updates.items():
             add_update(shared_var, new_val)
         return outputs
+
+    def _call_with_updates_returned(self, *args, **kwargs):
+        with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
+            outputs = self(*args, **kwargs)
+
+        # self._single_output = isinstance(outputs, Variable)
+        self._trace_info = traces.get_trace_variable_info()
+
+        # Due to trace variables, we will convert outputs to tuple.  We preserve original format here.
+        self._output_format = None if outputs is None else \
+            'single' if isinstance(outputs, Variable) else \
+            'tuple'
+
+        outputs = \
+            () if self._output_format is None else \
+            (outputs, ) if self._output_format =='single' else \
+            outputs
+
+        if len(traces)>0:
+            outputs = outputs + tuple(traces.values())
+
+        return outputs, OrderedDict(sc.get_updates())
 
     def eval(self, *args, **kwargs):
         """
@@ -248,27 +388,6 @@ class _SymbolicFunctionWrapper(object):
             if self.fcn==other.fcn:
                 return True
         return False
-
-    def _call_with_updates_returned(self, *args, **kwargs):
-        with CaptureUpdates(swallow=True) as sc, CaptureTraceVariables(swallow=True) as traces:
-            outputs = self(*args, **kwargs)
-
-        self._single_output = isinstance(outputs, Variable)
-        self._trace_info = traces.get_trace_variable_info()
-
-        if self._single_output and len(traces)>0:
-            outputs = (outputs, )
-        elif outputs is None:
-            outputs = (tt.zeros(), )
-
-        if len(traces)>0:
-            outputs = outputs + tuple(traces.values())
-
-        self._had_to_add_dummies = isinstance(outputs, (list, tuple)) and len(outputs)==1 # Necessary evil to force theano.scan to return collection even if length is 1.
-        if self._had_to_add_dummies:
-            outputs = outputs + type(outputs)([tt.zeros(()), tt.zeros(())])
-
-        return outputs, OrderedDict(sc.get_updates())
 
     def to_format(self, format_decorator):
 
@@ -322,15 +441,8 @@ class _SymbolicFunctionWrapper(object):
         return self._captured_locals
 
 
-class IFormat(object):
-
-    @staticmethod
-    def check(data, f):
-        """
-        Assert that data is in correct format.  Otherwise, throw SymbolicFormatError.  f is the reference to the function
-        whose inputs/outputs/updates are being inspected.  f is passed in so that it can be used in the error message,
-        if any.
-        """
+# Need to do this here instead of decorating because _SymbolicFunctionWrapper is not defined yet at decoration-time.
+_SymbolicFunctionWrapper.scan = symbolic(_SymbolicFunctionWrapper.scan)
 
 
 def _detect_format(data):
@@ -374,89 +486,6 @@ def convert_formats(data, src_format, dest_format):
         return tuple(data.values())
     else:
         raise SymbolicFormatError('No way to convert data from %s to %s' % (src_format, dest_format))
-
-
-class PassAnythingFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        pass
-
-
-class AnyReturnFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        pass
-
-
-class SingleOutputFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if not _is_tensor(data):
-            raise SymbolicFormatError('Function %s was should have returned a tensor output, but instead returned: %s' % (f, data))
-
-
-class MultiOutputFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if not _is_tuple_of_tensors(data):
-            raise SymbolicFormatError('Function %s was should have returned a tuple-of-tensors output, but instead returned: %s' % (f, data))
-
-
-class NoOutputFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        assert data is None, "Function %s should have returned no output, but it returned %s.  If your intention was to return updates, use add_update instead." % (f, data)
-
-
-class NoUpdatesFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case"
-        if len(data)!=0:
-            raise SymbolicFormatError("Function %s should have created no state updates, but it created updates: %s" % (f, data))
-
-
-class SomeUpdatesFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if isinstance(data, list): "Updates should be in the form of a list.  Something is strange if this is not the case"
-        if len(data) == 0:
-            raise SymbolicFormatError("Function %s should have created state updates, but it failed to update any variables!" % (f, ))
-
-
-class NamedCollectionFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if not _is_named_collection(data):
-            raise SymbolicFormatError("Data should be a named collection, in a dict<string:tensor> format.  Right now it looks like this: %s" % (data, ))
-
-
-class CollectionOfCollectionsOfTensorsFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if not _is_tuple_of_tuples_of_tensors(data):
-            raise SymbolicFormatError("Data should be a collection of collections of tensors.  Right now it looks like this: %s" % (data, ))
-
-
-class ConstantFormat(IFormat):
-
-    @staticmethod
-    def check(data, f):
-        if not isinstance(data, (float, int, np.ndarray)):
-            raise SymbolicFormatError("Data should be a constant, numeric data (numpy or python float, etc).  Right now it looks like this: %s" % (data, ))
-
-
-class SymbolicFormatError(Exception):
-    pass
 
 
 
@@ -594,8 +623,10 @@ class AutoCompilingFunction(object):
             for cb in cc.get_callbacks():
                 self._callbacks.append(cb)
 
-            if outputs is None:
+            self.outputs_none = outputs is None
+            if self.outputs_none:
                 outputs = ()
+
             PLATO_LOGGER.info('Done.')
             updates = sc.get_updates()
 
@@ -674,7 +705,7 @@ class AutoCompilingFunction(object):
         for c in self._callbacks:
             c()
 
-        return true_out
+        return None if self.outputs_none else true_out
 
     def reset(self):
         assert self.resettable, "If you want to reset the state of your compiled function, you must compile with f.compile(resettable=True)"

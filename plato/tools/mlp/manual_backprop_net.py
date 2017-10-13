@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections import OrderedDict
 
 import numpy as np
 from artemis.general.should_be_builtins import izip_equal
@@ -13,14 +14,20 @@ from theano import tensor as tt
 
 
 class ManualBackpropNet(ISymbolicPredictor):
-
+    """
+    A sequential (chain) network where you can insert layers that do backprop manually.
+    """
     def __init__(self, layers, optimizer, loss, prediction_minibatch_size=None, pass_loss = True):
         """
         :param layrs:
         :param optimizer:
         :param loss:
         """
-        self.layers = layers
+        if isinstance(layers, OrderedDict):
+            self.layer_names, self.layers = zip(*layers.items())
+        else:
+            self.layer_names = range(len(layers))
+            self.layers = layers
         self.optimizer = optimizer
         self.pass_loss = pass_loss
         self.loss = get_named_cost_function(loss) if isinstance(loss, basestring) else loss
@@ -35,7 +42,7 @@ class ManualBackpropNet(ISymbolicPredictor):
 
     def _predict_in_single_pass(self, x):
         for i, layer in enumerate(self.layers):
-            x = layer.forward_pass(x)
+            x = layer(x)
         return x
 
     @symbolic
@@ -46,8 +53,14 @@ class ManualBackpropNet(ISymbolicPredictor):
     def train(self, x, y):
         states = {}
         for layer in self.layers:
-            x, layer_state = layer.forward_pass_and_state(x)
+            if isinstance(layer, IManualBackpropLayer):
+                x, layer_state = layer.forward_pass_and_state(x)
+            else:
+                out = layer(x)
+                layer_state = (x, out)
+                x = out
             states[layer]=layer_state
+
         layerwise_param_grad_pairs = []
         loss = self.loss(x, y)
         if self.pass_loss:
@@ -56,7 +69,12 @@ class ManualBackpropNet(ISymbolicPredictor):
             grad = tt.grad(loss, wrt=x)
             loss = None
         for layer in self.layers[::-1]:
-            grad, param_grads = layer.backward_pass(state=states[layer], grad=grad, cost = loss)
+            if isinstance(layer, IManualBackpropLayer):
+                grad, param_grads = layer.backward_pass(state=states[layer], grad=grad, cost = loss)
+            else:
+                x, y = states[layer]
+                grads = tt.grad(cost=loss, wrt=[x]+list(layer.parameters), known_grads={y: grad} if grad is not None else None)
+                grad, param_grads = grads[0], grads[1:]
             loss = None
             layerwise_param_grad_pairs.append(list(izip_equal(layer.parameters, param_grads)))
         if isinstance(self.optimizer, IGradientOptimizer):
@@ -83,6 +101,9 @@ class IManualBackpropLayer(IParameterized):
         out, _ = self.forward_pass_and_state(x)
         return out
 
+    def __call__(self, *args):
+        return self.forward_pass(*args)
+
     @abstractmethod
     def forward_pass_and_state(self, x):
         """
@@ -93,7 +114,7 @@ class IManualBackpropLayer(IParameterized):
                 state is a list of state-variables to be passed into the backward pass.
                 Importantly, they must be in order (so that the last element of state is the one used to compute the gradient)
         """
-
+        raise NotImplementedError()
 
     @abstractmethod
     def backward_pass(self, state, grad, cost):
@@ -102,6 +123,7 @@ class IManualBackpropLayer(IParameterized):
         :param grad: The incoming gradient
         :return: The outgoing gradient
         """
+        raise NotImplementedError()
 
 
 class ExactBackpropLayer(IManualBackpropLayer):

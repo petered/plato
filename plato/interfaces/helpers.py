@@ -1,5 +1,5 @@
 import numpy as np
-from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
+from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic, CaptureUpdates
 from plato.interfaces.interfaces import IParameterized
 import theano
 from theano.compile.sharedvalue import SharedVariable
@@ -10,6 +10,7 @@ from theano.tensor.shared_randomstreams import RandomStreams
 import theano.tensor as tt
 from theano.tensor.sharedvar import TensorSharedVariable
 from theano.tensor.var import TensorVariable
+from theano.gof.graph import Variable
 
 __author__ = 'peter'
 
@@ -195,7 +196,7 @@ class SlowBatchCenter(object):
         return x - running_mean
 
 
-def batchify_function(fcn, batch_size):
+def batchify_function(fcn, batch_size, **scan_kwargs):
     """
     Given a symbolic function, transform it so that computes its input in a sequence of minibatches, instead of in
     one go.  This can be useful when:
@@ -214,10 +215,17 @@ def batchify_function(fcn, batch_size):
     def batch_function(*args):
         start_ixs = tt.arange(0, args[0].shape[0], batch_size)
         @symbolic
-        def process_batch(start_ix, end_ix):
+        def process_batch(start_ix, end_ix, *args):
             return fcn(*[arg[start_ix:end_ix] for arg in args])
-        out = process_batch.scan(sequences = [start_ixs, start_ixs+batch_size])
-        return out.reshape((-1, )+tuple(out.shape[i] for i in xrange(2, out.ndim)), ndim=out.ndim-1)
+
+        out = process_batch.scan(sequences = [start_ixs, start_ixs+batch_size], non_sequences = args, **scan_kwargs)
+        # out = theano.scan(process_batch, sequences = [start_ixs, start_ixs+batch_size])
+        if out is None:
+            return None
+        elif isinstance(out, Variable):
+            return out.reshape((-1, )+tuple(out.shape[i] for i in xrange(2, out.ndim)), ndim=out.ndim-1)
+        else:
+            return out.__class__(o.reshape((-1, )+tuple(o.shape[i] for i in xrange(2, p.ndim)), ndim=o.ndim-1) for o in out)
     return batch_function
 
 

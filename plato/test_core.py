@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 from artemis.general.hashing import compute_fixed_hash, fixed_hash_eq
-from plato.interfaces.helpers import create_shared_variable
+from plato.interfaces.helpers import create_shared_variable, shared_like
 from plato.tools.common.config import hold_float_precision
 from pytest import raises
 from plato.core import symbolic_simple, symbolic_updater, SymbolicFormatError, \
@@ -607,6 +607,37 @@ def test_trace_var_in_scan():
     assert np.array_equal(get_tdb_traces()['x_in_loop_catch_all'], np.arange(4)**3)
 
 
+def test_easy_scan_syntax():
+
+    @symbolic
+    def accumulator(v, shape):
+        accum = create_shared_variable(np.zeros(shape))
+        new_accum = accum + v
+        add_update(accum, new_accum)
+        return new_accum
+
+    x = np.random.randn(5, 3)
+    f = accumulator.partial(shape=x.shape[1:]).scan.compile()
+
+    assert np.allclose(f(x), np.cumsum(x, axis=0))
+
+
+def test_scan_no_return():
+
+    state = create_shared_variable(np.zeros(()))
+
+    @symbolic
+    def do_something_internal(a, b):
+        new_state = state+ a*b
+        add_update(state, new_state)
+
+    out = do_something_internal.scan.compile()(np.arange(6).astype(float), np.arange(1,7).astype(float))
+
+    assert out is None
+    assert np.array_equal(state.get_value(), np.arange(6).dot(np.arange(1, 7)))
+
+
+
 if __name__ == '__main__':
     test_ival_ishape()
     test_catch_sneaky_updates()
@@ -630,3 +661,5 @@ if __name__ == '__main__':
     test_shared_input()
     test_function_reset()
     test_trace_var_in_scan()
+    test_easy_scan_syntax()
+    test_scan_no_return()
