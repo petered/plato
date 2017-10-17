@@ -61,7 +61,11 @@ def negative_log_likelihood_dangerous(actual, target):
 
 @symbolic_simple
 def mean_squared_error(actual, target):
-    return tt.mean(tt.sum((actual-target)**2, axis = 1), axis = 0)
+    if actual.ndim==2:
+        return tt.mean(tt.sum((actual-target)**2, axis = 1), axis = 0)
+    else:
+        return tt.mean(tt.sum((actual.flatten(2)-target.flatten(2))**2, axis = 1), axis = 0)
+
 
 
 @symbolic_simple

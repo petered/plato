@@ -43,6 +43,21 @@ def test_compute_in_batches():
     assert np.allclose(out, arr_a+arr_b)
 
 
+def test_batch_without_return():
+
+    state = create_shared_variable(np.zeros(2))
+
+    @symbolic
+    def do_something_internal(a, b):
+        new_state = state+ a*b
+        add_update(state, new_state)
+        # return new_state
+
+    out = batchify_function(do_something_internal, batch_size=2).compile()(np.arange(6).astype(float), np.arange(1,7).astype(float))
+    assert out is None
+    assert np.array_equal(state.get_value(), [0*1+2*3+4*5, 1*2+3*4+5*6])
+
+
 def test_compute_in_with_state():
 
     @symbolic
@@ -105,3 +120,4 @@ if __name__ == '__main__':
     test_compute_in_with_state()
     test_on_first_pass()
     test_reshaping_shared_variable()
+    test_batch_without_return()

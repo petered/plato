@@ -53,7 +53,7 @@ class ConvLayer(FeedForwardModule):
         return ConvLayer(
             w=spec.w,
             b=spec.b,
-            border_mode= {'full': 0, 'same': 1, 'valid': 0}[spec.mode] if spec.mode in ('full', 'same', 'valid') else spec.mode,
+            border_mode= {'full': 0, 'same': 'half', 'valid': 0}[spec.mode] if spec.mode in ('full', 'same', 'valid') else spec.mode,
             filter_flip=False
             )
 
@@ -267,7 +267,7 @@ def specifier_to_layer(spec, force_shared_parameters=True, rng = None):
             w=spec.w,
             b=spec.b,
             force_shared_parameters=force_shared_parameters,
-            border_mode= {'full': 0, 'same': 1, 'valid': 0}[spec.mode] if spec.mode in ('full', 'same', 'valid') else spec.mode,
+            border_mode= {'full': 0, 'same': 'half', 'valid': 0}[spec.mode] if spec.mode in ('full', 'same', 'valid') else spec.mode,
             filter_flip=False
             ),
         NonlinearitySpec: lambda: Nonlinearity(spec.func),
