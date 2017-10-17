@@ -23,11 +23,10 @@ class ManualBackpropNet(ISymbolicPredictor):
         :param optimizer:
         :param loss:
         """
-        if isinstance(layers, OrderedDict):
-            self.layer_names, self.layers = zip(*layers.items())
+        if isinstance(layers, (OrderedDict, list, tuple)): # Backwards compatibility baby!
+            self.model = ChainNetwork(layers)
         else:
-            self.layer_names = range(len(layers))
-            self.layers = layers
+            self.model = layers
         self.optimizer = optimizer
         self.pass_loss = pass_loss
         self.loss = get_named_cost_function(loss) if isinstance(loss, basestring) else loss
@@ -41,39 +40,20 @@ class ManualBackpropNet(ISymbolicPredictor):
             return batchify_function(self._predict_in_single_pass, batch_size=self.prediction_minibatch_size)(x)
 
     def _predict_in_single_pass(self, x):
-        for i, layer in enumerate(self.layers):
-            x = layer(x)
-        return x
+        out, _ = self.model.forward_pass_and_state(x)
+        return out
 
     @symbolic
-    def _predict_minibatch(self, start, end, x):
-        return self.predict(x[start:end], _single_pass=True)
-
-    @symbolic
-    def forward_pass_and_state(self, x):
-        state = {}
-        for layer in self.layers:
-            if isinstance(layer, IManualBackpropLayer):
-                x, layer_state = layer.forward_pass_and_state(x)
-            else:
-                out = layer(x)
-                layer_state = (x, out)
-                x = out
-            state[layer]=layer_state
-        return x, state
-
-    def backward_pass(self, state, grad, loss):
-        assert (grad is None) != (loss is None), 'Gove me a grad xor give me a loss.'
-        layerwise_param_grad_pairs = []
-        for layer in self.layers[::-1]:
-            if isinstance(layer, IManualBackpropLayer):
-                grad, param_grads = layer.backward_pass(state=state[layer], grad=grad, cost = loss)
-            else:
-                out, y = state[layer]
-                grads = tt.grad(cost=loss, wrt=[out] + list(layer.parameters), known_grads={y: grad} if grad is not None else None)
-                grad, param_grads = grads[0], grads[1:]
+    def train(self, x, y):
+        out, state = forward_pass_and_state(self.model, x)
+        loss = self.loss(out, y)
+        if self.pass_loss:
+            grad = None
+        else:
+            grad = tt.grad(loss, wrt=out)
             loss = None
-            layerwise_param_grad_pairs.append(list(izip_equal(layer.parameters, param_grads)))
+        _, layerwise_param_grad_pairs = backward_pass(self.model, state=state, grad=grad, loss=loss)
+
         if isinstance(self.optimizer, IGradientOptimizer):
             all_params, all_param_grads = zip(*[(p, g) for layer_pairs in layerwise_param_grad_pairs for p, g in layer_pairs])
             self.optimizer.update_from_gradients(parameters=all_params, gradients=all_param_grads)
@@ -82,22 +62,12 @@ class ManualBackpropNet(ISymbolicPredictor):
                 params, grads = zip(*layer_pairs)
                 optimizer.update_from_gradients(parameters=params, gradients=grads)
 
-    @symbolic
-    def train(self, x, y):
-        out, state = self.forward_pass_and_state(x)
-        loss = self.loss(out, y)
-        if self.pass_loss:
-            grad = None
-        else:
-            grad = tt.grad(loss, wrt=out)
-            loss = None
-        self.backward_pass(state, grad, loss)
-
     @property
     def parameters(self):
-        return [p for layer in self.layers for p in layer.parameters]
+        return self.model.parameters
 
 
+@symbolic
 class IManualBackpropLayer(IParameterized):
 
     def forward_pass(self, x):
@@ -107,6 +77,7 @@ class IManualBackpropLayer(IParameterized):
         """
         out, _ = self.forward_pass_and_state(x)
         return out
+
 
     def __call__(self, *args):
         return self.forward_pass(*args)
@@ -124,7 +95,7 @@ class IManualBackpropLayer(IParameterized):
         raise NotImplementedError()
 
     @abstractmethod
-    def backward_pass(self, state, grad, cost):
+    def backward_pass(self, state, grad, loss):
         """
         :param state: The list of state variables you returned in forward_pass_and_state
         :param grad: The incoming gradient
@@ -133,7 +104,27 @@ class IManualBackpropLayer(IParameterized):
         raise NotImplementedError()
 
 
-class ManualBackPropChain(IManualBackpropLayer):
+def forward_pass_and_state(layer, x):
+    if isinstance(layer, IManualBackpropLayer):
+        out, layer_state = layer.forward_pass_and_state(x)
+    else:
+        out = layer(x)
+        layer_state = (x, out)
+    return out, layer_state
+
+
+def backward_pass(layer, state, grad, loss):
+    if isinstance(layer, IManualBackpropLayer):
+        grad, param_grads = layer.backward_pass(state=state, grad=grad, loss= loss)
+    else:
+        out, y = state
+        grads = tt.grad(cost=loss, wrt=[out] + list(layer.parameters), known_grads={y: grad} if grad is not None else None)
+        grad, param_grads = grads[0], grads[1:]
+
+    return grad, param_grads
+
+
+class ChainNetwork(IManualBackpropLayer):
 
     def __init__(self, layers):
         if isinstance(layers, OrderedDict):
@@ -142,8 +133,66 @@ class ManualBackPropChain(IManualBackpropLayer):
             self.layer_names = range(len(layers))
             self.layers = layers
 
+    @symbolic
+    def forward_pass_and_state(self, x):
+        state = {}
+        for layer in self.layers:
+            x, layer_state = forward_pass_and_state(layer, x)
+            state[layer]=layer_state
+        return x, state
+
+    @symbolic
+    def backward_pass(self, state, grad, loss):
+        assert (grad is None) != (loss is None), 'Gove me a grad xor give me a loss.'
+        layerwise_param_grad_pairs = []
+        for layer in self.layers[::-1]:
+            grad, param_grads = backward_pass(layer, state[layer], grad, loss)
+            loss = None
+            layerwise_param_grad_pairs.append(list(izip_equal(layer.parameters, param_grads)))
+        return grad, layerwise_param_grad_pairs
+
+    @property
+    def parameters(self):
+        return [p for layer in self.layers for p in layer.parameters]
 
 
+class SiameseNetwork(IManualBackpropLayer):
+    """
+    Implements:
+
+        y = f_merge(f_siamese(x1), f_siamese(x2))
+
+    """
+
+    def __init__(self, f_siamese, f_merge):
+        """
+        :param f_siamese: A function or ManualBackpropLayer of the form f(
+        :param f_merge:
+        :return:
+        """
+        self.f_siamese = f_siamese
+        self.f_merge = f_merge
+
+    @symbolic
+    def forward_pass_and_state(self, (x1, x2)):
+        out1, state1 = forward_pass_and_state(self.f_siamese, x1)
+        out2, state2 = forward_pass_and_state(self.f_siamese, x2)
+        out, state_merge = forward_pass_and_state(self.f_merge, (out1, out2))
+        return out, state_merge
+
+    @symbolic
+    def backward_pass(self, state, grad, loss):
+        state1, state2, state_merge = state
+        grad, merge_param_grads = backward_pass(self.f_merge, state=state_merge, grad=grad, loss=loss)
+        grad1, f1_param_grads = backward_pass(self.f_siamese, state=state1, grad=grad, loss=None)
+        grad2, f2_param_grads = backward_pass(self.f_siamese, state=state2, grad=grad, loss=None)
+        assert all(param1 is param2 for (param1, _), (param2, _) in zip(f1_param_grads, f2_param_grads))
+        param_grads = [(p1, v1+v2) for (p1, v1), (p2, v2) in zip(f1_param_grads, f2_param_grads)] + merge_param_grads
+        return (grad1, grad2), param_grads
+
+    @property
+    def parameters(self):
+        return self.f_siamese.parameters + self.f_merge.parameters
 
 
 class ExactBackpropLayer(IManualBackpropLayer):
@@ -170,9 +219,9 @@ class ExactBackpropLayer(IManualBackpropLayer):
         pre_sig = self.linear_transform(x)
         return self.nonlinearity(pre_sig), (x, pre_sig, )
 
-    def backward_pass(self, state, grad, cost):
+    def backward_pass(self, state, grad, loss):
         x, _ = state
-        if cost is None:
+        if loss is None:
             y, (x, pre_sig) = self.forward_pass_and_state(x)
             dydp = tt.grad(y.sum(), wrt=pre_sig)
             # Note... we rely on the (linear-transform, pointwise-nonlinearity) design here.  We should figure out how
@@ -183,7 +232,7 @@ class ExactBackpropLayer(IManualBackpropLayer):
             dcdx = dcdp.dot(self.linear_transform.w.T)
             return dcdx, [dcdw, dcdb]
         else:
-            return tt.grad(cost, wrt=x), tt.grad(cost, wrt=self.linear_transform.parameters)
+            return tt.grad(loss, wrt=x), tt.grad(loss, wrt=self.linear_transform.parameters)
 
     @property
     def parameters(self):

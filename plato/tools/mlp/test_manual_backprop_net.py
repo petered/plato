@@ -52,8 +52,8 @@ def test_exact_manual_backprop_net():
 
     # Check parameter changes match
     dw0_auto = auto_mlp._function.layers[0].linear_transform.w.get_value() - ws[0]
-    dw0_stick = stick_mlp.layers[0].linear_transform.w.get_value() - ws[0]
-    dw0_robot = stick_shifted_by_robot.layers[0].linear_transform.w.get_value() - ws[0]
+    dw0_stick = stick_mlp.model.layers[0].linear_transform.w.get_value() - ws[0]
+    dw0_robot = stick_shifted_by_robot.model.layers[0].linear_transform.w.get_value() - ws[0]
     assert np.allclose(dw0_auto, dw0_stick)
     assert np.allclose(dw0_auto, dw0_robot)
 
