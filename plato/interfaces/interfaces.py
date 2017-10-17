@@ -20,6 +20,14 @@ class IParameterized(object):
             p.set_value(s)
 
 
+def get_parameters(obj):
+
+    if isinstance(obj, IParameterized) or hasattr(obj, 'parameters'):
+        return obj.parameters
+    else:
+        return []
+
+
 class IFreeEnergy(object):
 
     __metaclass__ = ABCMeta

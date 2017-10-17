@@ -2,9 +2,11 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 import numpy as np
+
+from artemis.general.nested_structures import get_leaf_values, NestedType
 from artemis.general.should_be_builtins import izip_equal
 from plato.core import create_constant, symbolic
-from plato.interfaces.helpers import batchify_function, get_named_activation_function
+from plato.interfaces.helpers import batchify_function, get_named_activation_function, get_parameters_or_not
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import ISymbolicPredictor
 from plato.tools.mlp.mlp import FullyConnectedTransform
@@ -52,13 +54,13 @@ class ManualBackpropNet(ISymbolicPredictor):
         else:
             grad = tt.grad(loss, wrt=out)
             loss = None
-        _, layerwise_param_grad_pairs = backward_pass(self.model, state=state, grad=grad, loss=loss)
+        _, param_grad_pairs = backward_pass(self.model, state=state, grad=grad, loss=loss)
 
         if isinstance(self.optimizer, IGradientOptimizer):
-            all_params, all_param_grads = zip(*[(p, g) for layer_pairs in layerwise_param_grad_pairs for p, g in layer_pairs])
+            all_params, all_param_grads = zip(*[(p, g) for p, g in param_grad_pairs])
             self.optimizer.update_from_gradients(parameters=all_params, gradients=all_param_grads)
         elif isinstance(self.optimizer, (list, tuple)):
-            for optimizer, layer_pairs in izip_equal(self.optimizer, layerwise_param_grad_pairs):
+            for optimizer, layer_pairs in izip_equal(self.optimizer, param_grad_pairs):
                 params, grads = zip(*layer_pairs)
                 optimizer.update_from_gradients(parameters=params, gradients=grads)
 
@@ -77,7 +79,6 @@ class IManualBackpropLayer(IParameterized):
         """
         out, _ = self.forward_pass_and_state(x)
         return out
-
 
     def __call__(self, *args):
         return self.forward_pass(*args)
@@ -115,13 +116,14 @@ def forward_pass_and_state(layer, x):
 
 def backward_pass(layer, state, grad, loss):
     if isinstance(layer, IManualBackpropLayer):
-        grad, param_grads = layer.backward_pass(state=state, grad=grad, loss= loss)
+        grad_inputs, param_grad_pairs = layer.backward_pass(state=state, grad=grad, loss= loss)
     else:
-        out, y = state
-        grads = tt.grad(cost=loss, wrt=[out] + list(layer.parameters), known_grads={y: grad} if grad is not None else None)
-        grad, param_grads = grads[0], grads[1:]
-
-    return grad, param_grads
+        inputs, y = state
+        params = list(get_parameters_or_not(layer))
+        grad_inputs = tt.grad(cost=loss, wrt=inputs, known_grads={y: grad} if grad is not None else None)
+        grad_params = tt.grad(cost=loss, wrt=params, known_grads={y: grad} if grad is not None else None)
+        param_grad_pairs = [(p, g) for p, g in izip_equal(params, grad_params)]
+    return grad_inputs, param_grad_pairs
 
 
 class ChainNetwork(IManualBackpropLayer):
@@ -144,12 +146,12 @@ class ChainNetwork(IManualBackpropLayer):
     @symbolic
     def backward_pass(self, state, grad, loss):
         assert (grad is None) != (loss is None), 'Gove me a grad xor give me a loss.'
-        layerwise_param_grad_pairs = []
+        param_grad_pairs = []
         for layer in self.layers[::-1]:
-            grad, param_grads = backward_pass(layer, state[layer], grad, loss)
+            grad, layer_param_grad_pairs = backward_pass(layer, state[layer], grad, loss)
             loss = None
-            layerwise_param_grad_pairs.append(list(izip_equal(layer.parameters, param_grads)))
-        return grad, layerwise_param_grad_pairs
+            param_grad_pairs += layer_param_grad_pairs
+        return grad, param_grad_pairs
 
     @property
     def parameters(self):
@@ -178,14 +180,14 @@ class SiameseNetwork(IManualBackpropLayer):
         out1, state1 = forward_pass_and_state(self.f_siamese, x1)
         out2, state2 = forward_pass_and_state(self.f_siamese, x2)
         out, state_merge = forward_pass_and_state(self.f_merge, (out1, out2))
-        return out, state_merge
+        return out, (state1, state2, state_merge)
 
     @symbolic
     def backward_pass(self, state, grad, loss):
         state1, state2, state_merge = state
-        grad, merge_param_grads = backward_pass(self.f_merge, state=state_merge, grad=grad, loss=loss)
-        grad1, f1_param_grads = backward_pass(self.f_siamese, state=state1, grad=grad, loss=None)
-        grad2, f2_param_grads = backward_pass(self.f_siamese, state=state2, grad=grad, loss=None)
+        (out_grad_1, out_grad_2), merge_param_grads = backward_pass(self.f_merge, state=state_merge, grad=grad, loss=loss)
+        grad1, f1_param_grads = backward_pass(self.f_siamese, state=state1, grad=out_grad_1, loss=None)
+        grad2, f2_param_grads = backward_pass(self.f_siamese, state=state2, grad=out_grad_2, loss=None)
         assert all(param1 is param2 for (param1, _), (param2, _) in zip(f1_param_grads, f2_param_grads))
         param_grads = [(p1, v1+v2) for (p1, v1), (p2, v2) in zip(f1_param_grads, f2_param_grads)] + merge_param_grads
         return (grad1, grad2), param_grads
@@ -230,9 +232,10 @@ class ExactBackpropLayer(IManualBackpropLayer):
             dcdw = x.T.dot(dcdp)  # Because I think if we did this directly for the ws we'd be in trouble
             dcdb = dcdp.sum(axis=0)
             dcdx = dcdp.dot(self.linear_transform.w.T)
-            return dcdx, [dcdw, dcdb]
+            return dcdx, list(izip_equal(self.linear_transform.parameters, [dcdw, dcdb]))
         else:
-            return tt.grad(loss, wrt=x), tt.grad(loss, wrt=self.linear_transform.parameters)
+            param_grads = tt.grad(loss, wrt=self.linear_transform.parameters)
+            return tt.grad(loss, wrt=x), list(izip_equal(self.linear_transform.parameters, param_grads))
 
     @property
     def parameters(self):
