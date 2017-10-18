@@ -240,3 +240,8 @@ class ExactBackpropLayer(IManualBackpropLayer):
     @property
     def parameters(self):
         return self.linear_transform.parameters
+
+# woooo
+#fdsfdsf
+
+# ccccc
