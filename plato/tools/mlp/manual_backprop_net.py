@@ -197,9 +197,23 @@ class SiameseNetwork(IManualBackpropLayer):
         return self.f_siamese.parameters + self.f_merge.parameters
 
 
+class AddingLayer(IManualBackpropLayer):
+
+    def forward_pass_and_state(self, (x1, x2)):
+        return x1+x2, None
+
+    def backward_pass(self, state, grad, loss):
+        return (grad, grad), []
+
+    @property
+    def parameters(self):
+        return []
+
 class ExactBackpropLayer(IManualBackpropLayer):
     """
     Performs the function of a layer.
+
+    (Not really useful, since you can now just feed any old function into a manual backprop net)
     """
 
     def __init__(self, linear_transform, nonlinearity):
