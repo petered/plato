@@ -81,6 +81,18 @@ class Nonlinearity(FeedForwardModule):
 
 
 @symbolic
+class CrossConvLayer(object):
+
+    def __init__(self, ):
+
+    def __call__(self, (x1, x2)):
+        """
+        (x1, x2) are each n_samples, n_maps
+        :return:
+        """
+        map = tt.nnet.conv2d(input=x1, filters=x1, )
+
+@symbolic
 class Pooler(FeedForwardModule):
 
     def __init__(self, region, stride = None, mode = 'max'):

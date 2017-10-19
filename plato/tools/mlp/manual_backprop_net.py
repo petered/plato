@@ -209,6 +209,15 @@ class AddingLayer(IManualBackpropLayer):
     def parameters(self):
         return []
 
+
+@symbolic
+class ConcatenationLayer(object):
+
+    def __call__(self, (x1, x2)):
+        return tt.concatenate([x1.flatten(2), x2.flatten(2)], axis=1)
+
+
+
 class ExactBackpropLayer(IManualBackpropLayer):
     """
     Performs the function of a layer.
