@@ -4,6 +4,8 @@ from functools import partial
 import numpy as np
 import theano
 import theano.tensor as tt
+from theano.tensor.nnet import conv3d2d
+
 from artemis.general.numpy_helpers import get_rng
 from plato.core import symbolic, create_shared_variable
 from plato.interfaces.helpers import get_named_activation_function, get_theano_rng
@@ -91,21 +93,15 @@ class ChannelwiseCrossCorr(object):
 
     def __call__(self, (x1, x2)):
         """
-        (x1, x2) are each (n_samples, n_channels, size_y, size_x) images
-        :return: A (n_samples, n_channels, size_y, size_x) image representing the channelwise cross-convolution between
+        :param (x1, x2): are each (n_samples, n_channels, size_y, size_x) images
+        :return: A (n_samples, n_channels, size_y*2-1, size_x*2-1) image representing the channelwise cross-correlation between
             each pair of images.
         """
         from theano.tensor.signal.conv import conv2d as sconv2d
-
-        # Flatten samples, channels
-
         x1_flat = x1.reshape((x1.shape[0]*x1.shape[1], x2.shape[2], x2.shape[3]))
         x2_flat = x2.reshape((x2.shape[0]*x2.shape[1], x2.shape[2], x2.shape[3]))[:, ::-1, ::-1]
-
         map_flat, _ = theano.scan(partial(sconv2d, border_mode=self.border_mode, subsample=self.subsample), sequences=[x1_flat, x2_flat])
-
         conv_maps = map_flat.reshape((x1.shape[0], x1.shape[1], map_flat.shape[1], map_flat.shape[2]))
-
         return conv_maps
 
 @symbolic
@@ -133,7 +129,8 @@ class Pooler(FeedForwardModule):
         :param x: An (n_samples, n_maps, size_y, size_x) tensor
         :return: An (n_sample, n_maps, size_y/ds[0], size_x/ds[1]) tensor
         """
-        return pool_2d(x, ds = self.region, st = self.stride, mode = self.mode, ignore_border=True)
+        # return pool_2d(x, ds = self.region, st = self.stride, mode = self.mode, ignore_border=True)
+        return pool_2d(x, ws = self.region, stride = self.stride, mode = self.mode, ignore_border=True)
 
     def to_spec(self):
         return PoolerSpec(region = self.region, stride=self.stride, mode=self.mode)

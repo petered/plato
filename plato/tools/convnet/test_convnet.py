@@ -2,6 +2,7 @@ import pickle
 from collections import OrderedDict
 
 import numpy as np
+from artemis.plotting.db_plotting import dbplot
 
 from artemis.general.mymath import argmaxnd
 from artemis.ml.datasets.cifar import get_cifar_10_dataset
@@ -103,12 +104,12 @@ def test_cross_conv_layer():
     func = ChannelwiseCrossCorr().compile()
     y = func((x1, x2))
     assert y.shape==(1, 10, 39, 39)
-    # dbplot(y)
+    dbplot(y)
     ixs = np.array([argmaxnd(y[0, i, :, :]) for i in xrange(10)])
     assert np.all(ixs-39//2 == (y_shift, x_shift))
 
 
 if __name__ == '__main__':
-    test_convnet_serialization()
-    test_normalize_convnet()
+    # test_convnet_serialization()
+    # test_normalize_convnet()
     test_cross_conv_layer()
