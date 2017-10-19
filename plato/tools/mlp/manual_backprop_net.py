@@ -19,7 +19,7 @@ class ManualBackpropNet(ISymbolicPredictor):
     """
     A sequential (chain) network where you can insert layers that do backprop manually.
     """
-    def __init__(self, layers, optimizer, loss, prediction_minibatch_size=None, pass_loss = True):
+    def __init__(self, layers, optimizer, loss, prediction_minibatch_size=None, pass_loss = True, params_to_train = None):
         """
         :param layrs:
         :param optimizer:
@@ -33,6 +33,7 @@ class ManualBackpropNet(ISymbolicPredictor):
         self.pass_loss = pass_loss
         self.loss = get_named_cost_function(loss) if isinstance(loss, basestring) else loss
         self.prediction_minibatch_size = prediction_minibatch_size
+        self.params_to_train = params_to_train
 
     @symbolic
     def predict(self, x):
@@ -55,6 +56,11 @@ class ManualBackpropNet(ISymbolicPredictor):
             grad = tt.grad(loss, wrt=out)
             loss = None
         _, param_grad_pairs = backward_pass(self.model, state=state, grad=grad, loss=loss)
+
+        if self.params_to_train is not None:
+            params_in_net = set(p for p, g in param_grad_pairs)
+            assert params_in_net.issuperset(self.params_to_train), 'You listed parameters to train {} which were not in the model'.format(set(self.params_to_train).difference(params_in_net))
+            param_grad_pairs = [(p, g) for p, g in param_grad_pairs if p in self.params_to_train]
 
         if isinstance(self.optimizer, IGradientOptimizer):
             all_params, all_param_grads = zip(*[(p, g) for p, g in param_grad_pairs])
@@ -155,7 +161,7 @@ class ChainNetwork(IManualBackpropLayer):
 
     @property
     def parameters(self):
-        return [p for layer in self.layers for p in layer.parameters]
+        return [p for layer in self.layers for p in get_parameters_or_not(layer)]
 
 
 class SiameseNetwork(IManualBackpropLayer):
