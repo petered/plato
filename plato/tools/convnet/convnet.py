@@ -1,4 +1,6 @@
 from collections import OrderedDict
+from functools import partial
+
 import numpy as np
 import theano
 import theano.tensor as tt
@@ -81,17 +83,30 @@ class Nonlinearity(FeedForwardModule):
 
 
 @symbolic
-class CrossConvLayer(object):
+class ChannelwiseCrossCorr(object):
 
-    def __init__(self, ):
-        pass
+    def __init__(self, border_mode='full', subsample=(1, 1)):
+        self.border_mode = border_mode
+        self.subsample = subsample
 
     def __call__(self, (x1, x2)):
         """
-        (x1, x2) are each n_samples, n_maps
-        :return:
+        (x1, x2) are each (n_samples, n_channels, size_y, size_x) images
+        :return: A (n_samples, n_channels, size_y, size_x) image representing the channelwise cross-convolution between
+            each pair of images.
         """
-        map = tt.nnet.conv2d(input=x1, filters=x1, )
+        from theano.tensor.signal.conv import conv2d as sconv2d
+
+        # Flatten samples, channels
+
+        x1_flat = x1.reshape((x1.shape[0]*x1.shape[1], x2.shape[2], x2.shape[3]))
+        x2_flat = x2.reshape((x2.shape[0]*x2.shape[1], x2.shape[2], x2.shape[3]))[:, ::-1, ::-1]
+
+        map_flat, _ = theano.scan(partial(sconv2d, border_mode=self.border_mode, subsample=self.subsample), sequences=[x1_flat, x2_flat])
+
+        conv_maps = map_flat.reshape((x1.shape[0], x1.shape[1], map_flat.shape[1], map_flat.shape[2]))
+
+        return conv_maps
 
 @symbolic
 class Pooler(FeedForwardModule):
@@ -263,7 +278,8 @@ class ConvNet(IParameterized):
         return sum([l.parameters if isinstance(l, IParameterized) else [] for l in self.layers.values()], [])
 
     def to_spec(self):
-        return ConvNetSpec(OrderedDict((layer_name, lay.to_spec()) for layer_name, lay in self.layers.iteritems()))
+        # return ConvNetSpec(OrderedDict((layer_name, lay.to_spec()) for layer_name, lay in self.layers.iteritems()))
+        return OrderedDict((layer_name, lay.to_spec()) for layer_name, lay in self.layers.iteritems())
 
     @classmethod
     def from_spec(cls, spec):

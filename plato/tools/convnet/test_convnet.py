@@ -1,17 +1,18 @@
-from collections import OrderedDict
 import pickle
+from collections import OrderedDict
 
 import numpy as np
 
+from artemis.general.mymath import argmaxnd
+from artemis.ml.datasets.cifar import get_cifar_10_dataset
+from artemis.ml.predictors.train_and_test import percent_argmax_correct
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.common.training import assess_online_symbolic_predictor
 from plato.tools.convnet.conv_specifiers import ConvInitSpec, NonlinearitySpec, PoolerSpec
-from plato.tools.convnet.convnet import ConvNet, ConvLayer, Pooler, normalize_convnet, Nonlinearity
+from plato.tools.convnet.convnet import ConvNet, ConvLayer, Pooler, normalize_convnet, Nonlinearity, \
+    ChannelwiseCrossCorr
 from plato.tools.optimization.cost import negative_log_likelihood_dangerous
 from plato.tools.optimization.optimizers import AdaMax
-from artemis.ml.predictors.train_and_test import percent_argmax_correct
-from artemis.ml.datasets.cifar import get_cifar_10_dataset
-
 
 __author__ = 'peter'
 
@@ -92,6 +93,22 @@ def test_normalize_convnet():
         assert 0.9999 < act[layer_name].std() < 1.0001
 
 
+def test_cross_conv_layer():
+
+    x_shift, y_shift = 3, -5
+    rng = np.random.RandomState(1234)
+    full_x = rng.randn(1, 10, 40, 40)
+    x1 = full_x[:, :, 10:30, 10:30]
+    x2 = full_x[:, :, 10+y_shift:30+y_shift, 10+x_shift:30+x_shift]
+    func = ChannelwiseCrossCorr().compile()
+    y = func((x1, x2))
+    assert y.shape==(1, 10, 39, 39)
+    # dbplot(y)
+    ixs = np.array([argmaxnd(y[0, i, :, :]) for i in xrange(10)])
+    assert np.all(ixs-39//2 == (y_shift, x_shift))
+
+
 if __name__ == '__main__':
     test_convnet_serialization()
     test_normalize_convnet()
+    test_cross_conv_layer()

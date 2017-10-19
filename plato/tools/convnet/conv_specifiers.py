@@ -48,7 +48,7 @@ class ConvolverSpec(PrimativeSpecifier):
         """
         assert w.ndim==4
         assert b is False or (b.ndim==1 and w.shape[0] == len(b)), "Number of output maps must match"
-        assert isinstance(mode, int) or mode in ('same', 'valid', 'full'), 'Mode "%s" not allowed' % (mode, )
+        assert isinstance(mode, int) or mode in ('same', 'valid', 'full', 'half'), 'Mode "%s" not allowed' % (mode, )
         self.w=w
         self.b=b
         self.mode = mode
