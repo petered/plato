@@ -63,7 +63,7 @@ class ManualBackpropNet(ISymbolicPredictor):
             param_grad_pairs = [(p, g) for p, g in param_grad_pairs if p in self.params_to_train]
 
         if isinstance(self.optimizer, IGradientOptimizer):
-            all_params, all_param_grads = zip(*[(p, g) for p, g in param_grad_pairs])
+            all_params, all_param_grads = zip(*[(p, g) for p, g in param_grad_pairs]) if len(param_grad_pairs)>0 else ([], [])
             self.optimizer.update_from_gradients(parameters=all_params, gradients=all_param_grads)
         elif isinstance(self.optimizer, (list, tuple)):
             for optimizer, layer_pairs in izip_equal(self.optimizer, param_grad_pairs):
@@ -164,43 +164,59 @@ class ChainNetwork(IManualBackpropLayer):
         return [p for layer in self.layers for p in get_parameters_or_not(layer)]
 
 
+class IdentityLayer(object):
+
+    def __call__(self, x):
+        return x
+
+
 class SiameseNetwork(IManualBackpropLayer):
     """
     Implements:
 
-        y = f_merge(f_siamese(x1), f_siamese(x2))
+        y = f_merge(f1(f_siamese(x1)), f2(f_siamese(x2)))
 
     """
 
-    def __init__(self, f_siamese, f_merge):
+    def __init__(self, f_siamese, f_merge, f1 = IdentityLayer(), f2 = IdentityLayer()):
         """
         :param f_siamese: A function or ManualBackpropLayer of the form f(
         :param f_merge:
         :return:
         """
         self.f_siamese = f_siamese
+        self.f1 = f1
+        self.f2 = f2
         self.f_merge = f_merge
 
     @symbolic
     def forward_pass_and_state(self, (x1, x2)):
-        out1, state1 = forward_pass_and_state(self.f_siamese, x1)
-        out2, state2 = forward_pass_and_state(self.f_siamese, x2)
-        out, state_merge = forward_pass_and_state(self.f_merge, (out1, out2))
-        return out, (state1, state2, state_merge)
+        out1a, state1a = forward_pass_and_state(self.f_siamese, x1)
+        out2a, state2a = forward_pass_and_state(self.f_siamese, x2)
+
+        out1b, state1b = forward_pass_and_state(self.f1, out1a)
+        out2b, state2b = forward_pass_and_state(self.f2, out2a)
+
+        out, state_merge = forward_pass_and_state(self.f_merge, (out1b, out2b))
+        return out, (state1a, state2a, state1b, state2b, state_merge)
 
     @symbolic
     def backward_pass(self, state, grad, loss):
-        state1, state2, state_merge = state
-        (out_grad_1, out_grad_2), merge_param_grads = backward_pass(self.f_merge, state=state_merge, grad=grad, loss=loss)
-        grad1, f1_param_grads = backward_pass(self.f_siamese, state=state1, grad=out_grad_1, loss=None)
-        grad2, f2_param_grads = backward_pass(self.f_siamese, state=state2, grad=out_grad_2, loss=None)
-        assert all(param1 is param2 for (param1, _), (param2, _) in zip(f1_param_grads, f2_param_grads))
-        param_grads = [(p1, v1+v2) for (p1, v1), (p2, v2) in zip(f1_param_grads, f2_param_grads)] + merge_param_grads
+        state1a, state2a, state1b, state2b, state_merge = state
+        (grad_out1b, grad_out2b), merge_param_grads = backward_pass(self.f_merge, state=state_merge, grad=grad, loss=loss)
+        grad_out1a, param_grads_1b = backward_pass(self.f1, state = state1b, grad=grad_out1b, loss=None)
+        grad_out2a, param_grads_2b = backward_pass(self.f2, state = state2b, grad=grad_out2b, loss=None)
+        grad1, param_grads_1a = backward_pass(self.f_siamese, state=state1a, grad=grad_out1a, loss=None)
+        grad2, param_grads_2a = backward_pass(self.f_siamese, state=state2a, grad=grad_out2a, loss=None)
+
+        assert all(param1 is param2 for (param1, _), (param2, _) in zip(param_grads_1a, param_grads_2a))
+        param_grads_siamese = [(p1, v1+v2) for (p1, v1), (p2, v2) in zip(param_grads_1a, param_grads_2a)]
+        param_grads = param_grads_siamese + param_grads_1b + param_grads_2b + merge_param_grads
         return (grad1, grad2), param_grads
 
     @property
     def parameters(self):
-        return self.f_siamese.parameters + self.f_merge.parameters
+        return get_parameters_or_not(self.f_siamese) + get_parameters_or_not(self.f_merge)
 
 
 class AddingLayer(IManualBackpropLayer):
