@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 
 import numpy as np
+from plato.tools.misc.tdb_plotting import tdbplot
 
 from artemis.general.nested_structures import get_leaf_values, NestedType
 from artemis.general.should_be_builtins import izip_equal
@@ -178,15 +179,15 @@ class SiameseNetwork(IManualBackpropLayer):
 
     """
 
-    def __init__(self, f_siamese, f_merge, f1 = IdentityLayer(), f2 = IdentityLayer()):
+    def __init__(self, f_siamese, f_merge, f1 = None, f2 = None):
         """
         :param f_siamese: A function or ManualBackpropLayer of the form f(
         :param f_merge:
         :return:
         """
         self.f_siamese = f_siamese
-        self.f1 = f1
-        self.f2 = f2
+        self.f1 = IdentityLayer() if f1 is None else f1
+        self.f2 = IdentityLayer() if f2 is None else f2
         self.f_merge = f_merge
 
     @symbolic
@@ -236,8 +237,39 @@ class AddingLayer(IManualBackpropLayer):
 class ConcatenationLayer(object):
 
     def __call__(self, (x1, x2)):
+
+        # tdbplot(x1[0, :9, :, :], 'x1')
+        # tdbplot(x2[0, :9, :, :], 'x2')
+
         return tt.concatenate([x1.flatten(2), x2.flatten(2)], axis=1)
 
+
+
+@symbolic
+class ChannelConcatenationLayer(object):
+
+    def __call__(self, (x1, x2)):
+
+        # tdbplot(x1[0, :9, :, :], 'x1')
+        # tdbplot(x2[0, :9, :, :], 'x2')
+
+        return tt.concatenate([x1, x2], axis=1)
+
+
+
+
+@symbolic
+class PlottingLayer(object):
+
+    def __init__(self, func=None, name='plot_var'):
+        self.func = func
+        self.name = name
+
+    def __call__(self, x):
+        from plato.tools.misc.tdb_plotting import tdbplot
+        plot_var = x if self.func is None else self.func(x)
+        tdbplot(plot_var, self.name)
+        return x
 
 
 class ExactBackpropLayer(IManualBackpropLayer):

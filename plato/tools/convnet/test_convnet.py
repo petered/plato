@@ -96,6 +96,7 @@ def test_normalize_convnet():
 
 def test_cross_conv_layer():
 
+    # Part 1: Same size
     x_shift, y_shift = 3, -5
     rng = np.random.RandomState(1234)
     full_x = rng.randn(1, 10, 40, 40)
@@ -107,6 +108,15 @@ def test_cross_conv_layer():
     dbplot(y)
     ixs = np.array([argmaxnd(y[0, i, :, :]) for i in xrange(10)])
     assert np.all(ixs-39//2 == (y_shift, x_shift))
+
+    # Part 2: Different sizes
+    x3 = full_x[:, :, 15+y_shift:25+y_shift, 15+x_shift:25+x_shift]  # Same center as before, just smaller
+    y = func((x1, x3))
+    assert y.shape==(1, 10, 20+10-1, 20+10-1)
+    ixs = np.array([argmaxnd(y[0, i, :, :]) for i in xrange(10)])
+    assert np.all(ixs-(20+10-1)//2 == (y_shift, x_shift))
+
+
 
 
 if __name__ == '__main__':

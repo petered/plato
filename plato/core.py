@@ -539,7 +539,8 @@ class AutoCompilingFunction(object):
     f will be an AutoCompilingFunction
     """
 
-    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False, resettable=False, **theano_function_kwargs):
+    def __init__(self, fcn, cast_to_floatx = 'float', fixed_args = None, add_test_values = False, debug_print_shapes=False,
+            resettable=False, print_initial_shapes = False, **theano_function_kwargs):
         """
         :param fcn: A symbolic function (decorated with one of the above decorators)
         :param cast_to_floatx: Case inputs  to the global float type (define this in ~/.theanorc).
@@ -577,6 +578,7 @@ class AutoCompilingFunction(object):
         self._input_format = None
         self._output_format = None
         self.updated_variables = None  # Used in reset()
+        self.print_initial_shapes = print_initial_shapes
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -654,7 +656,20 @@ class AutoCompilingFunction(object):
                 flat_output_tensors = flat_output_tensors+traces.values()+self._original_fcn.locals().values()
 
             # Compile the theano function
-            PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
+            if self.print_initial_shapes:
+                PLATO_LOGGER.info('Compiling {func_name} with: \n  {n_in} inputs: {in_shapes}\n  {n_out} outputs: {out_shapes}\n  {n_up} updates: {up_shapes}'.format(
+                    func_name = self._original_fcn.fcn_str(),
+                    n_in = len(args_and_kwarg_tensors),
+                    in_shapes = [f.shape if isinstance(f, np.ndarray) else () for f in flat_input_data],
+                    n_out = 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs),
+                    out_shapes = '???',
+                    n_up = len(updates),
+                    up_shapes = [p.get_value().shape for p, u in updates],
+                    ))
+            else:
+                PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
+
+
             args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
             if self.resettable:
                 self.updated_variables = [shared_var for shared_var, update in updates]

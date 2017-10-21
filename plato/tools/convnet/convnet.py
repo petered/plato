@@ -4,6 +4,7 @@ from functools import partial
 import numpy as np
 import theano
 import theano.tensor as tt
+from plato.tools.misc.tdb_plotting import tdbplot
 from theano.tensor.nnet import conv3d2d
 
 from artemis.general.numpy_helpers import get_rng
@@ -87,21 +88,37 @@ class Nonlinearity(FeedForwardModule):
 @symbolic
 class ChannelwiseCrossCorr(object):
 
-    def __init__(self, border_mode='full', subsample=(1, 1)):
+    def __init__(self, border_mode='full', meansub=True, norm = False, subsample=(1, 1), eps=1e-7, flatten_channels=False):
         self.border_mode = border_mode
         self.subsample = subsample
+        self.meansub = meansub
+        self.norm = norm
+        self.eps = eps
+        self.flatten_channels = flatten_channels
 
     def __call__(self, (x1, x2)):
         """
         :param (x1, x2): are each (n_samples, n_channels, size_y, size_x) images
         :return: A (n_samples, n_channels, size_y*2-1, size_x*2-1) image representing the channelwise cross-correlation between
-            each pair of images.
+            each pair of images.  OR
+            (n_samples, size_y*2-1, size_x*2-1) if flatten=True
         """
         from theano.tensor.signal.conv import conv2d as sconv2d
-        x1_flat = x1.reshape((x1.shape[0]*x1.shape[1], x2.shape[2], x2.shape[3]))
+        if self.meansub:
+            x1 = x1 - x1.mean(axis=(1, 2, 3), keepdims=True)
+            x2 = x2 - x2.mean(axis=(1, 2, 3), keepdims=True)
+        x1_flat = x1.reshape((x1.shape[0]*x1.shape[1], x1.shape[2], x1.shape[3]))
         x2_flat = x2.reshape((x2.shape[0]*x2.shape[1], x2.shape[2], x2.shape[3]))[:, ::-1, ::-1]
         map_flat, _ = theano.scan(partial(sconv2d, border_mode=self.border_mode, subsample=self.subsample), sequences=[x1_flat, x2_flat])
         conv_maps = map_flat.reshape((x1.shape[0], x1.shape[1], map_flat.shape[1], map_flat.shape[2]))
+
+        if self.norm:
+            conv_maps = conv_maps / tt.sqrt((conv_maps**2).mean(axis=(1, 2, 3), keepdims=True) + self.eps)
+        # tdbplot(conv_maps[0, :4, :, :], 'corrmaps')
+
+        if self.flatten_channels:
+            conv_maps = conv_maps.mean(axis=1)
+
         return conv_maps
 
 @symbolic
