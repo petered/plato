@@ -297,7 +297,7 @@ class ConvNet(IParameterized):
 
     @classmethod
     def from_spec(cls, spec):
-        if isinstance(spec, OrderedDict): # "old" format
+        if isinstance(spec, (list, tuple, OrderedDict)): # "old" format
             return ConvNet.from_init(spec)
         else:
             return ConvNet.from_init(spec.layer_ordered_dict)

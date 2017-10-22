@@ -1,7 +1,7 @@
 from artemis.fileman.primitive_specifiers import PrimativeSpecifier
 from artemis.general.numpy_helpers import get_rng
 from artemis.general.should_be_builtins import bad_value
-from artemis.ml.tools.neuralnets import initialize_weight_matrix
+from artemis.ml.tools.neuralnets import initialize_weight_matrix, initialize_conv_kernel
 import numpy as np
 __author__ = 'peter'
 
@@ -56,10 +56,7 @@ class ConvolverSpec(PrimativeSpecifier):
     @staticmethod
     def from_init(k_shape, mode, mag='xavier', use_biases=True, rng=None):
         n_out_maps, n_in_maps, k_size_y, k_size_x = k_shape
-        rng = get_rng(rng)
-        if mag == 'xavier':
-            fanin, fanout = n_in_maps*k_size_x*k_size_y, n_out_maps*k_size_x*k_size_y
-            w = 1./np.sqrt(fanin+fanout) * rng.randn(*k_shape)
+        w = initialize_conv_kernel(kernel_shape=k_shape, mag=mag, rng=rng)
         b = np.zeros(n_out_maps) if use_biases else False
         return ConvolverSpec(w, b, mode)
 
