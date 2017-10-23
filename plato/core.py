@@ -657,18 +657,18 @@ class AutoCompilingFunction(object):
 
             # Compile the theano function
             if self.print_initial_shapes:
-                PLATO_LOGGER.info('Compiling {func_name} with: \n  {n_in} inputs: {in_shapes}\n  {n_out} outputs: {out_shapes}\n  {n_up} updates: {up_shapes}'.format(
+                PLATO_LOGGER.info('Compiling {func_name} with: \n  {n_in} inputs: {in_shapes}\n  {n_out} outputs: {out_shapes}\n  {n_up} updates ({n_params} parameters): {up_shapes}'.format(
                     func_name = self._original_fcn.fcn_str(),
                     n_in = len(args_and_kwarg_tensors),
                     in_shapes = [f.shape if isinstance(f, np.ndarray) else () for f in flat_input_data],
                     n_out = 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs),
                     out_shapes = '???',
                     n_up = len(updates),
+                    n_params = sum(p.get_value().size for p, u in updates),
                     up_shapes = [p.get_value().shape for p, u in updates],
                     ))
             else:
                 PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
-
 
             args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
             if self.resettable:

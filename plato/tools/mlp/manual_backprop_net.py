@@ -20,7 +20,8 @@ class ManualBackpropNet(ISymbolicPredictor):
     """
     A sequential (chain) network where you can insert layers that do backprop manually.
     """
-    def __init__(self, layers, optimizer, loss, prediction_minibatch_size=None, pass_loss = True, params_to_train = None):
+    def __init__(self, layers, optimizer, loss, prediction_minibatch_size=None, pass_loss = True, params_to_train = None,
+                 return_prediction = False):
         """
         :param layrs:
         :param optimizer:
@@ -35,6 +36,7 @@ class ManualBackpropNet(ISymbolicPredictor):
         self.loss = get_named_cost_function(loss) if isinstance(loss, basestring) else loss
         self.prediction_minibatch_size = prediction_minibatch_size
         self.params_to_train = params_to_train
+        self.return_prediction = return_prediction
 
     @symbolic
     def predict(self, x):
@@ -70,6 +72,9 @@ class ManualBackpropNet(ISymbolicPredictor):
             for optimizer, layer_pairs in izip_equal(self.optimizer, param_grad_pairs):
                 params, grads = zip(*layer_pairs)
                 optimizer.update_from_gradients(parameters=params, gradients=grads)
+
+        if self.return_prediction:
+            return out
 
     @property
     def parameters(self):
