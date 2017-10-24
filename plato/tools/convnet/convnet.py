@@ -107,6 +107,9 @@ class ChannelwiseCrossCorr(object):
         if self.meansub:
             x1 = x1 - x1.mean(axis=(1, 2, 3), keepdims=True)
             x2 = x2 - x2.mean(axis=(1, 2, 3), keepdims=True)
+
+
+
         x1_flat = x1.reshape((x1.shape[0]*x1.shape[1], x1.shape[2], x1.shape[3]))
         x2_flat = x2.reshape((x2.shape[0]*x2.shape[1], x2.shape[2], x2.shape[3]))[:, ::-1, ::-1]
         map_flat, _ = theano.scan(partial(sconv2d, border_mode=self.border_mode, subsample=self.subsample), sequences=[x1_flat, x2_flat])

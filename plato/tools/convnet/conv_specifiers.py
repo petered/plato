@@ -121,6 +121,12 @@ class FullyConnectedSpec(PrimativeSpecifier):
             n_samples, input_dims = input_shape
             return n_samples, self.w.shape[1]
 
+    @classmethod
+    def from_init(cls, n_in, n_out, mag = 'xavier', rng=None):
+        w = initialize_weight_matrix(n_in, n_out, mag=mag, rng=rng)
+        b = np.zeros(n_out)
+        return FullyConnectedSpec(w=w, b=b)
+
 
 class ConvNetSpec(PrimativeSpecifier):
 
@@ -131,6 +137,12 @@ class ConvNetSpec(PrimativeSpecifier):
         raise NotImplementedError()
 
 
+def compute_feature_shape(input_shape, specs):
 
+    shape = input_shape
+    for spec in specs:
+        shape = spec.shape_transfer(shape)
+
+    return shape
 
 # class ConvNetSpec
