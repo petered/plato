@@ -6,7 +6,7 @@ from plato.tools.misc.tdb_plotting import tdbplot
 
 from artemis.general.nested_structures import get_leaf_values, NestedType
 from artemis.general.should_be_builtins import izip_equal
-from plato.core import create_constant, symbolic
+from plato.core import create_constant, symbolic, create_shared_variable, add_update
 from plato.interfaces.helpers import batchify_function, get_named_activation_function, get_parameters_or_not
 from plato.interfaces.interfaces import IParameterized
 from plato.tools.common.online_predictors import ISymbolicPredictor
@@ -46,7 +46,8 @@ class ManualBackpropNet(ISymbolicPredictor):
             return batchify_function(self._predict_in_single_pass, batch_size=self.prediction_minibatch_size)(x)
 
     def _predict_in_single_pass(self, x):
-        out, _ = self.model.forward_pass_and_state(x)
+        # out, _ = self.model.forward_pass_and_state(x)
+        out, _ = forward_pass_and_state(self.model, x)
         return out
 
     @symbolic
@@ -138,31 +139,54 @@ def backward_pass(layer, state, grad, loss):
     return grad_inputs, param_grad_pairs
 
 
+SNEAKILY_SAVE_ACTIVATIONS = False
+
+
+def set_sneakily_save_activations(state):
+    global SNEAKILY_SAVE_ACTIVATIONS
+    SNEAKILY_SAVE_ACTIVATIONS = state
+
 class ChainNetwork(IManualBackpropLayer):
 
-    def __init__(self, layers):
+    def __init__(self, layers, sneakily_save_activations = False):
         if isinstance(layers, OrderedDict):
             self.layer_names, self.layers = zip(*layers.items())
         else:
             self.layer_names = range(len(layers))
             self.layers = layers
 
+        self.sneakily_saved_activations = OrderedDict()
+        self.sneakily_saved_gradients = OrderedDict()
+
     @symbolic
     def forward_pass_and_state(self, x):
+        if SNEAKILY_SAVE_ACTIVATIONS:
+            self.sneakily_saved_activations['input'] = create_shared_variable(np.zeros((1,) * x.ndim))
+            add_update(self.sneakily_saved_activations['input'], x)
         state = {}
-        for layer in self.layers:
+        for layer_name, layer in zip(self.layer_names, self.layers):
             x, layer_state = forward_pass_and_state(layer, x)
             state[layer]=layer_state
+            if SNEAKILY_SAVE_ACTIVATIONS:
+                self.sneakily_saved_activations[layer_name] = create_shared_variable(np.zeros((1,) * x.ndim))
+                add_update(self.sneakily_saved_activations[layer_name], x)
         return x, state
 
     @symbolic
     def backward_pass(self, state, grad, loss):
-        assert (grad is None) != (loss is None), 'Gove me a grad xor give me a loss.'
+        assert (grad is None) != (loss is None), 'Give me a grad xor give me a loss.'
         param_grad_pairs = []
-        for layer in self.layers[::-1]:
+        # if SNEAKILY_SAVE_ACTIVATIONS:
+        #     self.sneakily_saved_gradients['output'] = create_shared_variable(np.zeros((1,) * grad.ndim))
+        #     add_update(self.sneakily_saved_activations['input'], grad)
+
+        for layer_name, layer in zip(self.layer_names[::-1], self.layers[::-1]):
             grad, layer_param_grad_pairs = backward_pass(layer, state[layer], grad, loss)
             loss = None
             param_grad_pairs += layer_param_grad_pairs
+            if SNEAKILY_SAVE_ACTIVATIONS:
+                self.sneakily_saved_gradients[layer_name] = create_shared_variable(np.zeros((1,) * grad.ndim))
+                add_update(self.sneakily_saved_gradients[layer_name], grad)
         return grad, param_grad_pairs
 
     @property

@@ -188,6 +188,7 @@ _loss_dict = {
         'onehot-mse': onehot_mse,
         'norm_l1_error': l1_norm_error,
         'softmax-xe': softmax_xe,
+        'softmax_xe': softmax_xe,
         'categorical-xe': categorical_xe,
         'logistic-xe': logistic_xe,
         }
