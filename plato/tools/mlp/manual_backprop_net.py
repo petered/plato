@@ -146,9 +146,10 @@ def set_sneakily_save_activations(state):
     global SNEAKILY_SAVE_ACTIVATIONS
     SNEAKILY_SAVE_ACTIVATIONS = state
 
+
 class ChainNetwork(IManualBackpropLayer):
 
-    def __init__(self, layers, sneakily_save_activations = False):
+    def __init__(self, layers, backprop_down_to=None, sneakily_save_activations = False):
         if isinstance(layers, OrderedDict):
             self.layer_names, self.layers = zip(*layers.items())
         else:
@@ -157,6 +158,7 @@ class ChainNetwork(IManualBackpropLayer):
 
         self.sneakily_saved_activations = OrderedDict()
         self.sneakily_saved_gradients = OrderedDict()
+        self.backprop_down_to = backprop_down_to
 
     @symbolic
     def forward_pass_and_state(self, x):
@@ -187,6 +189,8 @@ class ChainNetwork(IManualBackpropLayer):
             if SNEAKILY_SAVE_ACTIVATIONS:
                 self.sneakily_saved_gradients[layer_name] = create_shared_variable(np.zeros((1,) * grad.ndim))
                 add_update(self.sneakily_saved_gradients[layer_name], grad)
+            if self.backprop_down_to is not None and layer_name==self.backprop_down_to:
+                break
         return grad, param_grad_pairs
 
     @property
