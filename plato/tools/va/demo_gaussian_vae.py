@@ -1,5 +1,5 @@
 import numpy as np
-from artemis.experiments.experiment_record import experiment_function
+from artemis.experiments import experiment_function
 from artemis.experiments.ui import browse_experiments
 from artemis.general.test_mode import is_test_mode
 from artemis.ml.datasets.mnist import get_mnist_dataset
