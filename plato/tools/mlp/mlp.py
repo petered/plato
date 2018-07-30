@@ -92,7 +92,7 @@ class MultiLayerPerceptron(IParameterized):
                 nonlinearity=nonlinearity
             )
             for w, b, nonlinearity, layer_no in
-                izip_equal(weights, [False]*len(weights) if biases is False else [0.]*len(weights) if biases in (True, None) else biases, [hidden_activations] * (n_layers - 1) + [output_activation], xrange(n_layers))
+                izip_equal(weights, [False]*len(weights) if biases is False else [0.]*len(weights) if biases in (True, None) else biases, [hidden_activations] * (n_layers - 1) + [output_activation], range(n_layers))
                 ]
         return cls(layers)
 

@@ -389,6 +389,9 @@ class _SymbolicFunctionWrapper(object):
                 return True
         return False
 
+    # def __hash__(self):
+    #     return hash(self.fcn)
+
     def to_format(self, format_decorator):
 
         @format_decorator
@@ -420,7 +423,7 @@ class _SymbolicFunctionWrapper(object):
         # no reason to create a separate object every time we want to get the method, and (b) debugging - because we
         # attach the local variables to the method, and want to get them later, so the returned method better have
         # the same address every time we request it.
-        if instance in self._dispatched_methods:
+        if instance in tuple(self._dispatched_methods.keys()):
             return self._dispatched_methods[instance]
         else:
             return _SymbolicFunctionWrapper(self.fcn, input_format=self.input_format, output_format=self.output_format, update_format=self.update_format, attached_instance=instance)
@@ -848,10 +851,10 @@ def _data_to_tensor(data, name = None, cast_to_floatx = True, add_test_value = T
 
 def show_all_locals():
     locals_of_calling_frame = inspect.currentframe().f_back.f_locals
-    print '=== Locals ==='
+    print('=== Locals ===')
     for k, v_info in get_local_info(locals_of_calling_frame).iteritems():
-        print '%s = %s' % (k, v_info)
-    print '--------------'
+        print('%s = %s' % (k, v_info))
+    print('--------------')
 
 
 def get_local_info(locals_of_calling_frame=None):
@@ -920,7 +923,7 @@ def find_leaf_ancestors(variable):
 
 
 def printit(var_name, var_val):
-    print '%s: %s' % (var_name, var_val)
+    print('%s: %s' % (var_name, var_val))
 
 
 name_counts = {}

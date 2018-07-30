@@ -100,6 +100,7 @@ _act_funcs = {
     'softmax': softmax,
     'sigm': tt.nnet.sigmoid,
     'sig': tt.nnet.sigmoid,
+    'clip': lambda x: tt.clip(x, 0, 1),
     'd_sigm': lambda x: tt.nnet.sigmoid(x)-tt.nnet.sigmoid(-x),
     'tanh': tt.tanh,
     'sech2': lambda x: (4*tt.cosh(x)**2)/(tt.cosh(2*x)+1)**2,

@@ -22,7 +22,7 @@ def compare_example_predictors(
         minibatch_size = 10,
     ):
     """
-    This demo shows how we can compare different online predictors.  The demo trains both predictors on the dataset,
+    This demo shows how we can compare_learning_curves different online predictors.  The demo trains both predictors on the dataset,
     returning an object that contains the results.
 
     :param test_mode: Set this to True to just run the demo quicky (but not to completion) to see that it doesn't break.
@@ -37,7 +37,7 @@ def compare_example_predictors(
         n_epochs = 1
         n_tests = 3
 
-    # Here we compare three predictors on MNIST - an MLP, a Perceptron, and a Random Forest.
+    # Here we compare_learning_curves three predictors on MNIST - an MLP, a Perceptron, and a Random Forest.
     # - The MLP is defined using Plato's interfaces - we create a Symbolic Predictor (GradientBasedPredictor) and
     #   then compile it into an IPredictor object
     # - The Perceptron directly implements the IPredictor interface.

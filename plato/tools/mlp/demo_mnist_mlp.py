@@ -1,8 +1,8 @@
-from artemis.experiments.experiment_record import experiment_function
+from artemis.experiments.decorators import experiment_function
 from artemis.experiments.ui import browse_experiments
 from artemis.general.test_mode import is_test_mode
 from artemis.ml.datasets.mnist import get_mnist_dataset
-from artemis.ml.predictors.train_and_test import train_and_test_online_predictor
+from artemis.ml.predictors.deprecated.train_and_test_old import train_and_test_online_predictor
 from artemis.plotting.db_plotting import dbplot, hold_dbplots
 from plato.tools.common.online_predictors import GradientBasedPredictor
 from plato.tools.mlp.mlp import MultiLayerPerceptron
@@ -87,7 +87,7 @@ demo_mnist_mlp.add_variant('full-batch', minibatch_size = 'full', n_epochs = 100
 demo_mnist_mlp.add_variant('deep', hidden_sizes=[500, 500, 500, 500])
 
 # demo_mnist_mlp.get_variant('deep').run()
-print demo_mnist_mlp.get_variant('deep').get_latest_record().get_log()
+# print demo_mnist_mlp.get_variant('deep').get_latest_record().get_log()
 
 
 # X=demo_mnist_mlp.add_variant('mini-mnist', max_training_samples=1000, max_test_samples=1000, hidden_sizes=[100], n_epochs=100, visualize_params=True)
@@ -99,6 +99,6 @@ print demo_mnist_mlp.get_variant('deep').get_latest_record().get_log()
 # demo_mnist_mlp.add_variant(hidden_sizes=[])
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-    # browse_experiments()
+    browse_experiments()
