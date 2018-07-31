@@ -115,7 +115,7 @@ class NoUpdatesFormat(IFormat):
 
     @staticmethod
     def check(data, f):
-        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case"
+        assert isinstance(data, list), "Updates should be in the form of a list.  Something is strange if this is not the case.  Got {}".format(data)
         if len(data)!=0:
             raise SymbolicFormatError("Function %s should have created no state updates, but it created updates: %s" % (f, data))
 
@@ -406,7 +406,7 @@ class _SymbolicFunctionWrapper(object):
         """
         Partially define the input arguments and return a new symbolic function.
         """
-        fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.iteritems()}  # This prevents
+        fixed_kwargs = {k: (tt.constant(v) if isinstance(v, np.ndarray) else v) for k, v in fixed_kwargs.items()}  # This prevents
         return _SymbolicFunctionWrapper(fcn=partial(self.fcn, **fixed_kwargs), input_format = PassAnythingFormat,
             output_format=self.output_format, update_format=self.update_format, attached_instance=self.attached_instance)
 
@@ -507,7 +507,7 @@ def _is_tuple_of_tuples_of_tensors(args):
 def _is_named_collection(arg):
     if not isinstance(arg, dict):
         return False
-    if not all(isinstance(k, (basestring, int)) for k in arg.keys()):
+    if not all(isinstance(k, (str, int)) for k in arg.keys()):
         return False
     if not all(_is_tensor(v) for v in arg.values()):
         return False
@@ -1179,7 +1179,7 @@ class CaptureUpdates(object):
             self._outer_catcher.add_update(shared_var, new_val)
 
     def get_updates(self, as_dict = False):
-        return OrderedDict(self._updates.items()) if as_dict else self._updates.items()
+        return OrderedDict(self._updates.items()) if as_dict else list(self._updates.items())
 
 
 StateCatcher = CaptureUpdates  # Backwards compatibility
@@ -1317,7 +1317,7 @@ def create_shared_variable_from_zeros(shape, name = None, **shared_kwargs):
     :param shared_kwargs: Other keyword args for shared variable construction
     :return: A theano shared variable.
     """
-    assert name is None or isinstance(name, basestring)  # Mostly checks that you didn't accidentally call like create_shared_variable_from_zeros(3, 4)
+    assert name is None or isinstance(name, str)  # Mostly checks that you didn't accidentally call like create_shared_variable_from_zeros(3, 4)
     return create_shared_variable(initializer_fcn=np.zeros(shape), name=name, **shared_kwargs)
 
 

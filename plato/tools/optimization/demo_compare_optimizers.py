@@ -1,10 +1,9 @@
-from artemis.experiments.experiment_record import run_experiment
 from artemis.general.mymath import sqrtspace
 from artemis.general.test_mode import is_test_mode, set_test_mode
 from artemis.ml.datasets.mnist import get_mnist_dataset
 from artemis.ml.predictors.learning_curve_plots import plot_learning_curves
 from artemis.ml.predictors.predictor_comparison import compare_predictors
-from artemis.ml.predictors.train_and_test import percent_argmax_correct
+from artemis.ml.tools.costs import percent_argmax_correct
 from artemis.ml.tools.processors import OneHotEncoding
 from artemis.plotting.pyplot_plus import set_default_figure_size
 from plato.tools.common.online_predictors import GradientBasedPredictor
@@ -110,7 +109,7 @@ def backprop_vs_difference_target_prop(
         ):
 
     dataset = get_mnist_dataset(flat = True)
-    dataset = dataset.process_with(targets_processor=lambda (x, ): (OneHotEncoding(10)(x).astype(int), ))
+    dataset = dataset.process_with(targets_processor=lambda x_s: (OneHotEncoding(10)(x_s[0]).astype(int), ))
 
     if is_test_mode():
         dataset = dataset.shorten(200)
