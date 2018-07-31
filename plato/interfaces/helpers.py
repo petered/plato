@@ -1,16 +1,15 @@
 import numpy as np
-from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic, CaptureUpdates
-from plato.interfaces.interfaces import IParameterized
 import theano
-from theano.compile.sharedvalue import SharedVariable
+import theano.tensor as tt
+from theano.gof.graph import Variable
 from theano.ifelse import ifelse
-from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano.tensor.shared_randomstreams import RandomStreams
-import theano.tensor as tt
 from theano.tensor.sharedvar import TensorSharedVariable
 from theano.tensor.var import TensorVariable
-from theano.gof.graph import Variable
+
+from plato.core import symbolic_simple, add_update, create_shared_variable, symbolic
+from plato.interfaces.interfaces import IParameterized
 
 __author__ = 'peter'
 
@@ -58,13 +57,17 @@ def get_theano_rng(seed, rngtype = 'mrg'):
     :return:
     """
 
+    def load_cuda_rng():
+        from theano.sandbox.cuda.rng_curand import CURAND_RandomStreams
+        return CURAND_RandomStreams
+
     stream_types = {
-        'mrg': MRG_RandomStreams_ext,
-        'mrg-old': MRG_RandomStreams,
-        'default': RandomStreams,
-        'cuda': CURAND_RandomStreams
+        'mrg': lambda: MRG_RandomStreams_ext,
+        'mrg-old': lambda: MRG_RandomStreams,
+        'default': lambda: RandomStreams,
+        'cuda': load_cuda_rng
     }
-    rng_con = stream_types[rngtype]
+    rng_con = stream_types[rngtype]()
 
     if isinstance(seed, np.random.RandomState):
         return rng_con(seed.randint(1e9))
@@ -72,7 +75,7 @@ def get_theano_rng(seed, rngtype = 'mrg'):
         return rng_con(seed)
     elif seed is None:
         return rng_con(np.random.randint(1e9))
-    elif isinstance(seed, tuple(stream_types.values())):
+    elif isinstance(seed, tuple(v() for v in stream_types.values())):
         return seed
     else:
         raise Exception("Can't initialize a random number generator with %s" % (seed, ))
