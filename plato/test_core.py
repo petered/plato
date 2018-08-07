@@ -637,6 +637,19 @@ def test_scan_no_return():
     assert np.array_equal(state.get_value(), np.arange(6).dot(np.arange(1, 7)))
 
 
+def test_none_inputs_and_outputs():
+
+    @symbolic
+    def double_if_not_none(params):
+        return [p*2 if p is not None else None for p in params]
+
+    f = double_if_not_none.compile()
+    assert f([1, 2, 3, None, 4]) == [2, 4, 6, None, 8]
+    assert f([1, 2, 3, None, 4]) == [2, 4, 6, None, 8]
+
+    with pytest.raises(TypeError):  # Warns that you're not calling in consistent way.
+        f([1, 2, 3, 3, 4])
+
 
 if __name__ == '__main__':
     test_ival_ishape()
@@ -663,3 +676,4 @@ if __name__ == '__main__':
     test_trace_var_in_scan()
     test_easy_scan_syntax()
     test_scan_no_return()
+    test_none_inputs_and_outputs()

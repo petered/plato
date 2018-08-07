@@ -582,6 +582,7 @@ class AutoCompilingFunction(object):
         self._output_format = None
         self.updated_variables = None  # Used in reset()
         self.print_initial_shapes = print_initial_shapes
+        self._none_output_indices = None  # Indices of outputs of the funcition that are "None"... These are considered special and are passed straingt through
 
         # Create convenient debugging functions: showloc() and locinfo()
         __builtins__['showloc'] = show_all_locals
@@ -616,7 +617,7 @@ class AutoCompilingFunction(object):
             # Find tensor versions of inputs based on data in first-call, collect list of inputs
             self._input_format = NestedType.from_data(input_data)
             flat_input_data = self._input_format.get_leaves(input_data)
-            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') for d in flat_input_data]
+            args_and_kwarg_tensors = [_data_to_tensor(d, cast_to_floatx = self._cast_to_floatx, add_test_value = True if self._add_test_values else 'shape') if d is not None else None for d in flat_input_data]
             self._shared_var_inputs = [trace_value for trace_value in args_and_kwarg_tensors if isinstance(trace_value, SharedVariable)]
             tensor_args, tensor_kwargs = self._input_format.expand_from_leaves(args_and_kwarg_tensors, check_types=False)  # Because types will be different
 
@@ -656,7 +657,7 @@ class AutoCompilingFunction(object):
                 self._local_variable_keys = self._original_fcn.locals().keys()
                 self._n_outputs = len(flat_output_tensors)
                 self._n_trace_vars = len(traces)
-                flat_output_tensors = flat_output_tensors+traces.values()+self._original_fcn.locals().values()
+                flat_output_tensors = flat_output_tensors+list(traces.values())+list(self._original_fcn.locals().values())
 
             # Compile the theano function
             if self.print_initial_shapes:
@@ -673,11 +674,18 @@ class AutoCompilingFunction(object):
             else:
                 PLATO_LOGGER.info('Compiling %s with %s inputs, %s outputs, %s updates' % (self._original_fcn.fcn_str(), len(args_and_kwarg_tensors), 1 if isinstance(outputs, Variable) else 0 if outputs is None else len(outputs), len(updates)))
 
-            args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in tensor args
+            args_and_kwarg_tensors = [a for a in args_and_kwarg_tensors if not isinstance(a, SharedVariable) and a is not None]  # Remove shared variables from passed-in tensor args
             if self.resettable:
                 self.updated_variables = [shared_var for shared_var, update in updates]
                 self._original_variable_values = [var.get_value() for var in self.updated_variables]
-            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
+
+            if None in flat_output_tensors:
+                flat_non_none_output_tensors = list(x for x in flat_output_tensors if x is not None)
+                self._none_output_indices = [o is None for o in flat_output_tensors]
+            else:
+                flat_non_none_output_tensors = flat_output_tensors
+                self._none_output_indices = None
+            self._compiled_fcn = theano.function(inputs = args_and_kwarg_tensors, outputs = flat_non_none_output_tensors, updates = updates, allow_input_downcast=self._cast_to_floatx, **self.theano_function_kwargs)
             PLATO_LOGGER.info('Done.')
 
         # Ok, so this code runs every time you call the "compiled" function.
@@ -690,7 +698,7 @@ class AutoCompilingFunction(object):
             "The shared variables you passed in, {}, Don't match the shared variables you passed in when you first called this compiled function: {}. " \
             "This creates problems for us.  Instead, compile your function a second time for the new shared inputs."\
             .format(['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in shared_passed_in], ['{}@{}'.format(repr(trace_value), hex(id(trace_value))) for trace_value in self._shared_var_inputs])
-        arg_and_kwarg_values = [a for a in arg_and_kwarg_values if not isinstance(a, SharedVariable)]  # Remove shared variables from passed-in numeric args
+        arg_and_kwarg_values = [a for a in arg_and_kwarg_values if not isinstance(a, SharedVariable) and a is not None]  # Remove shared variables from passed-in numeric args
 
         # Now, run the actual numeric function!
         if self._there_are_debug_variables:  # Need to take care of stripping off the debug variables
@@ -704,6 +712,11 @@ class AutoCompilingFunction(object):
             self._local_values = {k: v for k, v in zip(self._local_variable_keys, local_out)}
         else:  # Normal case
             flat_output_data = all_out = self._compiled_fcn(*arg_and_kwarg_values)
+
+        if self._none_output_indices is not None:
+            flat_output_iter = iter(flat_output_data)
+            flat_output_data = list(next(flat_output_iter) if not isnone else None for isnone in self._none_output_indices)
+
         true_out = self._output_format.expand_from_leaves(flat_output_data, check_types=False) if len(flat_output_data)>0 else ()
 
         if self._debug_print_shapes:
